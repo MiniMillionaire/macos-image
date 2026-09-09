@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v brew >/dev/null; then
+if [[ ! -x /opt/homebrew/bin/brew ]]; then
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew update
+brew trust --formula buildkite/buildkite/buildkite-agent@3
+brew trust --formula equinix-labs/otel-cli/otel-cli
+brew trust --formula openai/tools/tart-guest-agent
 brew bundle --file=/tmp/Brewfile.base
 git lfs install
 sudo softwareupdate --install-rosetta --agree-to-license
@@ -30,4 +33,3 @@ npm install --global yarn pnpm
 
 sudo install -o root -g wheel -m 0644 /tmp/tart-guest-daemon.plist /Library/LaunchDaemons/dev.macos-image.tart-guest-daemon.plist
 sudo install -o root -g wheel -m 0644 /tmp/tart-guest-agent.plist /Library/LaunchAgents/dev.macos-image.tart-guest-agent.plist
-

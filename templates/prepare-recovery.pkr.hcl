@@ -13,18 +13,6 @@ variable "vm_name" {
   type = string
 }
 
-variable "profile" {
-  type = string
-}
-
-variable "expected_version" {
-  type = string
-}
-
-variable "expected_build" {
-  type = string
-}
-
 variable "guest_username" {
   type = string
 }
@@ -34,7 +22,7 @@ variable "guest_password" {
   sensitive = true
 }
 
-source "tart-cli" "verify" {
+source "tart-cli" "prepare" {
   vm_name            = var.vm_name
   headless           = true
   recovery_partition = "keep"
@@ -44,14 +32,12 @@ source "tart-cli" "verify" {
 }
 
 build {
-  sources = ["source.tart-cli.verify"]
+  sources = ["source.tart-cli.prepare"]
 
   provisioner "shell" {
-    environment_vars = [
-      "EXPECTED_BUILD=${var.expected_build}",
-      "EXPECTED_VERSION=${var.expected_version}",
-      "IMAGE_PROFILE=${var.profile}",
+    inline = [
+      "sudo languagesetup -langspec 0",
+      "sudo nvram prev-lang:kbd=en-US:0",
     ]
-    script = "scripts/guest/verify-image.sh"
   }
 }

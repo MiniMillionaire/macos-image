@@ -44,7 +44,22 @@ vm_exists() {
 }
 
 require_new_vm() {
-  vm_exists "$1" && die "VM already exists: $1"
+  if vm_exists "$1"; then
+    die "VM already exists: $1"
+  fi
+}
+
+clear_stale_control_socket() {
+  local vm=$1
+  local state
+  local socket
+  [[ "$vm" =~ ^[A-Za-z0-9._:-]+$ ]] || die "Invalid VM name: $vm"
+  state=$(tart get "$vm" | awk 'NR == 2 { print $NF }')
+  [[ "$state" != running ]] || die "VM is running: $vm"
+  socket="${TART_HOME:-$HOME/.tart}/vms/$vm/control.sock"
+  if [[ -S "$socket" ]]; then
+    unlink "$socket"
+  fi
 }
 
 require_compatible_host() {
@@ -62,13 +77,32 @@ remote_ref() {
 
 default_source() {
   local variant=$1
-  if [[ "$variant" == vanilla ]] && vm_exists "$LOCAL_VANILLA_SOURCE"; then
+  if [[ "$variant" == vanilla ]] && vm_exists "$VANILLA_VM"; then
+    printf '%s\n' "$VANILLA_VM"
+  elif [[ "$variant" == vanilla ]] && vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf '%s\n' "$LOCAL_VANILLA_SOURCE"
   elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
     printf '%s\n' "$BASE_VM"
   else
     remote_ref "$variant" "$MACOS_VERSION"
   fi
+}
+
+import_vanilla() {
+  local source=${1:-$LOCAL_VANILLA_SOURCE}
+  local target=${2:-$VANILLA_VM}
+  require_compatible_host
+  vm_exists "$source" || die "VM not found: $source"
+  require_new_vm "$target"
+  tart clone "$source" "$target"
+  clear_stale_control_socket "$target"
+  packer_build templates/verify.pkr.hcl \
+    -var "vm_name=$target" \
+    -var profile=vanilla \
+    -var "expected_build=$MACOS_BUILD" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
 }
 
 packer_build() {
@@ -106,16 +140,23 @@ build_base() {
 disable_sip() {
   local target=$1
   vm_exists "$target" || die "VM not found: $target"
-  packer_build "$DISABLE_SIP_TEMPLATE" \
+  clear_stale_control_socket "$target"
+  packer_build templates/prepare-recovery.pkr.hcl \
     -var "vm_name=$target" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  clear_stale_control_socket "$target"
+  packer_build "$DISABLE_SIP_TEMPLATE" \
+    -var "vm_name=$target" \
+    -var "guest_password=$guest_password"
+  verify_existing "$target" sip
 }
 
 provision_base() {
   local target=$1
   require_compatible_host
   vm_exists "$target" || die "VM not found: $target"
+  clear_stale_control_socket "$target"
   packer_build templates/base.pkr.hcl \
     -var "vm_name=$target" \
     -var "expected_version=$MACOS_VERSION" \
@@ -169,16 +210,30 @@ push_image() {
     --label "org.opencontainers.image.version=$tag"
 }
 
-test_image() {
+verify_existing() {
   local vm=${1:?VM name is required}
-  local profile=${2:-base}
-  vm_exists "$vm" || die "VM not found: $vm"
+  local profile=${2:?Verification profile is required}
+  clear_stale_control_socket "$vm"
   packer_build templates/verify.pkr.hcl \
     -var "vm_name=$vm" \
     -var "profile=$profile" \
+    -var "expected_build=$MACOS_BUILD" \
     -var "expected_version=$MACOS_VERSION" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+}
+
+test_image() {
+  local vm=${1:?VM name is required}
+  local profile=${2:-base}
+  local scratch="$vm-verify-$$"
+  vm_exists "$vm" || die "VM not found: $vm"
+  tart clone "$vm" "$scratch"
+  if ! verify_existing "$scratch" "$profile"; then
+    echo "Verification VM retained for inspection: $scratch" >&2
+    return 1
+  fi
+  tart delete "$scratch"
 }
 
 validate() {
@@ -214,10 +269,12 @@ Usage:
   scripts/image build vanilla
   scripts/image build base [source] [target]
   scripts/image build xcode <version> [source] [target]
+  scripts/image import vanilla [source] [target]
   scripts/image provision base <vm>
+  scripts/image provision disable-sip <vm>
   scripts/image pull <vanilla|base|xcode> [tag]
   scripts/image push <vanilla|base|xcode> [tag] [vm]
-  scripts/image test <vm> [vanilla|base|xcode]
+  scripts/image test <vm> [vanilla|sip|base|xcode]
 EOF
 }
 
@@ -233,6 +290,10 @@ case ${1:-} in
       xcode) build_xcode "${3:-}" "${4:-}" "${5:-}" ;;
       *) usage; exit 1 ;;
     esac
+    ;;
+  import)
+    [[ ${2:-} == vanilla ]] || { usage; exit 1; }
+    import_vanilla "${3:-}" "${4:-}"
     ;;
   provision)
     case ${2:-} in

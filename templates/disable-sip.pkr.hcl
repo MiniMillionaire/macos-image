@@ -13,27 +13,24 @@ variable "vm_name" {
   type = string
 }
 
-variable "guest_username" {
-  type = string
-}
-
 variable "guest_password" {
   type      = string
   sensitive = true
 }
 
 source "tart-cli" "recovery" {
-  vm_name      = var.vm_name
-  recovery     = true
-  communicator = "none"
+  vm_name            = var.vm_name
+  recovery           = true
+  recovery_partition = "keep"
+  communicator       = "none"
   boot_command = [
     "<wait60s><right><right><enter>",
     "<wait10s><leftAltOn>T<leftAltOff>",
     "<wait10s>csrutil disable<enter>",
     "<wait10s>y<enter>",
-    "<wait10s>${var.guest_username}<enter>",
     "<wait10s>${var.guest_password}<enter>",
-    "<wait10s>halt<enter>",
+    "<wait10s>csrutil status<enter>",
+    "<wait5s>halt<enter>",
   ]
 }
 

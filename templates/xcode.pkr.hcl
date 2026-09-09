@@ -41,12 +41,13 @@ variable "guest_password" {
 }
 
 source "tart-cli" "xcode" {
-  vm_name      = var.vm_name
-  headless     = true
-  disk_size_gb = var.disk_size_gb
-  ssh_username = var.guest_username
-  ssh_password = var.guest_password
-  ssh_timeout  = "10m"
+  vm_name            = var.vm_name
+  headless           = true
+  disk_size_gb       = var.disk_size_gb
+  recovery_partition = "relocate"
+  ssh_username       = var.guest_username
+  ssh_password       = var.guest_password
+  ssh_timeout        = "10m"
 }
 
 build {

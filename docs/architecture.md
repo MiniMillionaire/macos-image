@@ -6,6 +6,8 @@ Packer remains the build engine because the Tart builder owns VM startup, screen
 
 Provisioning uses small shell scripts instead of Ansible. This keeps local setup light, makes each stage directly runnable, and leaves failed VMs available for inspection.
 
+Checks run against disposable clones. Templates retain the recovery partition, except Xcode builds, which relocate it while expanding the disk.
+
 ## Setup Assistant
 
 macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use the Tart Packer plugin's screen automation. Text recognition is used where the plugin can identify a stable screen label; the remaining keyboard sequences are isolated in one template per macOS major version.
@@ -23,4 +25,3 @@ Apple did not publish a UniversalMac restore IPSW for macOS 15.7. A 15.7 image t
 ## Artifacts
 
 Tart pushes VM images as OCI artifacts. Each variant uses a separate package name and an immutable version tag. Builds add OCI revision and version labels.
-

@@ -24,12 +24,13 @@ Check the host and the known local vanilla image:
 
 ```shell
 ./scripts/image doctor
-./scripts/image test sequoia-vanilla-pristine vanilla
+./scripts/image test sequoia-vanilla vanilla
 ```
 
-Build a base image from the existing local macOS 15.6.1 image:
+Import the existing local macOS 15.6.1 image into the versioned image set, then build a base image from it:
 
 ```shell
+./scripts/image import vanilla sequoia-vanilla
 ./scripts/image build base
 ```
 
@@ -75,4 +76,3 @@ Images use immutable macOS version tags. Mutable tags are added only by the rele
 - `xcode` installs a cached Xcode archive, Apple platforms, Android tooling, Flutter, and mobile development tools.
 
 The macOS 15 and 26 Setup Assistant flows are version-specific. All later provisioning runs over SSH. See [Architecture](docs/architecture.md) for the design and upgrade policy.
-

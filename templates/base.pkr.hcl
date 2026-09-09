@@ -27,11 +27,12 @@ variable "guest_password" {
 }
 
 source "tart-cli" "base" {
-  vm_name      = var.vm_name
-  headless     = true
-  ssh_username = var.guest_username
-  ssh_password = var.guest_password
-  ssh_timeout  = "10m"
+  vm_name            = var.vm_name
+  headless           = true
+  recovery_partition = "keep"
+  ssh_username       = var.guest_username
+  ssh_password       = var.guest_password
+  ssh_timeout        = "10m"
 }
 
 build {
