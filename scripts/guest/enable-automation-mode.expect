@@ -1,0 +1,7 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn automationmodetool enable-automationmode-without-authentication
+expect "Enter the password for user '$env(GUEST_USERNAME)':"
+send -- "$env(GUEST_PASSWORD)\r"
+expect "succeeded."
+

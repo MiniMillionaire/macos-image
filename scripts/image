@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+config_path=${IMAGE_CONFIG:-config/sequoia-15.6.1.env}
+
+if [[ "$config_path" != /* ]]; then
+  config_path="$root_dir/$config_path"
+fi
+
+[[ -f "$config_path" ]] || { echo "Configuration not found: $config_path" >&2; exit 1; }
+source "$config_path"
+
+: "${MACOS_FAMILY:?}"
+: "${MACOS_VERSION:?}"
+: "${MACOS_BUILD:?}"
+: "${IPSW_URL:?}"
+: "${VANILLA_TEMPLATE:?}"
+: "${DISABLE_SIP_TEMPLATE:?}"
+: "${LOCAL_VANILLA_SOURCE:?}"
+: "${VANILLA_VM:?}"
+: "${BASE_VM:?}"
+: "${CPU_COUNT:?}"
+: "${MEMORY_GB:?}"
+: "${DISK_SIZE_GB:?}"
+: "${MINIMUM_HOST_MAJOR:?}"
+
+registry=${REGISTRY:-}
+xcode_cache=${XCODE_CACHE:-$HOME/XcodesCache}
+guest_username=${GUEST_USERNAME:-admin}
+guest_password=${GUEST_PASSWORD:-admin}
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
+
+need() {
+  command -v "$1" >/dev/null || die "Missing required command: $1"
+}
+
+vm_exists() {
+  tart get "$1" >/dev/null 2>&1
+}
+
+require_new_vm() {
+  vm_exists "$1" && die "VM already exists: $1"
+}
+
+require_compatible_host() {
+  local host_major
+  host_major=$(sw_vers -productVersion | cut -d. -f1)
+  (( host_major >= MINIMUM_HOST_MAJOR )) || die "macOS $MINIMUM_HOST_MAJOR or newer is required for this image"
+}
+
+remote_ref() {
+  local variant=$1
+  local tag=$2
+  [[ -n "$registry" ]] || die "REGISTRY is required for registry operations"
+  printf '%s/macos-%s-%s:%s\n' "$registry" "$MACOS_FAMILY" "$variant" "$tag"
+}
+
+default_source() {
+  local variant=$1
+  if [[ "$variant" == vanilla ]] && vm_exists "$LOCAL_VANILLA_SOURCE"; then
+    printf '%s\n' "$LOCAL_VANILLA_SOURCE"
+  elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
+    printf '%s\n' "$BASE_VM"
+  else
+    remote_ref "$variant" "$MACOS_VERSION"
+  fi
+}
+
+packer_build() {
+  local template=$1
+  shift
+  packer init "$root_dir/$template"
+  packer build "$@" "$root_dir/$template"
+}
+
+build_vanilla() {
+  require_compatible_host
+  require_new_vm "$VANILLA_VM"
+  packer_build "$VANILLA_TEMPLATE" \
+    -var "vm_name=$VANILLA_VM" \
+    -var "ipsw_url=$IPSW_URL" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "expected_build=$MACOS_BUILD" \
+    -var "cpu_count=$CPU_COUNT" \
+    -var "memory_gb=$MEMORY_GB" \
+    -var "disk_size_gb=$DISK_SIZE_GB" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
+build_base() {
+  local source=${1:-$(default_source vanilla)}
+  local target=${2:-$BASE_VM}
+  require_compatible_host
+  require_new_vm "$target"
+  tart clone "$source" "$target"
+  disable_sip "$target"
+  provision_base "$target"
+}
+
+disable_sip() {
+  local target=$1
+  vm_exists "$target" || die "VM not found: $target"
+  packer_build "$DISABLE_SIP_TEMPLATE" \
+    -var "vm_name=$target" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
+provision_base() {
+  local target=$1
+  require_compatible_host
+  vm_exists "$target" || die "VM not found: $target"
+  packer_build templates/base.pkr.hcl \
+    -var "vm_name=$target" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
+build_xcode() {
+  local version=${1:?Xcode version is required}
+  local source=${2:-$(default_source base)}
+  local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
+  local archive="$xcode_cache/Xcode_$version.xip"
+  require_compatible_host
+  [[ -f "$archive" ]] || die "Xcode archive not found: $archive"
+  require_new_vm "$target"
+  tart clone "$source" "$target"
+  packer_build templates/xcode.pkr.hcl \
+    -var "vm_name=$target" \
+    -var "xcode_version=$version" \
+    -var "xcode_archive=$archive" \
+    -var "disk_size_gb=${XCODE_DISK_SIZE_GB:-180}" \
+    -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
+pull_image() {
+  local variant=${1:?Image variant is required}
+  local tag=${2:-$MACOS_VERSION}
+  local remote
+  remote=$(remote_ref "$variant" "$tag")
+  tart pull "$remote"
+}
+
+push_image() {
+  local variant=${1:?Image variant is required}
+  local tag=${2:-$MACOS_VERSION}
+  local vm=${3:-}
+  local revision
+  case "$variant" in
+    vanilla) vm=${vm:-$VANILLA_VM} ;;
+    base) vm=${vm:-$BASE_VM} ;;
+    xcode) [[ -n "$vm" ]] || die "A local VM name is required for Xcode images" ;;
+    *) die "Unknown image variant: $variant" ;;
+  esac
+  vm_exists "$vm" || die "VM not found: $vm"
+  revision=$(git -C "$root_dir" rev-parse HEAD 2>/dev/null || printf unknown)
+  tart push "$vm" "$(remote_ref "$variant" "$tag")" \
+    --chunk-size 4 \
+    --label "org.opencontainers.image.revision=$revision" \
+    --label "org.opencontainers.image.version=$tag"
+}
+
+test_image() {
+  local vm=${1:?VM name is required}
+  local profile=${2:-base}
+  vm_exists "$vm" || die "VM not found: $vm"
+  packer_build templates/verify.pkr.hcl \
+    -var "vm_name=$vm" \
+    -var "profile=$profile" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
+validate() {
+  local template
+  for template in "$root_dir"/templates/*.pkr.hcl; do
+    packer init "$template"
+    packer validate -syntax-only "$template"
+  done
+  bash -n "$root_dir"/scripts/image "$root_dir"/scripts/guest/*.sh
+}
+
+doctor() {
+  need tart
+  need packer
+  need bash
+  [[ $(uname -m) == arm64 ]] || die "Apple silicon is required"
+  require_compatible_host
+  printf 'Tart: %s\n' "$(tart --version)"
+  printf 'Packer: %s\n' "$(packer --version | head -1)"
+  printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
+  if vm_exists "$LOCAL_VANILLA_SOURCE"; then
+    printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
+  else
+    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$MACOS_VERSION")"
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/image doctor
+  scripts/image validate
+  scripts/image build vanilla
+  scripts/image build base [source] [target]
+  scripts/image build xcode <version> [source] [target]
+  scripts/image provision base <vm>
+  scripts/image pull <vanilla|base|xcode> [tag]
+  scripts/image push <vanilla|base|xcode> [tag] [vm]
+  scripts/image test <vm> [vanilla|base|xcode]
+EOF
+}
+
+cd "$root_dir"
+
+case ${1:-} in
+  doctor) doctor ;;
+  validate) validate ;;
+  build)
+    case ${2:-} in
+      vanilla) build_vanilla ;;
+      base) build_base "${3:-}" "${4:-}" ;;
+      xcode) build_xcode "${3:-}" "${4:-}" "${5:-}" ;;
+      *) usage; exit 1 ;;
+    esac
+    ;;
+  provision)
+    case ${2:-} in
+      base) provision_base "${3:?VM name is required}" ;;
+      disable-sip) disable_sip "${3:?VM name is required}" ;;
+      *) usage; exit 1 ;;
+    esac
+    ;;
+  pull) pull_image "${2:-}" "${3:-}" ;;
+  push) push_image "${2:-}" "${3:-}" "${4:-}" ;;
+  test) test_image "${2:-}" "${3:-}" ;;
+  *) usage; exit 1 ;;
+esac

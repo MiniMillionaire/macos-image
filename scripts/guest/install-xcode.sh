@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+brew update
+brew upgrade
+brew bundle --file=/tmp/Brewfile.xcode
+
+archive="/Users/$GUEST_USERNAME/Downloads/Xcode_$XCODE_VERSION.xip"
+target="/Applications/Xcode_$XCODE_VERSION.app"
+
+if [[ ! -d "$target" ]]; then
+  sudo xcodes install "$XCODE_VERSION" --experimental-unxip --path "$archive" --select --empty-trash
+  selected=$(xcode-select -p)
+  installed=${selected%/Contents/Developer}
+  sudo mv "$installed" "$target"
+fi
+
+rm -f "$archive"
+sudo xcode-select --switch "$target"
+sudo xcodebuild -license accept
+xcodebuild -runFirstLaunch
+xcodebuild -downloadAllPlatforms
+
+if [[ -n "$XCODE_COMPONENTS" ]]; then
+  IFS=',' read -ra components <<< "$XCODE_COMPONENTS"
+  for component in "${components[@]}"; do
+    xcodebuild -downloadComponent "$component"
+  done
+fi
