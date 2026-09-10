@@ -30,7 +30,18 @@ xcode_cache=${XCODE_CACHE:-$HOME/XcodesCache}
 guest_username=${GUEST_USERNAME:-admin}
 guest_password=${GUEST_PASSWORD:-admin}
 setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
-setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-250ms}
+setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
+temporary_locale_home=
+
+cleanup_locale_home() {
+  [[ -n "$temporary_locale_home" ]] || return 0
+  unlink "$temporary_locale_home/Library/Preferences/.GlobalPreferences.plist" 2>/dev/null || true
+  rmdir "$temporary_locale_home/Library/Preferences" 2>/dev/null || true
+  rmdir "$temporary_locale_home/Library" 2>/dev/null || true
+  rmdir "$temporary_locale_home" 2>/dev/null || true
+}
+
+trap cleanup_locale_home EXIT
 
 die() {
   echo "$*" >&2
@@ -72,6 +83,16 @@ require_compatible_host() {
 
 require_duration() {
   [[ "$1" =~ ^([0-9]+([.][0-9]+)?(ns|us|µs|ms|s|m|h))+$ ]] || die "Invalid duration: $1"
+}
+
+create_locale_home() {
+  local preferences
+  temporary_locale_home=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-locale.XXXXXX")
+  preferences="$temporary_locale_home/Library/Preferences/.GlobalPreferences.plist"
+  mkdir -p "$(dirname "$preferences")"
+  plutil -create xml1 "$preferences"
+  plutil -insert AppleLocale -string en_US "$preferences"
+  plutil -insert AppleLanguages -json '["en-US"]' "$preferences"
 }
 
 remote_ref() {
@@ -125,15 +146,20 @@ build_vanilla() {
   require_new_vm "$target"
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
     need go
+    need plutil
     require_duration "$initial_wait"
     require_duration "$setup_assistant_key_interval"
-    tart create "$target" --from-ipsw "$IPSW_URL" --disk-size "$DISK_SIZE_GB"
+    create_locale_home
+    local tart_home=${TART_HOME:-$HOME/.tart}
+    CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+      tart create "$target" --from-ipsw "$IPSW_URL" --disk-size "$DISK_SIZE_GB"
     tart set "$target" \
       --cpu "$CPU_COUNT" \
       --memory "$((MEMORY_GB * 1024))" \
       --display 1024x768 \
       --no-display-refit
-    GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+    CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+      GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
       go run ./cmd/setup-assistant \
         --vm "$target" \
         --sequence "$SETUP_ASSISTANT_SEQUENCE" \

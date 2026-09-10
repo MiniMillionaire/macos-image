@@ -12,6 +12,8 @@ Checks run against disposable clones. Templates retain the recovery partition, e
 
 macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The initial wait is configurable for different host speeds, and all waits are interruptible.
 
+Tart receives isolated `en_US` preferences during installation and first boot. This keeps the language chooser independent of the build host's language and region without modifying the host preferences.
+
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 
 macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account, automatic login, and remote login settings through Tart instead of automating Setup Assistant.

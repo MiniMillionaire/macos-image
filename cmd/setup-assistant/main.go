@@ -43,6 +43,7 @@ type action struct {
 	Click  *point        `json:"click,omitempty"`
 	Scroll *scrollAction `json:"scroll,omitempty"`
 	Chord  []string      `json:"chord,omitempty"`
+	Repeat int           `json:"repeat,omitempty"`
 }
 
 type sequence struct {
@@ -70,27 +71,32 @@ func (*desktopSizeEncoding) Type() int32 {
 
 func main() {
 	var vm string
+	var endpointURL string
 	var sequencePath string
 	var initialWait string
 	var screenshotPath string
 	var keyInterval string
 
 	flag.StringVar(&vm, "vm", "", "Tart VM name")
+	flag.StringVar(&endpointURL, "endpoint", "", "existing Tart VNC endpoint")
 	flag.StringVar(&sequencePath, "sequence", "", "setup sequence JSON path")
 	flag.StringVar(&initialWait, "initial-wait", "90s", "delay before the first action")
 	flag.StringVar(&screenshotPath, "screenshot", "", "write the final framebuffer to this path")
 	flag.StringVar(&keyInterval, "key-interval", "100ms", "delay between key events")
 	flag.Parse()
 
-	if err := run(vm, sequencePath, initialWait, screenshotPath, keyInterval); err != nil {
+	if err := run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(vm, sequencePath, initialWait, screenshotPath, keyInterval string) error {
-	if vm == "" || sequencePath == "" {
-		return errors.New("--vm and --sequence are required")
+func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval string) error {
+	if sequencePath == "" {
+		return errors.New("--sequence is required")
+	}
+	if (vm == "") == (endpointURL == "") {
+		return errors.New("exactly one of --vm and --endpoint is required")
 	}
 
 	setup, err := loadSequence(sequencePath)
@@ -115,22 +121,34 @@ func run(vm, sequencePath, initialWait, screenshotPath, keyInterval string) erro
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	fmt.Printf("Starting %s\n", vm)
-	command := exec.CommandContext(ctx, "tart", "run", vm, "--no-graphics", "--vnc-experimental", "--no-audio")
-	command.Env = append(os.Environ(), "CI=true")
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	command.Stderr = os.Stderr
-	if err := command.Start(); err != nil {
-		return err
-	}
-	defer stopVM(vm, command)
+	var server endpoint
+	if endpointURL != "" {
+		var ok bool
+		server, ok, err = parseEndpoint(endpointURL)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("invalid VNC endpoint")
+		}
+	} else {
+		fmt.Printf("Starting %s\n", vm)
+		command := exec.CommandContext(ctx, "tart", "run", vm, "--no-graphics", "--vnc-experimental", "--no-audio")
+		command.Env = append(os.Environ(), "CI=true")
+		stdout, err := command.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		command.Stderr = os.Stderr
+		if err := command.Start(); err != nil {
+			return err
+		}
+		defer stopVM(vm, command)
 
-	server, err := waitForEndpoint(ctx, stdout)
-	if err != nil {
-		return err
+		server, err = waitForEndpoint(ctx, stdout)
+		if err != nil {
+			return err
+		}
 	}
 	connection, err := (&net.Dialer{}).DialContext(ctx, "tcp", server.Host)
 	if err != nil {
@@ -164,8 +182,11 @@ func run(vm, sequencePath, initialWait, screenshotPath, keyInterval string) erro
 				fmt.Printf("Waiting %s at action %d of %d\n", duration, index+1, len(setup.Actions))
 			}
 		}
-		if err := perform(ctx, client, current, interval); err != nil {
-			return fmt.Errorf("action %d: %w", index+1, err)
+		repeat := max(current.Repeat, 1)
+		for range repeat {
+			if err := perform(ctx, client, messages, setup.Width, setup.Height, current, interval); err != nil {
+				return fmt.Errorf("action %d: %w", index+1, err)
+			}
 		}
 	}
 	if screenshotPath != "" {
@@ -210,6 +231,9 @@ func (setup sequence) validate() error {
 		}
 		if set != 1 {
 			return fmt.Errorf("action %d: exactly one operation is required", index+1)
+		}
+		if current.Repeat < 0 || current.Repeat > 1 && current.Key == "" && len(current.Chord) == 0 {
+			return fmt.Errorf("action %d: repeat requires a key or chord", index+1)
 		}
 		if current.Wait != "" {
 			duration, err := time.ParseDuration(current.Wait)
@@ -297,7 +321,7 @@ func parseEndpoint(line string) (endpoint, bool, error) {
 	return endpoint{Host: parsed.Host, Password: password}, true, nil
 }
 
-func perform(ctx context.Context, client *vnc.ClientConn, current action, interval time.Duration) error {
+func perform(ctx context.Context, client *vnc.ClientConn, messages <-chan vnc.ServerMessage, width, height uint16, current action, interval time.Duration) error {
 	switch {
 	case current.Wait != "":
 		duration, err := time.ParseDuration(current.Wait)
@@ -498,11 +522,8 @@ func keysym(name string) (uint32, error) {
 }
 
 func capture(client *vnc.ClientConn, messages <-chan vnc.ServerMessage, width, height uint16, path string) error {
-	if client.FrameBufferWidth != width || client.FrameBufferHeight != height {
-		return fmt.Errorf("unexpected framebuffer size %dx%d", client.FrameBufferWidth, client.FrameBufferHeight)
-	}
 	frame := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
-	if err := client.FramebufferUpdateRequest(false, 0, 0, width, height); err != nil {
+	if err := client.FramebufferUpdateRequest(false, 0, 0, client.FrameBufferWidth, client.FrameBufferHeight); err != nil {
 		return err
 	}
 
@@ -539,10 +560,13 @@ func capture(client *vnc.ClientConn, messages <-chan vnc.ServerMessage, width, h
 				}
 			}
 			if !hasPixels {
-				if err := client.FramebufferUpdateRequest(false, 0, 0, width, height); err != nil {
+				if err := client.FramebufferUpdateRequest(false, 0, 0, client.FrameBufferWidth, client.FrameBufferHeight); err != nil {
 					return err
 				}
 				continue
+			}
+			if client.FrameBufferWidth != width || client.FrameBufferHeight != height {
+				return fmt.Errorf("unexpected framebuffer size %dx%d", client.FrameBufferWidth, client.FrameBufferHeight)
 			}
 			file, err := os.Create(path)
 			if err != nil {

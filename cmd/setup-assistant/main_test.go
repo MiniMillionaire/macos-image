@@ -12,7 +12,7 @@ func TestSequenceValidate(t *testing.T) {
 		Height: 720,
 		Actions: []action{
 			{Wait: "1s"},
-			{Key: "enter"},
+			{Key: "enter", Repeat: 2},
 			{Text: "admin"},
 			{Click: &point{X: 1279, Y: 719}},
 			{Scroll: &scrollAction{X: 640, Y: 360, Steps: 10}},
@@ -26,6 +26,8 @@ func TestSequenceValidate(t *testing.T) {
 	tests := []sequence{
 		{Width: 1280, Height: 720, Actions: []action{{}}},
 		{Width: 1280, Height: 720, Actions: []action{{Wait: "1s", Key: "enter"}}},
+		{Width: 1280, Height: 720, Actions: []action{{Wait: "1s", Repeat: 2}}},
+		{Width: 1280, Height: 720, Actions: []action{{Key: "tab", Repeat: -1}}},
 		{Width: 1280, Height: 720, Actions: []action{{Wait: "-1s"}}},
 		{Width: 1280, Height: 720, Actions: []action{{Click: &point{X: 1280, Y: 0}}}},
 		{Width: 1280, Height: 720, Actions: []action{{Scroll: &scrollAction{X: 1280, Y: 0, Steps: 1}}}},

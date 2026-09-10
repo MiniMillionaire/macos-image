@@ -9,8 +9,21 @@ case "$IMAGE_PROFILE" in
   vanilla)
     id "$GUEST_USERNAME" >/dev/null
     real_name=$(dscl . -read "/Users/$GUEST_USERNAME" RealName | sed -E 's/^RealName:[[:space:]]*//; /^[[:space:]]*$/d; s/^[[:space:]]*//')
-    [[ "$real_name" == "$GUEST_USERNAME" ]]
-    spctl --status | grep -Fq 'assessments disabled'
+    [[ "$real_name" == "$GUEST_USERNAME" ]] || { echo "Unexpected full name: $real_name" >&2; exit 1; }
+    locale=$(defaults read -g AppleLocale)
+    [[ "$locale" == en_US ]] || { echo "Unexpected locale: $locale" >&2; exit 1; }
+    languages=$(defaults read -g AppleLanguages | tr -d '[:space:](),"')
+    [[ "$languages" == en-US ]] || { echo "Unexpected languages: $languages" >&2; exit 1; }
+    keyboard_layout=$(defaults export com.apple.HIToolbox - | plutil -extract AppleEnabledInputSources.0."KeyboardLayout Name" raw -)
+    [[ "$keyboard_layout" == 'U.S.' ]] || { echo "Unexpected keyboard layout: $keyboard_layout" >&2; exit 1; }
+    timezone=$(readlink /etc/localtime)
+    [[ "$timezone" == /var/db/timezone/zoneinfo/UTC ]] || { echo "Unexpected time zone: $timezone" >&2; exit 1; }
+    if pgrep -x VoiceOver >/dev/null; then
+      echo "VoiceOver is still running" >&2
+      exit 1
+    fi
+    gatekeeper_status=$(spctl --status 2>&1 || true)
+    [[ "$gatekeeper_status" == 'assessments disabled' ]] || { echo "Unexpected Gatekeeper status: $gatekeeper_status" >&2; exit 1; }
     ;;
   sip)
     csrutil status | grep -Fq disabled
