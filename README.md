@@ -47,12 +47,13 @@ Build the vanilla image from its pinned Apple IPSW:
 ./scripts/image build vanilla
 ```
 
-The default initial Setup Assistant wait is 90 seconds. It can be passed directly or set through the environment:
+The build waits 30 seconds after Tart reports installation complete, 90 seconds before the first Setup Assistant phase, and 45 seconds before the post-account phase. All waits are configurable:
 
 ```shell
-./scripts/image build vanilla 30s
-SETUP_ASSISTANT_INITIAL_WAIT=120s ./scripts/image build vanilla
+CREATE_GRACE_TIME=60s SETUP_ASSISTANT_INITIAL_WAIT=120s SETUP_ASSISTANT_RESUME_WAIT=60s ./scripts/image build vanilla
 ```
+
+Use a shorter wait only after validating it on the build host.
 
 An optional target name preserves an existing image while testing a fresh build:
 

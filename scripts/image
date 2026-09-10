@@ -29,16 +29,18 @@ registry=${REGISTRY:-}
 xcode_cache=${XCODE_CACHE:-$HOME/XcodesCache}
 guest_username=${GUEST_USERNAME:-admin}
 guest_password=${GUEST_PASSWORD:-admin}
+create_grace_time=${CREATE_GRACE_TIME:-${DEFAULT_CREATE_GRACE_TIME:-30s}}
 setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
+setup_assistant_resume_wait=${SETUP_ASSISTANT_RESUME_WAIT:-${DEFAULT_SETUP_ASSISTANT_RESUME_WAIT:-45s}}
 setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
 temporary_locale_home=
+temporary_root=${TMPDIR:-/tmp}
+temporary_root=${temporary_root%/}
 
 cleanup_locale_home() {
   [[ -n "$temporary_locale_home" ]] || return 0
-  unlink "$temporary_locale_home/Library/Preferences/.GlobalPreferences.plist" 2>/dev/null || true
-  rmdir "$temporary_locale_home/Library/Preferences" 2>/dev/null || true
-  rmdir "$temporary_locale_home/Library" 2>/dev/null || true
-  rmdir "$temporary_locale_home" 2>/dev/null || true
+  [[ "$temporary_locale_home" == "$temporary_root"/macos-image-locale.* ]] || return 1
+  rm -rf -- "$temporary_locale_home"
 }
 
 trap cleanup_locale_home EXIT
@@ -87,7 +89,7 @@ require_duration() {
 
 create_locale_home() {
   local preferences
-  temporary_locale_home=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-locale.XXXXXX")
+  temporary_locale_home=$(mktemp -d "$temporary_root/macos-image-locale.XXXXXX")
   preferences="$temporary_locale_home/Library/Preferences/.GlobalPreferences.plist"
   mkdir -p "$(dirname "$preferences")"
   plutil -create xml1 "$preferences"
@@ -147,12 +149,18 @@ build_vanilla() {
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
     need go
     need plutil
+    require_duration "$create_grace_time"
     require_duration "$initial_wait"
     require_duration "$setup_assistant_key_interval"
+    if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
+      require_duration "$setup_assistant_resume_wait"
+    fi
     create_locale_home
     local tart_home=${TART_HOME:-$HOME/.tart}
     CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
       tart create "$target" --from-ipsw "$IPSW_URL" --disk-size "$DISK_SIZE_GB"
+    printf 'Waiting %s for installation finalization\n' "$create_grace_time"
+    sleep "$create_grace_time"
     tart set "$target" \
       --cpu "$CPU_COUNT" \
       --memory "$((MEMORY_GB * 1024))" \
@@ -165,6 +173,16 @@ build_vanilla() {
         --sequence "$SETUP_ASSISTANT_SEQUENCE" \
         --initial-wait "$initial_wait" \
         --key-interval "$setup_assistant_key_interval"
+    if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
+      clear_stale_control_socket "$target"
+      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+        GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+        go run ./cmd/setup-assistant \
+          --vm "$target" \
+          --sequence "$SETUP_ASSISTANT_RESUME_SEQUENCE" \
+          --initial-wait "$setup_assistant_resume_wait" \
+          --key-interval "$setup_assistant_key_interval"
+    fi
     clear_stale_control_socket "$target"
     packer_build "$VANILLA_TEMPLATE" \
       -var "vm_name=$target" \
@@ -321,7 +339,11 @@ doctor() {
   printf 'Packer: %s\n' "$(packer --version | head -1)"
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
     printf 'Go: %s\n' "$(go version | awk '{ print $3 }')"
+    printf 'Installation grace time: %s\n' "$create_grace_time"
     printf 'Setup Assistant initial wait: %s\n' "$setup_assistant_initial_wait"
+    if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
+      printf 'Setup Assistant resume wait: %s\n' "$setup_assistant_resume_wait"
+    fi
   fi
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then

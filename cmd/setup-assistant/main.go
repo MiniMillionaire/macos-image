@@ -356,14 +356,18 @@ func expandText(value string) (string, error) {
 	expanded := os.Expand(value, func(name string) string {
 		switch name {
 		case "GUEST_USERNAME", "GUEST_PASSWORD":
-			return os.Getenv(name)
+			value, ok := os.LookupEnv(name)
+			if !ok || value == "" {
+				missing = name
+			}
+			return value
 		default:
 			missing = name
 			return ""
 		}
 	})
 	if missing != "" {
-		return "", fmt.Errorf("unknown text variable %q", missing)
+		return "", fmt.Errorf("missing or unsupported text variable %q", missing)
 	}
 	return expanded, nil
 }

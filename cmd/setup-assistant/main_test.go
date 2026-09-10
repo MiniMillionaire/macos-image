@@ -85,24 +85,34 @@ func TestExpandText(t *testing.T) {
 	if _, err := expandText("${UNKNOWN}"); err == nil {
 		t.Fatal("expected unknown variable error")
 	}
+	t.Setenv("GUEST_PASSWORD", "")
+	if _, err := expandText("${GUEST_PASSWORD}"); err == nil {
+		t.Fatal("expected empty variable error")
+	}
 }
 
 func TestSequoiaSequence(t *testing.T) {
 	t.Setenv("GUEST_USERNAME", "admin")
 	t.Setenv("GUEST_PASSWORD", "admin")
-	setup, err := loadSequence("../../data/setup-assistant-sequoia-15.json")
-	if err != nil {
-		t.Fatal(err)
+	paths := []string{
+		"../../data/setup-assistant-sequoia-15.json",
+		"../../data/setup-assistant-sequoia-15-resume.json",
 	}
-	if err := setup.validate(); err != nil {
-		t.Fatal(err)
-	}
-	for _, current := range setup.Actions {
-		if current.Text == "" {
-			continue
-		}
-		if _, err := expandText(current.Text); err != nil {
+	for _, path := range paths {
+		setup, err := loadSequence(path)
+		if err != nil {
 			t.Fatal(err)
+		}
+		if err := setup.validate(); err != nil {
+			t.Fatal(err)
+		}
+		for _, current := range setup.Actions {
+			if current.Text == "" {
+				continue
+			}
+			if _, err := expandText(current.Text); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 }
