@@ -7,7 +7,10 @@ set -euo pipefail
 
 case "$IMAGE_PROFILE" in
   vanilla)
-    id admin >/dev/null
+    id "$GUEST_USERNAME" >/dev/null
+    real_name=$(dscl . -read "/Users/$GUEST_USERNAME" RealName | sed -E 's/^RealName:[[:space:]]*//; /^[[:space:]]*$/d; s/^[[:space:]]*//')
+    [[ "$real_name" == "$GUEST_USERNAME" ]]
+    spctl --status | grep -Fq 'assessments disabled'
     ;;
   sip)
     csrutil status | grep -Fq disabled

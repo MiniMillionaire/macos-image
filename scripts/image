@@ -29,6 +29,8 @@ registry=${REGISTRY:-}
 xcode_cache=${XCODE_CACHE:-$HOME/XcodesCache}
 guest_username=${GUEST_USERNAME:-admin}
 guest_password=${GUEST_PASSWORD:-admin}
+setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
+setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-250ms}
 
 die() {
   echo "$*" >&2
@@ -66,6 +68,10 @@ require_compatible_host() {
   local host_major
   host_major=$(sw_vers -productVersion | cut -d. -f1)
   (( host_major >= MINIMUM_HOST_MAJOR )) || die "macOS $MINIMUM_HOST_MAJOR or newer is required for this image"
+}
+
+require_duration() {
+  [[ "$1" =~ ^([0-9]+([.][0-9]+)?(ns|us|µs|ms|s|m|h))+$ ]] || die "Invalid duration: $1"
 }
 
 remote_ref() {
@@ -113,18 +119,45 @@ packer_build() {
 }
 
 build_vanilla() {
+  local initial_wait=${1:-$setup_assistant_initial_wait}
+  local target=${2:-$VANILLA_VM}
   require_compatible_host
-  require_new_vm "$VANILLA_VM"
-  packer_build "$VANILLA_TEMPLATE" \
-    -var "vm_name=$VANILLA_VM" \
-    -var "ipsw_url=$IPSW_URL" \
-    -var "expected_version=$MACOS_VERSION" \
-    -var "expected_build=$MACOS_BUILD" \
-    -var "cpu_count=$CPU_COUNT" \
-    -var "memory_gb=$MEMORY_GB" \
-    -var "disk_size_gb=$DISK_SIZE_GB" \
-    -var "guest_username=$guest_username" \
-    -var "guest_password=$guest_password"
+  require_new_vm "$target"
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+    need go
+    require_duration "$initial_wait"
+    require_duration "$setup_assistant_key_interval"
+    tart create "$target" --from-ipsw "$IPSW_URL" --disk-size "$DISK_SIZE_GB"
+    tart set "$target" \
+      --cpu "$CPU_COUNT" \
+      --memory "$((MEMORY_GB * 1024))" \
+      --display 1024x768 \
+      --no-display-refit
+    GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+      go run ./cmd/setup-assistant \
+        --vm "$target" \
+        --sequence "$SETUP_ASSISTANT_SEQUENCE" \
+        --initial-wait "$initial_wait" \
+        --key-interval "$setup_assistant_key_interval"
+    clear_stale_control_socket "$target"
+    packer_build "$VANILLA_TEMPLATE" \
+      -var "vm_name=$target" \
+      -var "expected_version=$MACOS_VERSION" \
+      -var "expected_build=$MACOS_BUILD" \
+      -var "guest_username=$guest_username" \
+      -var "guest_password=$guest_password"
+  else
+    packer_build "$VANILLA_TEMPLATE" \
+      -var "vm_name=$target" \
+      -var "ipsw_url=$IPSW_URL" \
+      -var "expected_version=$MACOS_VERSION" \
+      -var "expected_build=$MACOS_BUILD" \
+      -var "cpu_count=$CPU_COUNT" \
+      -var "memory_gb=$MEMORY_GB" \
+      -var "disk_size_gb=$DISK_SIZE_GB" \
+      -var "guest_username=$guest_username" \
+      -var "guest_password=$guest_password"
+  fi
 }
 
 build_base() {
@@ -238,21 +271,32 @@ test_image() {
 
 validate() {
   local template
+  local script
   for template in "$root_dir"/templates/*.pkr.hcl; do
     packer init "$template"
     packer validate -syntax-only "$template"
   done
-  bash -n "$root_dir"/scripts/image "$root_dir"/scripts/guest/*.sh
+  for script in "$root_dir"/scripts/image "$root_dir"/scripts/guest/*.sh; do
+    bash -n "$script"
+  done
+  go test ./...
 }
 
 doctor() {
   need tart
   need packer
   need bash
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+    need go
+  fi
   [[ $(uname -m) == arm64 ]] || die "Apple silicon is required"
   require_compatible_host
   printf 'Tart: %s\n' "$(tart --version)"
   printf 'Packer: %s\n' "$(packer --version | head -1)"
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+    printf 'Go: %s\n' "$(go version | awk '{ print $3 }')"
+    printf 'Setup Assistant initial wait: %s\n' "$setup_assistant_initial_wait"
+  fi
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
@@ -266,7 +310,7 @@ usage() {
 Usage:
   scripts/image doctor
   scripts/image validate
-  scripts/image build vanilla
+  scripts/image build vanilla [initial-wait] [target]
   scripts/image build base [source] [target]
   scripts/image build xcode <version> [source] [target]
   scripts/image import vanilla [source] [target]
@@ -285,7 +329,7 @@ case ${1:-} in
   validate) validate ;;
   build)
     case ${2:-} in
-      vanilla) build_vanilla ;;
+      vanilla) build_vanilla "${3:-}" "${4:-}" ;;
       base) build_base "${3:-}" "${4:-}" ;;
       xcode) build_xcode "${3:-}" "${4:-}" "${5:-}" ;;
       *) usage; exit 1 ;;

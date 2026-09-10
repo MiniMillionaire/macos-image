@@ -50,6 +50,7 @@ build {
     environment_vars = [
       "EXPECTED_BUILD=${var.expected_build}",
       "EXPECTED_VERSION=${var.expected_version}",
+      "GUEST_USERNAME=${var.guest_username}",
       "IMAGE_PROFILE=${var.profile}",
     ]
     script = "scripts/guest/verify-image.sh"

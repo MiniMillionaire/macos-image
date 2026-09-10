@@ -1,8 +1,8 @@
 # Architecture
 
-## Build engine
+## Build flow
 
-Packer remains the build engine because the Tart builder owns VM startup, screen input, SSH readiness, shutdown, and error reporting. Replacing it with shell orchestration would duplicate those lifecycle controls without removing the macOS Setup Assistant constraint.
+Tart creates the VM from a pinned Apple restore image. A small VNC controller completes Setup Assistant, then Packer owns SSH provisioning and validation. This separates version-specific screen input from the repeatable provisioning stages.
 
 Provisioning uses small shell scripts instead of Ansible. This keeps local setup light, makes each stage directly runnable, and leaves failed VMs available for inspection.
 
@@ -10,7 +10,9 @@ Checks run against disposable clones. Templates retain the recovery partition, e
 
 ## Setup Assistant
 
-macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use the Tart Packer plugin's screen automation. Text recognition is used where the plugin can identify a stable screen label; the remaining keyboard sequences are isolated in one template per macOS major version.
+macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The initial wait is configurable for different host speeds, and all waits are interruptible.
+
+Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 
 macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account, automatic login, and remote login settings through Tart instead of automating Setup Assistant.
 

@@ -14,6 +14,7 @@ The current image definitions are:
 - Apple silicon
 - Tart 2.36 or newer
 - Packer 1.14 or newer
+- Go 1.25 or newer
 - A local Xcode XIP archive for Xcode images
 
 Packer installs the pinned Tart plugin with `packer init`.
@@ -46,6 +47,19 @@ Build the vanilla image from its pinned Apple IPSW:
 ./scripts/image build vanilla
 ```
 
+The default initial Setup Assistant wait is 90 seconds. It can be passed directly or set through the environment:
+
+```shell
+./scripts/image build vanilla 30s
+SETUP_ASSISTANT_INITIAL_WAIT=120s ./scripts/image build vanilla
+```
+
+An optional target name preserves an existing image while testing a fresh build:
+
+```shell
+./scripts/image build vanilla 90s macos-sequoia-15.6.1-test
+```
+
 Place Xcode at `~/XcodesCache/Xcode_<version>.xip`, then run:
 
 ```shell
@@ -75,4 +89,4 @@ Images use immutable macOS version tags. Mutable tags are added only by the rele
 - `base` disables SIP, configures CI defaults, and installs common build and runner tooling.
 - `xcode` installs a cached Xcode archive, Apple platforms, Android tooling, Flutter, and mobile development tools.
 
-The macOS 15 and 26 Setup Assistant flows are version-specific. All later provisioning runs over SSH. See [Architecture](docs/architecture.md) for the design and upgrade policy.
+Setup Assistant flows are version-specific. All later provisioning runs over SSH. See [Architecture](docs/architecture.md) for the design and upgrade policy.
