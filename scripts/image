@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export TART_NO_AUTO_PRUNE=1
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config_path=${IMAGE_CONFIG:-config/sequoia-15.6.1.env}
@@ -67,6 +68,25 @@ require_new_vm() {
   fi
 }
 
+require_registry_credentials() {
+  local reference=$1
+  [[ -n ${TART_REGISTRY_USERNAME:-} && -n ${TART_REGISTRY_PASSWORD:-} ]] ||
+    die 'Registry operations require TART_REGISTRY_USERNAME and TART_REGISTRY_PASSWORD; host credential stores are never used'
+  if [[ ${TART_REGISTRY_HOSTNAME+x} == x && ${TART_REGISTRY_HOSTNAME:-} != "${reference%%/*}" ]]; then
+    die 'TART_REGISTRY_HOSTNAME does not match the requested registry'
+  fi
+}
+
+clone_vm() {
+  local source=$1
+  local target=$2
+  require_new_vm "$target"
+  if [[ "$source" == */* ]]; then
+    require_registry_credentials "$source"
+  fi
+  tart clone "$source" "$target"
+}
+
 clear_stale_control_socket() {
   local vm=$1
   local state
@@ -125,8 +145,7 @@ import_vanilla() {
   local target=${2:-$VANILLA_VM}
   require_compatible_host
   vm_exists "$source" || die "VM not found: $source"
-  require_new_vm "$target"
-  tart clone "$source" "$target"
+  clone_vm "$source" "$target"
   clear_stale_control_socket "$target"
   packer_build templates/verify.pkr.hcl \
     -var "vm_name=$target" \
@@ -224,8 +243,7 @@ build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
   require_compatible_host
-  require_new_vm "$target"
-  tart clone "$source" "$target"
+  clone_vm "$source" "$target"
   disable_sip "$target"
   provision_base "$target"
 }
@@ -264,8 +282,7 @@ build_xcode() {
   local archive="$xcode_cache/Xcode_$version.xip"
   require_compatible_host
   [[ -f "$archive" ]] || die "Xcode archive not found: $archive"
-  require_new_vm "$target"
-  tart clone "$source" "$target"
+  clone_vm "$source" "$target"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
@@ -281,6 +298,7 @@ pull_image() {
   local tag=${2:-$MACOS_VERSION}
   local remote
   remote=$(remote_ref "$variant" "$tag")
+  require_registry_credentials "$remote"
   tart pull "$remote"
 }
 
@@ -296,6 +314,7 @@ push_image() {
     *) die "Unknown image variant: $variant" ;;
   esac
   vm_exists "$vm" || die "VM not found: $vm"
+  require_registry_credentials "$(remote_ref "$variant" "$tag")"
   revision=$(git -C "$root_dir" rev-parse HEAD 2>/dev/null || printf unknown)
   tart push "$vm" "$(remote_ref "$variant" "$tag")" \
     --chunk-size 4 \
@@ -321,8 +340,7 @@ test_image() {
   local profile=${2:-base}
   local scratch="$vm-verify-$$"
   vm_exists "$vm" || die "VM not found: $vm"
-  require_new_vm "$scratch"
-  tart clone "$vm" "$scratch"
+  clone_vm "$vm" "$scratch"
   if ! verify_existing "$scratch" "$profile"; then
     echo "Verification VM retained for inspection: $scratch" >&2
     return 1

@@ -86,6 +86,10 @@ IMAGE_CONFIG=config/tahoe-26.6.2.env ./scripts/image doctor
 
 Set `REGISTRY` to an OCI namespace such as `ghcr.io/example` and provide Tart registry credentials through `TART_REGISTRY_USERNAME` and `TART_REGISTRY_PASSWORD`.
 
+Registry operations fail before invoking Tart when these credentials are missing.
+If `TART_REGISTRY_HOSTNAME` is set, it must match the registry host. This prevents
+fallback to host credential stores. Automatic Tart cache pruning is disabled.
+
 ```shell
 REGISTRY=ghcr.io/example ./scripts/image pull base 15.6.1
 REGISTRY=ghcr.io/example ./scripts/image push base 15.6.1
