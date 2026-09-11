@@ -9,6 +9,10 @@ The current image definitions are:
 | `sequoia-15.6.1` | macOS 15.6.1 (24G90) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 
+The Tahoe vanilla image has passed a clean IPSW build and an independent
+clone/reboot check on the macOS 27 host. See the
+[validation record](docs/tahoe-validation.md).
+
 ## Requirements
 
 - Apple silicon

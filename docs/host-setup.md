@@ -40,3 +40,9 @@ Local IPSW installation and local VM operations do not require registry
 credentials. Never use the host Keychain for this project. Registry operations
 require explicit `TART_REGISTRY_USERNAME` and `TART_REGISTRY_PASSWORD`; Tart's
 fallback credential providers can otherwise access the host Keychain.
+
+The application running build commands needs Local Network access to reach the
+guest over SSH. On this host, connections to the Tart subnet returned
+`EHOSTUNREACH` even with a valid route and ARP entry until the user approved
+network access. No subnet exception or host reboot was needed. See Apple's
+[Local Network privacy guidance](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).

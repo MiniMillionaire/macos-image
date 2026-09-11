@@ -47,6 +47,7 @@ build {
   sources = ["source.tart-cli.verify"]
 
   provisioner "shell" {
+    timeout = "5m"
     environment_vars = [
       "EXPECTED_BUILD=${var.expected_build}",
       "EXPECTED_VERSION=${var.expected_version}",
