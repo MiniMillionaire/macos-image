@@ -164,9 +164,14 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 	}
 
 	messages := make(chan vnc.ServerMessage, 8)
+	var serverMessages []vnc.ServerMessage
+	if screenshotPath == "" {
+		serverMessages = []vnc.ServerMessage{&displayUpdate{}}
+	}
 	client, err := vnc.Client(connection, &vnc.ClientConfig{
 		Auth:            []vnc.ClientAuth{&vnc.PasswordAuth{Password: server.Password}},
 		ServerMessageCh: messages,
+		ServerMessages:  serverMessages,
 	})
 	if err != nil {
 		return err
@@ -179,16 +184,14 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 	if err := client.SetEncodings([]vnc.Encoding{&vnc.RawEncoding{}, &desktopSizeEncoding{}}); err != nil {
 		return err
 	}
-	// Initialize Virtualization.framework input without requesting pixels.
-	if err := client.FramebufferUpdateRequest(false, 0, 0, 0, 0); err != nil {
-		return err
-	}
-
 	if wait > 0 {
 		fmt.Printf("Waiting %s for Setup Assistant\n", wait)
 		if err := waitFor(ctx, wait); err != nil {
 			return err
 		}
+	}
+	if err := synchronizeDisplay(ctx, client, messages, setup.Width, setup.Height); err != nil {
+		return err
 	}
 	for index, current := range setup.Actions {
 		if current.Wait != "" {

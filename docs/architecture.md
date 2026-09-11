@@ -28,10 +28,14 @@ session.
 
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 
-On the macOS 27 host, Virtualization.framework ignores VNC input until the first
-framebuffer update request. Each connection sends one zero-area request before
-its boot wait. This initializes input without requesting pixels. Development
-screen captures had previously hidden this initialization requirement.
+On the macOS 27 host, VNC initially advertises a temporary 1280 by 720 display.
+Keyboard input works in that state, but pointer events are scaled using those
+dimensions. After the boot wait, the controller sends a zero-area update request
+and confirms the configured display dimensions within 30 seconds before sending
+input. Production uses only display-size metadata. Tart also sends a raw pixel
+payload after resizing; the controller discards those bytes without decoding,
+storing, or inspecting them. Development screen captures had hidden the
+missing size synchronization by completing it implicitly.
 
 macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account, automatic login, and remote login settings through Tart instead of automating Setup Assistant.
 
