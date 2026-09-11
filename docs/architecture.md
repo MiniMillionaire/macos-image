@@ -28,6 +28,11 @@ session.
 
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 
+On the macOS 27 host, Virtualization.framework ignores VNC input until the first
+framebuffer update request. Each connection sends one zero-area request before
+its boot wait. This initializes input without requesting pixels. Development
+screen captures had previously hidden this initialization requirement.
+
 macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account, automatic login, and remote login settings through Tart instead of automating Setup Assistant.
 
 Daily base and Xcode builds clone a validated vanilla image and use SSH only. Vanilla rebuilds are reserved for macOS restore-image changes.

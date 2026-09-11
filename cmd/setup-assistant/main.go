@@ -179,6 +179,10 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 	if err := client.SetEncodings([]vnc.Encoding{&vnc.RawEncoding{}, &desktopSizeEncoding{}}); err != nil {
 		return err
 	}
+	// Initialize Virtualization.framework input without requesting pixels.
+	if err := client.FramebufferUpdateRequest(false, 0, 0, 0, 0); err != nil {
+		return err
+	}
 
 	if wait > 0 {
 		fmt.Printf("Waiting %s for Setup Assistant\n", wait)
