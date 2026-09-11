@@ -1,0 +1,30 @@
+{
+  "width": 2048,
+  "height": 1536,
+  "actions": [
+    {"chord": ["command", "a"]},
+    {"text": "${GUEST_PASSWORD}"},
+    {"key": "enter"},
+    {"wait": "30s"},
+    {"chord": ["command", "space"]},
+    {"wait": "3s"},
+    {"text": "Terminal"},
+    {"key": "enter"},
+    {"wait": "10s"},
+    {"text": "defaults write NSGlobalDomain AppleKeyboardUIMode -int 3"},
+    {"key": "enter"},
+    {"wait": "3s"},
+    {"text": "open x-apple.systempreferences:com.apple.Sharing-Settings.extension"},
+    {"key": "enter"},
+    {"wait": "20s"},
+    {"scroll": {"x": 1500, "y": 1100, "steps": -30}},
+    {"wait": "3s"},
+    {"click": {"x": 1590, "y": 895}},
+    {"wait": "5s"},
+    {"text": "${GUEST_PASSWORD}"},
+    {"key": "enter"},
+    {"wait": "20s"},
+    {"chord": ["command", "q"]},
+    {"wait": "3s"}
+  ]
+}

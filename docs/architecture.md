@@ -10,9 +10,21 @@ Checks run against disposable clones. Templates retain the recovery partition, e
 
 ## Setup Assistant
 
-macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The macOS 15 flow restarts between account creation, Setup Assistant completion, sharing, and security configuration to reset UI focus. Installation finalization and boot waits are configurable for different host speeds.
+macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The macOS 15 flow restarts between account creation, Setup Assistant completion, sharing, and security configuration to reset UI focus. macOS 26 also has a separate user setup phase after the system terms and first login. Each VNC phase has a 30-minute deadline, and connection establishment has a 30-second deadline. Installation finalization and boot waits are configurable for different host speeds.
 
 Tart receives isolated `en_US` preferences during installation and first boot. This keeps the language chooser independent of the build host's language and region without modifying the host preferences.
+
+Both flows reset the language list with Home and select standard English.
+Tahoe explicitly selects United States in the country list and confirms the
+English (US) language and U.S. input source page. Its fixed pointer coordinates
+use a 2048 by 1536 framebuffer with Tart configured for a 1024 by 768 display and
+display refitting disabled. The guest's timezone is set to GMT over SSH.
+
+Verification checks the exact OS version and build, completed Setup Assistant,
+account and full name, `en_US`, `en-US`, a U.S./ABC keyboard, GMT, disabled
+VoiceOver and Gatekeeper, automatic login, and Command Line Tools. Tests boot a
+fresh clone so that persistence is checked independently of the provisioning
+session.
 
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 

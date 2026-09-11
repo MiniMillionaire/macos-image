@@ -17,7 +17,7 @@ case "$IMAGE_PROFILE" in
     languages=$(defaults read -g AppleLanguages | tr -d '[:space:](),"')
     [[ "$languages" == en-US ]] || { echo "Unexpected languages: $languages" >&2; exit 1; }
     keyboard_layout=$(defaults export com.apple.HIToolbox - | plutil -extract AppleEnabledInputSources.0."KeyboardLayout Name" raw -)
-    [[ "$keyboard_layout" == 'U.S.' ]] || { echo "Unexpected keyboard layout: $keyboard_layout" >&2; exit 1; }
+    [[ "$keyboard_layout" == 'U.S.' || "$keyboard_layout" == ABC ]] || { echo "Unexpected keyboard layout: $keyboard_layout" >&2; exit 1; }
     timezone=$(readlink /etc/localtime)
     [[ "$timezone" == /var/db/timezone/zoneinfo/GMT ]] || { echo "Unexpected time zone: $timezone" >&2; exit 1; }
     if pgrep -x VoiceOver >/dev/null; then
@@ -26,6 +26,13 @@ case "$IMAGE_PROFILE" in
     fi
     gatekeeper_status=$(spctl --status 2>&1 || true)
     [[ "$gatekeeper_status" == 'assessments disabled' ]] || { echo "Unexpected Gatekeeper status: $gatekeeper_status" >&2; exit 1; }
+    console_user=$(stat -f %Su /dev/console)
+    [[ "$console_user" == "$GUEST_USERNAME" ]] || { echo "Automatic login failed: $console_user" >&2; exit 1; }
+    developer_dir=$(xcode-select -p)
+    [[ -d "$developer_dir" ]]
+    xcrun --find clang
+    printf 'Verified macOS %s (%s): user=%s, full name=%s, locale=%s, language=%s, keyboard=%s, timezone=GMT, automatic login=%s, Gatekeeper=%s\n' \
+      "$EXPECTED_VERSION" "$EXPECTED_BUILD" "$GUEST_USERNAME" "$real_name" "$locale" "$languages" "$keyboard_layout" "$console_user" "$gatekeeper_status"
     ;;
   sip)
     csrutil status | grep -Fq disabled

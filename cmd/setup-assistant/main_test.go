@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -101,14 +102,12 @@ func TestExpandText(t *testing.T) {
 	}
 }
 
-func TestSequoiaSequence(t *testing.T) {
+func TestSetupSequences(t *testing.T) {
 	t.Setenv("GUEST_USERNAME", "admin")
 	t.Setenv("GUEST_PASSWORD", "admin")
-	paths := []string{
-		"../../data/setup-assistant-sequoia-15.json",
-		"../../data/setup-assistant-sequoia-15-resume.json",
-		"../../data/setup-assistant-sequoia-15-final.json",
-		"../../data/setup-assistant-sequoia-15-gatekeeper.json",
+	paths, err := filepath.Glob("../../data/setup-assistant-*.json")
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("find setup sequences: paths=%v err=%v", paths, err)
 	}
 	for _, path := range paths {
 		setup, err := loadSequence(path)

@@ -32,6 +32,7 @@ guest_password=${GUEST_PASSWORD:-admin}
 create_grace_time=${CREATE_GRACE_TIME:-${DEFAULT_CREATE_GRACE_TIME:-30s}}
 setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
 setup_assistant_resume_wait=${SETUP_ASSISTANT_RESUME_WAIT:-${DEFAULT_SETUP_ASSISTANT_RESUME_WAIT:-45s}}
+setup_assistant_user_wait=${SETUP_ASSISTANT_USER_WAIT:-${DEFAULT_SETUP_ASSISTANT_USER_WAIT:-90s}}
 setup_assistant_final_wait=${SETUP_ASSISTANT_FINAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_FINAL_WAIT:-90s}}
 setup_assistant_gatekeeper_wait=${SETUP_ASSISTANT_GATEKEEPER_WAIT:-${DEFAULT_SETUP_ASSISTANT_GATEKEEPER_WAIT:-90s}}
 setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
@@ -143,6 +144,22 @@ packer_build() {
   packer build "$@" "$root_dir/$template"
 }
 
+run_setup_phase() {
+  local vm=$1
+  local sequence=$2
+  local initial_wait=$3
+  [[ -n "$sequence" ]] || return 0
+  clear_stale_control_socket "$vm"
+  printf 'Running Setup Assistant sequence: %s\n' "$sequence"
+  CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="${TART_HOME:-$HOME/.tart}" \
+    GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+    go run ./cmd/setup-assistant \
+      --vm "$vm" \
+      --sequence "$sequence" \
+      --initial-wait "$initial_wait" \
+      --key-interval "$setup_assistant_key_interval"
+}
+
 build_vanilla() {
   local initial_wait=${1:-$setup_assistant_initial_wait}
   local target=${2:-$VANILLA_VM}
@@ -156,6 +173,9 @@ build_vanilla() {
     require_duration "$setup_assistant_key_interval"
     if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
       require_duration "$setup_assistant_resume_wait"
+    fi
+    if [[ -n ${SETUP_ASSISTANT_USER_SEQUENCE:-} ]]; then
+      require_duration "$setup_assistant_user_wait"
     fi
     if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
       require_duration "$setup_assistant_final_wait"
@@ -174,43 +194,11 @@ build_vanilla() {
       --memory "$((MEMORY_GB * 1024))" \
       --display 1024x768 \
       --no-display-refit
-    CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-      GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
-      go run ./cmd/setup-assistant \
-        --vm "$target" \
-        --sequence "$SETUP_ASSISTANT_SEQUENCE" \
-        --initial-wait "$initial_wait" \
-        --key-interval "$setup_assistant_key_interval"
-    if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
-      clear_stale_control_socket "$target"
-      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-        GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
-        go run ./cmd/setup-assistant \
-          --vm "$target" \
-          --sequence "$SETUP_ASSISTANT_RESUME_SEQUENCE" \
-          --initial-wait "$setup_assistant_resume_wait" \
-          --key-interval "$setup_assistant_key_interval"
-    fi
-    if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
-      clear_stale_control_socket "$target"
-      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-        GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
-        go run ./cmd/setup-assistant \
-          --vm "$target" \
-          --sequence "$SETUP_ASSISTANT_FINAL_SEQUENCE" \
-          --initial-wait "$setup_assistant_final_wait" \
-          --key-interval "$setup_assistant_key_interval"
-    fi
-    if [[ -n ${SETUP_ASSISTANT_GATEKEEPER_SEQUENCE:-} ]]; then
-      clear_stale_control_socket "$target"
-      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-        GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
-        go run ./cmd/setup-assistant \
-          --vm "$target" \
-          --sequence "$SETUP_ASSISTANT_GATEKEEPER_SEQUENCE" \
-          --initial-wait "$setup_assistant_gatekeeper_wait" \
-          --key-interval "$setup_assistant_key_interval"
-    fi
+    run_setup_phase "$target" "$SETUP_ASSISTANT_SEQUENCE" "$initial_wait"
+    run_setup_phase "$target" "${SETUP_ASSISTANT_RESUME_SEQUENCE:-}" "$setup_assistant_resume_wait"
+    run_setup_phase "$target" "${SETUP_ASSISTANT_USER_SEQUENCE:-}" "$setup_assistant_user_wait"
+    run_setup_phase "$target" "${SETUP_ASSISTANT_FINAL_SEQUENCE:-}" "$setup_assistant_final_wait"
+    run_setup_phase "$target" "${SETUP_ASSISTANT_GATEKEEPER_SEQUENCE:-}" "$setup_assistant_gatekeeper_wait"
     clear_stale_control_socket "$target"
     packer_build "$VANILLA_TEMPLATE" \
       -var "vm_name=$target" \
@@ -372,6 +360,9 @@ doctor() {
     printf 'Setup Assistant initial wait: %s\n' "$setup_assistant_initial_wait"
     if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
       printf 'Setup Assistant resume wait: %s\n' "$setup_assistant_resume_wait"
+    fi
+    if [[ -n ${SETUP_ASSISTANT_USER_SEQUENCE:-} ]]; then
+      printf 'Setup Assistant user wait: %s\n' "$setup_assistant_user_wait"
     fi
     if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
       printf 'Setup Assistant final wait: %s\n' "$setup_assistant_final_wait"

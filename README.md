@@ -59,6 +59,11 @@ CREATE_GRACE_TIME=60s SETUP_ASSISTANT_INITIAL_WAIT=120s SETUP_ASSISTANT_RESUME_W
 
 Use a shorter wait only after validating it on the build host.
 
+Tahoe has an additional user setup phase after the system terms and first login.
+Its initial wait defaults to 90 seconds and can be set with
+`SETUP_ASSISTANT_USER_WAIT`. The Setup Assistant sequences use a fixed display
+and have a 30-minute deadline per phase.
+
 An optional target name preserves an existing image while testing a fresh build:
 
 ```shell
