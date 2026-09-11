@@ -19,12 +19,8 @@ fi
 
 sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime 0
 defaults -currentHost write com.apple.screensaver idleTime 0
-sudo systemsetup -settimezone GMT >/dev/null
-sudo systemsetup -setsleep Off >/dev/null
-sudo systemsetup -setcomputersleep Off >/dev/null
-if ! sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"; then
-  sleep 5
-  sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"
-fi
+sudo systemsetup -settimezone GMT >/dev/null 2>&1
+sudo systemsetup -setsleep Off >/dev/null 2>&1
+sudo systemsetup -setcomputersleep Off >/dev/null 2>&1
 gatekeeper_status=$(spctl --status 2>&1 || true)
 [[ "$gatekeeper_status" == 'assessments disabled' ]]
