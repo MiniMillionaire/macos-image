@@ -333,6 +333,7 @@ test_image() {
   local profile=${2:-base}
   local scratch="$vm-verify-$$"
   vm_exists "$vm" || die "VM not found: $vm"
+  require_new_vm "$scratch"
   tart clone "$vm" "$scratch"
   if ! verify_existing "$scratch" "$profile"; then
     echo "Verification VM retained for inspection: $scratch" >&2
@@ -382,8 +383,10 @@ doctor() {
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
-  else
+  elif [[ -n "$registry" ]]; then
     printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$MACOS_VERSION")"
+  else
+    printf 'No local vanilla source found; build one with scripts/image build vanilla\n'
   fi
 }
 

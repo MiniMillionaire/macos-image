@@ -120,6 +120,8 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
 
 	var server endpoint
 	if endpointURL != "" {
@@ -150,11 +152,16 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 			return err
 		}
 	}
-	connection, err := (&net.Dialer{}).DialContext(ctx, "tcp", server.Host)
+	connection, err := (&net.Dialer{Timeout: 30 * time.Second}).DialContext(ctx, "tcp", server.Host)
 	if err != nil {
 		return err
 	}
 	defer connection.Close()
+	closeOnCancel := context.AfterFunc(ctx, func() { _ = connection.Close() })
+	defer closeOnCancel()
+	if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return err
+	}
 
 	messages := make(chan vnc.ServerMessage, 8)
 	client, err := vnc.Client(connection, &vnc.ClientConfig{
@@ -165,6 +172,10 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 		return err
 	}
 	defer client.Close()
+	deadline, _ := ctx.Deadline()
+	if err := connection.SetDeadline(deadline); err != nil {
+		return err
+	}
 	if err := client.SetEncodings([]vnc.Encoding{&vnc.RawEncoding{}, &desktopSizeEncoding{}}); err != nil {
 		return err
 	}

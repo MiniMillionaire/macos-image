@@ -19,6 +19,10 @@ The current image definitions are:
 
 Packer installs the pinned Tart plugin with `packer init`.
 
+The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, and the Tart
+Packer plugin 1.21.0. See [Host setup](docs/host-setup.md) for the installation
+record on the macOS 27 build host.
+
 ## Local workflow
 
 Check the host and the known local vanilla image:
