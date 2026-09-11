@@ -108,6 +108,7 @@ func TestSequoiaSequence(t *testing.T) {
 		"../../data/setup-assistant-sequoia-15.json",
 		"../../data/setup-assistant-sequoia-15-resume.json",
 		"../../data/setup-assistant-sequoia-15-final.json",
+		"../../data/setup-assistant-sequoia-15-gatekeeper.json",
 	}
 	for _, path := range paths {
 		setup, err := loadSequence(path)
