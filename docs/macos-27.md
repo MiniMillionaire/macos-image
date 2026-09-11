@@ -49,6 +49,11 @@ host preferences are not changed.
 
 `sudo spctl --global-disable` returned a message requiring confirmation in
 System Settings, and `spctl --status` remained `assessments enabled`.
+The request exits with status 1 while confirmation is pending. A clean build
+exposed this because the preparation script correctly stopped on that status.
+A separate debug clone confirmed the exact output and exit code. Preparation
+now accepts only status 0 or status 1 with that exact pending-confirmation
+message; other command failures still stop the build.
 Development screenshots established the macOS 27 controls on the fixed
 2048 by 1536 framebuffer. After scrolling to the bottom of Privacy & Security,
 the application-source menu is at `(1676, 796)`. Selecting Anywhere requires

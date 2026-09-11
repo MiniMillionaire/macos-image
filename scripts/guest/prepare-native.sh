@@ -18,4 +18,10 @@ defaults write -g AppleKeyboardUIMode -int 3
 test "$(defaults read -g AppleLocale)" = en_US
 test "$(defaults read -g AppleLanguages | tr -d '[:space:](),\"')" = en-US
 test "$(defaults read com.apple.HIToolbox AppleCurrentKeyboardLayoutInputSourceID)" = com.apple.keylayout.US
-printf '%s\n' "$GUEST_PASSWORD" | sudo -S spctl --global-disable
+status=0
+output=$(printf '%s\n' "$GUEST_PASSWORD" | sudo -S -p '' spctl --global-disable 2>&1) || status=$?
+printf '%s\n' "$output"
+if [[ "$status" != 0 ]]; then
+  test "$status" = 1
+  test "$output" = 'Globally disabling the assessment system needs to be confirmed in System Settings.'
+fi
