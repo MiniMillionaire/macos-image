@@ -19,6 +19,10 @@ fi
 
 sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime 0
 defaults -currentHost write com.apple.screensaver idleTime 0
+defaults write com.apple.Accessibility AccessibilityEnabled -bool false
+defaults write com.apple.Accessibility ApplicationAccessibilityEnabled -bool false
+defaults write com.apple.universalaccess voiceOverOnOffKey -bool false
+killall VoiceOver 2>/dev/null || true
 sudo systemsetup -settimezone GMT >/dev/null 2>&1
 sudo systemsetup -setsleep Off >/dev/null 2>&1
 sudo systemsetup -setcomputersleep Off >/dev/null 2>&1
