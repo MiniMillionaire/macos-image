@@ -49,8 +49,12 @@ The native account becomes available over SSH before its initial preference
 migration finishes. A clean build's unified log showed
 `InternationalSupportMigrator` replacing the requested `en-US` with the system
 fallback list while `AppleLanguagesSchemaVersion` was 0, then setting the schema
-to 5400. Preparation now waits up to two minutes for that observed completion
-state and confirms the console user before writing the language preferences.
+to 5400. `defaults read` can return the schema value even when the user's plist
+does not exist, so it cannot establish completion. Preparation now reads the
+schema directly from the user's `.GlobalPreferences.plist`, waits up to two
+minutes for 5400, and confirms the console user before writing the language
+preferences. A fresh restore followed by the native stage and a separate reboot
+preserved `en_US`, `en-US`, and the integer U.S. keyboard entries with this check.
 
 Keyboard preferences are constructed with typed JSON through `plutil` and
 imported as a plist. OpenStep dictionary literals had stored layout ID 0 as a
@@ -79,11 +83,18 @@ The controller checks display-size metadata before input and imposes its
 existing 30-minute phase deadline. Native SSH readiness is limited to ten
 minutes, preparation to five minutes, and CLT installation to 45 minutes.
 
-The revised sequence passed through the production controller's complete VM
-start/stop path. A further reboot preserved disabled Gatekeeper, `en_US`,
+The revised sequence passed on a settled diagnostic account through the
+production controller's complete VM start/stop path. A further reboot preserved
+disabled Gatekeeper, `en_US`,
 `en-US`, automatic login, and integer U.S. layout IDs in the enabled and selected
 input-source entries. The check used no screenshots or manual repairs.
 
+After correcting the migration check, a fresh lifecycle mapping also opened
+Privacy & Security on the first URL request, exposed Anywhere at the existing
+coordinates, and completed both confirmation dialogs. Read-only SSH confirmed
+disabled assessments and the requested language and keyboard. This establishes
+the fresh UI mapping; the clean production build remains a separate check.
+
 Local mapping logs and screenshots are in `/tmp/macos-image-27-research`.
-The mapping and debug VMs were deleted at the user's request after the fixed
-sequence was verified. No host Keychain access was performed.
+Mapping and debug VMs were deleted at the user's request after their evidence
+was collected. No host Keychain access was performed.

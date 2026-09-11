@@ -8,7 +8,7 @@ test -e /var/db/.AppleSetupDone
 
 echo 'Waiting for the initial language preference migration'
 for ((attempt = 0; attempt < 60; attempt++)); do
-  schema=$(defaults read -g AppleLanguagesSchemaVersion 2>/dev/null || true)
+  schema=$(plutil -extract AppleLanguagesSchemaVersion raw "$HOME/Library/Preferences/.GlobalPreferences.plist" 2>/dev/null || true)
   [[ "$schema" == 5400 ]] && break
   sleep 2
 done
