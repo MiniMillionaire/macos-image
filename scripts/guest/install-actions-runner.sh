@@ -3,7 +3,8 @@ set -euo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 download_url=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | jq -r '.assets[] | select(.name | test("actions-runner-osx-arm64-[0-9.]+.tar.gz")) | .browser_download_url')
-[[ -n "$download_url" && "$download_url" != null ]]
+test -n "$download_url"
+test "$download_url" != null
 
 rm -rf "$HOME/actions-runner"
 mkdir -p "$HOME/actions-runner"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 actual_version=$(sw_vers -productVersion)
-[[ "$actual_version" == "$EXPECTED_VERSION" ]]
+test "$actual_version" = "$EXPECTED_VERSION"
 
 append_line() {
   local line=$1

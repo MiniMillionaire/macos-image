@@ -41,6 +41,14 @@ macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account
 
 Daily base and Xcode builds clone a validated vanilla image and use SSH only. Vanilla rebuilds are reserved for macOS restore-image changes.
 
+Guest scripts run with Apple's Bash 3.2. A failing standalone `[[ ... ]]`
+condition does not trigger `set -e` in that shell. Assertions use `test` or an
+explicit failure branch so that wrong versions and missing prerequisites stop
+the build. Validation exercises these guards with mocked system commands under
+`/bin/bash`. The Command Line Tools installer accepts both the older `Xcode-...`
+labels and current `Xcode ...` labels and rejects a missing label before calling
+the installer.
+
 ## Versioning
 
 Every restore image is pinned by version, build, and Apple CDN URL. A build fails if the installed version or build differs.

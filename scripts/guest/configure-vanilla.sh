@@ -4,8 +4,8 @@ set -euo pipefail
 actual_version=$(sw_vers -productVersion)
 actual_build=$(sw_vers -buildVersion)
 
-[[ "$actual_version" == "$EXPECTED_VERSION" ]]
-[[ "$actual_build" == "$EXPECTED_BUILD" ]]
+test "$actual_version" = "$EXPECTED_VERSION"
+test "$actual_build" = "$EXPECTED_BUILD"
 
 printf '%s\n' "$GUEST_PASSWORD" | sudo -S install -d -m 0755 /etc/sudoers.d
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$GUEST_USERNAME" | sudo tee /etc/sudoers.d/ci-user >/dev/null
@@ -27,4 +27,4 @@ sudo systemsetup -settimezone GMT >/dev/null 2>&1
 sudo systemsetup -setsleep Off >/dev/null 2>&1
 sudo systemsetup -setcomputersleep Off >/dev/null 2>&1
 gatekeeper_status=$(spctl --status 2>&1 || true)
-[[ "$gatekeeper_status" == 'assessments disabled' ]]
+test "$gatekeeper_status" = 'assessments disabled'

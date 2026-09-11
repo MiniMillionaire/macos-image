@@ -8,7 +8,9 @@ fi
 marker=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 touch "$marker"
 trap 'rm -f "$marker"' EXIT
-label=$(softwareupdate --list 2>&1 | sed -n 's/.*Label: \(Command Line Tools for Xcode-.*\)/\1/p' | tail -1)
-[[ -n "$label" ]]
+label=$(softwareupdate --list 2>&1 | sed -n 's/.*Label: \(Command Line Tools for Xcode[- ].*\)/\1/p' | tail -1)
+[[ -n "$label" ]] || { echo 'No Command Line Tools update was listed' >&2; exit 1; }
+printf 'Installing %s\n' "$label"
 sudo softwareupdate --install "$label"
 xcode-select -p
+xcrun --find clang

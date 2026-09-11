@@ -31,6 +31,6 @@ SQL
 }
 
 user_tcc="$HOME/Library/Application Support/com.apple.TCC/TCC.db"
-[[ -f "$user_tcc" ]]
+test -f "$user_tcc"
 grant_tcc "/Library/Application Support/com.apple.TCC/TCC.db"
 grant_tcc "$user_tcc"

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $(sw_vers -productVersion) == "$EXPECTED_VERSION" ]]
-[[ $(sw_vers -buildVersion) == "$EXPECTED_BUILD" ]]
-[[ $(uname -m) == arm64 ]]
+test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
+test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
+test "$(uname -m)" = arm64
 
 case "$IMAGE_PROFILE" in
   vanilla)
@@ -29,7 +29,7 @@ case "$IMAGE_PROFILE" in
     console_user=$(stat -f %Su /dev/console)
     [[ "$console_user" == "$GUEST_USERNAME" ]] || { echo "Automatic login failed: $console_user" >&2; exit 1; }
     developer_dir=$(xcode-select -p)
-    [[ -d "$developer_dir" ]]
+    test -d "$developer_dir"
     xcrun --find clang
     printf 'Verified macOS %s (%s): user=%s, full name=%s, locale=%s, language=%s, keyboard=%s, timezone=GMT, automatic login=%s, Gatekeeper=%s\n' \
       "$EXPECTED_VERSION" "$EXPECTED_BUILD" "$GUEST_USERNAME" "$real_name" "$locale" "$languages" "$keyboard_layout" "$console_user" "$gatekeeper_status"
@@ -54,7 +54,7 @@ case "$IMAGE_PROFILE" in
       );
     "
     for database in "/Library/Application Support/com.apple.TCC/TCC.db" "$HOME/Library/Application Support/com.apple.TCC/TCC.db"; do
-      [[ $(sudo sqlite3 "$database" "$tcc_query") == 2 ]]
+      test "$(sudo sqlite3 "$database" "$tcc_query")" = 2
     done
     ;;
   xcode)
