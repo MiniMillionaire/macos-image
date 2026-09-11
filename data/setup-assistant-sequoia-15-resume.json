@@ -40,8 +40,6 @@
     { "text": "${GUEST_PASSWORD}" },
     { "key": "enter" },
     { "wait": "30s" },
-    { "chord": ["command", "f5"] },
-    { "wait": "5s" },
     { "chord": ["command", "space"] },
     { "wait": "3s" },
     { "text": "Terminal" },
@@ -84,6 +82,8 @@
     { "chord": ["shift", "tab"] },
     { "key": "space" },
     { "wait": "30s" },
+    { "chord": ["command", "f5"] },
+    { "wait": "5s" },
     { "chord": ["command", "q"] },
     { "wait": "5s" }
   ]
