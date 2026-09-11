@@ -2,8 +2,9 @@
   "width": 2048,
   "height": 1536,
   "actions": [
-    { "key": "enter" },
+    { "key": "space" },
     { "wait": "30s" },
+    { "key": "home" },
     { "key": "tab" },
     { "key": "space" },
     { "wait": "35s" },

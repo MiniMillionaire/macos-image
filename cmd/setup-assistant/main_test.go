@@ -71,6 +71,16 @@ func TestMacModifierKeys(t *testing.T) {
 	}
 }
 
+func TestNavigationKeys(t *testing.T) {
+	home, err := keysym("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if home != 0xff50 {
+		t.Fatalf("unexpected Home key: %x", home)
+	}
+}
+
 func TestExpandText(t *testing.T) {
 	t.Setenv("GUEST_USERNAME", "admin")
 	t.Setenv("GUEST_PASSWORD", "secret")

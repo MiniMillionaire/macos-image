@@ -509,6 +509,7 @@ func keysym(name string) (uint32, error) {
 		"enter":   0xff0d,
 		"escape":  0xff1b,
 		"f5":      0xffc2,
+		"home":    0xff50,
 		"option":  0xffe7,
 		"shift":   0xffe1,
 		"space":   0x0020,
