@@ -41,7 +41,8 @@ macOS 27 uses `VZMacGuestProvisioningOptions` through Tart for the account,
 automatic login, and SSH. The native API leaves the guest's language and keyboard
 preferences unset, so an SSH stage explicitly selects `en_US`, `en-US`, and the
 U.S. keyboard before restarting. That stage waits for the native account's
-initial language migration to complete before writing typed preferences.
+initial language migration to complete in the actual user plist before writing
+typed preferences; a defaults query can return an inherited schema value early.
 A fixed VNC phase requests and confirms the Gatekeeper change in the same boot.
 Both macOS 26 and 27 then use the same SSH-only
 vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned RC and

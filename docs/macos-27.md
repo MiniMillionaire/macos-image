@@ -1,8 +1,49 @@
 # macOS 27
 
-The initial macOS 27.0 RC (26A428) mapping passed on September 11, 2026, on the
-macOS 27.0 (26A5425a) Apple M4 Pro host. A clean production build and independent
-clone/reboot verification are still pending.
+The clean macOS 27.0 RC (26A428) build and independent clone/reboot verification
+passed on September 11, 2026, on the macOS 27.0 (26A5425a) Apple M4 Pro host with
+24 GiB of memory. The build used revision `ac16dfd`, Tart 2.36.0, Packer 1.16.0,
+Go 1.25.0, and Tart Packer plugin 1.21.0.
+
+## Clean validation
+
+```sh
+IMAGE_CONFIG=config/macos-27.0-rc.env ./scripts/image build vanilla 90s macos-27.0-26A428-clean-e2e-20260911-04
+IMAGE_CONFIG=config/macos-27.0-rc.env ./scripts/image import vanilla macos-27.0-26A428-clean-e2e-20260911-04 macos-27.0-26A428-verify-20260911-04
+```
+
+The build completed with exit status 0 in 550 seconds. The independent clone
+verification completed with exit status 0 in 24 seconds. Both used the production
+scripts without screenshots, OCR, image interpretation, or manual repair.
+External process deadlines were two hours for the build and 15 minutes for
+verification. The verified source is stopped and retained. The temporary
+verification clone and downloaded restore cache were deleted afterward at the
+user's request; logs were retained.
+
+Local logs:
+
+- `/tmp/macos-image-27-research/clean-e2e-04.log`
+- `/tmp/macos-image-27-research/verify-04.log`
+
+| Check after clone and reboot | Verified value |
+| --- | --- |
+| macOS version and build | 27.0, 26A428 |
+| Architecture | arm64 |
+| Account and full name | admin, admin |
+| SSH development password | admin |
+| Locale and preferred language | en_US, en-US |
+| Keyboard layout | U.S. |
+| Timezone | GMT |
+| Automatic console login | admin |
+| Setup Assistant | Completed and not running |
+| VoiceOver | Not running |
+| Gatekeeper | assessments disabled |
+| Command Line Tools | Xcode 27.0, active developer directory and clang found |
+
+The installed update label was `Command Line Tools for Xcode 27.0-27.0`.
+The active developer directory was `/Library/Developer/CommandLineTools`.
+This validation covers the vanilla image; base and Xcode layers have separate
+provisioning and verification workflows.
 
 ## Restore image
 
@@ -92,8 +133,9 @@ input-source entries. The check used no screenshots or manual repairs.
 After correcting the migration check, a fresh lifecycle mapping also opened
 Privacy & Security on the first URL request, exposed Anywhere at the existing
 coordinates, and completed both confirmation dialogs. Read-only SSH confirmed
-disabled assessments and the requested language and keyboard. This establishes
-the fresh UI mapping; the clean production build remains a separate check.
+disabled assessments and the requested language and keyboard. The separate
+clean production build then passed the Gatekeeper assertion after restart,
+followed by the independent clone verification recorded above.
 
 Local mapping logs and screenshots are in `/tmp/macos-image-27-research`.
 Mapping and debug VMs were deleted at the user's request after their evidence

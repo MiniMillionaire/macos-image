@@ -16,7 +16,8 @@ clone/reboot check on the macOS 27 host. See the
 
 macOS 27 uses native guest provisioning for the account and SSH, followed by
 explicit English/U.S. configuration and a fixed Gatekeeper sequence. Its RC
-definition is under validation; see [the investigation](docs/macos-27.md).
+vanilla image also passed a clean build and independent clone/reboot check;
+see [the validation and investigation](docs/macos-27.md).
 
 ## Requirements
 
