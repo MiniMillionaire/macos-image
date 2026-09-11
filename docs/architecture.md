@@ -10,7 +10,7 @@ Checks run against disposable clones. Templates retain the recovery partition, e
 
 ## Setup Assistant
 
-macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The macOS 15 flow restarts after account creation and resumes from the terms screen. Installation finalization and boot waits are configurable for different host speeds.
+macOS 15 and 26 do not support the Virtualization framework guest provisioning API. Their vanilla images use fixed keyboard and pointer sequences for a fixed virtual display. The macOS 15 flow restarts after account creation and again after Setup Assistant completes, resetting UI focus before each phase. Installation finalization and boot waits are configurable for different host speeds.
 
 Tart receives isolated `en_US` preferences during installation and first boot. This keeps the language chooser independent of the build host's language and region without modifying the host preferences.
 

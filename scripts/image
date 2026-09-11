@@ -32,6 +32,7 @@ guest_password=${GUEST_PASSWORD:-admin}
 create_grace_time=${CREATE_GRACE_TIME:-${DEFAULT_CREATE_GRACE_TIME:-30s}}
 setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
 setup_assistant_resume_wait=${SETUP_ASSISTANT_RESUME_WAIT:-${DEFAULT_SETUP_ASSISTANT_RESUME_WAIT:-45s}}
+setup_assistant_final_wait=${SETUP_ASSISTANT_FINAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_FINAL_WAIT:-45s}}
 setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
 temporary_locale_home=
 temporary_root=${TMPDIR:-/tmp}
@@ -155,6 +156,9 @@ build_vanilla() {
     if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
       require_duration "$setup_assistant_resume_wait"
     fi
+    if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
+      require_duration "$setup_assistant_final_wait"
+    fi
     create_locale_home
     local tart_home=${TART_HOME:-$HOME/.tart}
     CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
@@ -181,6 +185,16 @@ build_vanilla() {
           --vm "$target" \
           --sequence "$SETUP_ASSISTANT_RESUME_SEQUENCE" \
           --initial-wait "$setup_assistant_resume_wait" \
+          --key-interval "$setup_assistant_key_interval"
+    fi
+    if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
+      clear_stale_control_socket "$target"
+      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+        GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+        go run ./cmd/setup-assistant \
+          --vm "$target" \
+          --sequence "$SETUP_ASSISTANT_FINAL_SEQUENCE" \
+          --initial-wait "$setup_assistant_final_wait" \
           --key-interval "$setup_assistant_key_interval"
     fi
     clear_stale_control_socket "$target"
@@ -343,6 +357,9 @@ doctor() {
     printf 'Setup Assistant initial wait: %s\n' "$setup_assistant_initial_wait"
     if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
       printf 'Setup Assistant resume wait: %s\n' "$setup_assistant_resume_wait"
+    fi
+    if [[ -n ${SETUP_ASSISTANT_FINAL_SEQUENCE:-} ]]; then
+      printf 'Setup Assistant final wait: %s\n' "$setup_assistant_final_wait"
     fi
   fi
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
