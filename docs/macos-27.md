@@ -45,15 +45,28 @@ options. The preparation script therefore explicitly writes standard English
 Installation and first boot also use an isolated English preferences directory;
 host preferences are not changed.
 
+The native account becomes available over SSH before its initial preference
+migration finishes. A clean build's unified log showed
+`InternationalSupportMigrator` replacing the requested `en-US` with the system
+fallback list while `AppleLanguagesSchemaVersion` was 0, then setting the schema
+to 5400. Preparation now waits up to two minutes for that observed completion
+state and confirms the console user before writing the language preferences.
+
+Keyboard preferences are constructed with typed JSON through `plutil` and
+imported as a plist. OpenStep dictionary literals had stored layout ID 0 as a
+string; HIToolbox later substituted ABC for the invalid enabled source.
+The new plist preserves an integer ID in every U.S. source entry.
+
 ## Gatekeeper
 
 `sudo spctl --global-disable` returned a message requiring confirmation in
 System Settings, and `spctl --status` remained `assessments enabled`.
-The request exits with status 1 while confirmation is pending. A clean build
-exposed this because the preparation script correctly stopped on that status.
-A separate debug clone confirmed the exact output and exit code. Preparation
-now accepts only status 0 or status 1 with that exact pending-confirmation
-message; other command failures still stop the build.
+The request exits with status 1 while confirmation is pending. A separate debug
+clone confirmed the exact output and exit code. Issuing the request in the
+native preparation stage was insufficient: after the clean build restarted,
+the menu had no Anywhere option. The fixed sequence now issues the request in
+Terminal immediately before opening System Settings, in the same boot as the
+confirmation. The later SSH stage requires `assessments disabled`.
 Development screenshots established the macOS 27 controls on the fixed
 2048 by 1536 framebuffer. After scrolling to the bottom of Privacy & Security,
 the application-source menu is at `(1676, 796)`. Selecting Anywhere requires
@@ -66,5 +79,11 @@ The controller checks display-size metadata before input and imposes its
 existing 30-minute phase deadline. Native SSH readiness is limited to ten
 minutes, preparation to five minutes, and CLT installation to 45 minutes.
 
+The revised sequence passed through the production controller's complete VM
+start/stop path. A further reboot preserved disabled Gatekeeper, `en_US`,
+`en-US`, automatic login, and integer U.S. layout IDs in the enabled and selected
+input-source entries. The check used no screenshots or manual repairs.
+
 Local mapping logs and screenshots are in `/tmp/macos-image-27-research`.
-The mapping VM is stopped and retained. No host Keychain access was performed.
+The mapping and debug VMs were deleted at the user's request after the fixed
+sequence was verified. No host Keychain access was performed.

@@ -16,9 +16,12 @@ IMAGE_CONFIG=config/tahoe-26.6.2.env ./scripts/image import vanilla macos-tahoe-
 ```
 
 The build completed with exit status 0 in 1,624 seconds. The clone verification
-completed with exit status 0 in 25 seconds. Both VMs are stopped and retained.
+completed with exit status 0 in 25 seconds. The source VM is stopped and retained.
+The verification clone was deleted later at the user's request, together with
+the failed builds and temporary debugging VMs. The validation logs remain.
 The build had a two-hour external process deadline; verification had a
-15-minute deadline. Existing VMs were neither overwritten nor deleted.
+15-minute deadline. The build and verification did not overwrite or delete
+existing VMs.
 
 Local logs:
 
