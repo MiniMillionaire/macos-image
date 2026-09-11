@@ -19,7 +19,7 @@ case "$IMAGE_PROFILE" in
     keyboard_layout=$(defaults export com.apple.HIToolbox - | plutil -extract AppleEnabledInputSources.0."KeyboardLayout Name" raw -)
     [[ "$keyboard_layout" == 'U.S.' ]] || { echo "Unexpected keyboard layout: $keyboard_layout" >&2; exit 1; }
     timezone=$(readlink /etc/localtime)
-    [[ "$timezone" == /var/db/timezone/zoneinfo/UTC ]] || { echo "Unexpected time zone: $timezone" >&2; exit 1; }
+    [[ "$timezone" == /var/db/timezone/zoneinfo/GMT ]] || { echo "Unexpected time zone: $timezone" >&2; exit 1; }
     if pgrep -x VoiceOver >/dev/null; then
       echo "VoiceOver is still running" >&2
       exit 1

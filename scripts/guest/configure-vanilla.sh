@@ -19,6 +19,7 @@ fi
 
 sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime 0
 defaults -currentHost write com.apple.screensaver idleTime 0
+sudo systemsetup -settimezone GMT >/dev/null
 sudo systemsetup -setsleep Off >/dev/null
 sudo systemsetup -setcomputersleep Off >/dev/null
 if ! sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"; then
