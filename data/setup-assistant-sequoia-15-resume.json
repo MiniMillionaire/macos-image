@@ -81,7 +81,7 @@
     { "wait": "10s" },
     { "chord": ["shift", "tab"] },
     { "key": "space" },
-    { "wait": "10s" },
+    { "wait": "30s" },
     { "chord": ["command", "q"] },
     { "wait": "5s" }
   ]

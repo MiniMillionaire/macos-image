@@ -21,6 +21,9 @@ sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTi
 defaults -currentHost write com.apple.screensaver idleTime 0
 sudo systemsetup -setsleep Off >/dev/null
 sudo systemsetup -setcomputersleep Off >/dev/null
-sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"
-spctl --status | grep -Fq 'assessments disabled'
-
+if ! sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"; then
+  sleep 5
+  sudo sysadminctl -screenLock off -password "$GUEST_PASSWORD"
+fi
+gatekeeper_status=$(spctl --status 2>&1 || true)
+[[ "$gatekeeper_status" == 'assessments disabled' ]]
