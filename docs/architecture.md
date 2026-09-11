@@ -37,7 +37,13 @@ payload after resizing; the controller discards those bytes without decoding,
 storing, or inspecting them. Development screen captures had hidden the
 missing size synchronization by completing it implicitly.
 
-macOS 27 supports `VZMacGuestProvisioningOptions`. Its image should pass account, automatic login, and remote login settings through Tart instead of automating Setup Assistant.
+macOS 27 uses `VZMacGuestProvisioningOptions` through Tart for the account,
+automatic login, and SSH. The native API leaves the guest's language and keyboard
+preferences unset, so an SSH stage explicitly selects `en_US`, `en-US`, and the
+U.S. keyboard before restarting. A fixed VNC phase confirms the Gatekeeper
+change in System Settings. Both macOS 26 and 27 then use the same SSH-only
+vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned RC and
+the observed native API behavior.
 
 Daily base and Xcode builds clone a validated vanilla image and use SSH only. Vanilla rebuilds are reserved for macOS restore-image changes.
 

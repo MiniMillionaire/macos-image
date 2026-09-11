@@ -30,17 +30,21 @@ variable "guest_password" {
   sensitive = true
 }
 
-source "tart-cli" "tahoe" {
+source "tart-cli" "native" {
   vm_name            = var.vm_name
   headless           = true
+  disable_vnc        = true
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"
   recovery_partition = "keep"
+  run_extra_args = [
+    "--provisioning-opts=fullName=${var.guest_username},username=${var.guest_username},password=${var.guest_password},logsInAutomatically=true,enablesRemoteLogin=true",
+  ]
 }
 
 build {
-  sources = ["source.tart-cli.tahoe"]
+  sources = ["source.tart-cli.native"]
 
   provisioner "shell" {
     timeout = "5m"
@@ -50,11 +54,6 @@ build {
       "GUEST_PASSWORD=${var.guest_password}",
       "GUEST_USERNAME=${var.guest_username}",
     ]
-    script = "scripts/guest/configure-vanilla.sh"
-  }
-
-  provisioner "shell" {
-    script  = "scripts/guest/install-command-line-tools.sh"
-    timeout = "45m"
+    script = "scripts/guest/prepare-native.sh"
   }
 }

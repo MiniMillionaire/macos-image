@@ -1,0 +1,30 @@
+{
+  "width": 2048,
+  "height": 1536,
+  "actions": [
+    {"chord": ["command", "space"]},
+    {"wait": "3s"},
+    {"text": "Terminal"},
+    {"key": "enter"},
+    {"wait": "10s"},
+    {"text": "open x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"},
+    {"key": "enter"},
+    {"wait": "20s"},
+    {"scroll": {"x": 1500, "y": 1100, "steps": -100}},
+    {"wait": "5s"},
+    {"scroll": {"x": 1500, "y": 1100, "steps": -100}},
+    {"wait": "5s"},
+    {"click": {"x": 1676, "y": 796}},
+    {"wait": "3s"},
+    {"key": "down"},
+    {"key": "enter"},
+    {"wait": "5s"},
+    {"text": "${GUEST_PASSWORD}"},
+    {"key": "enter"},
+    {"wait": "5s"},
+    {"click": {"x": 1024, "y": 954}},
+    {"wait": "10s"},
+    {"chord": ["command", "q"]},
+    {"wait": "5s"}
+  ]
+}

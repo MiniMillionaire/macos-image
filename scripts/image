@@ -184,7 +184,7 @@ build_vanilla() {
   local target=${2:-$VANILLA_VM}
   require_compatible_host
   require_new_vm "$target"
-  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     need go
     need plutil
     require_duration "$create_grace_time"
@@ -213,7 +213,16 @@ build_vanilla() {
       --memory "$((MEMORY_GB * 1024))" \
       --display 1024x768 \
       --no-display-refit
-    run_setup_phase "$target" "$SETUP_ASSISTANT_SEQUENCE" "$initial_wait"
+    if [[ -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
+      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+        packer_build "$GUEST_PROVISIONING_TEMPLATE" \
+          -var "vm_name=$target" \
+          -var "expected_version=$MACOS_VERSION" \
+          -var "expected_build=$MACOS_BUILD" \
+          -var "guest_username=$guest_username" \
+          -var "guest_password=$guest_password"
+    fi
+    run_setup_phase "$target" "${SETUP_ASSISTANT_SEQUENCE:-}" "$initial_wait"
     run_setup_phase "$target" "${SETUP_ASSISTANT_RESUME_SEQUENCE:-}" "$setup_assistant_resume_wait"
     run_setup_phase "$target" "${SETUP_ASSISTANT_USER_SEQUENCE:-}" "$setup_assistant_user_wait"
     run_setup_phase "$target" "${SETUP_ASSISTANT_FINAL_SEQUENCE:-}" "$setup_assistant_final_wait"
@@ -366,16 +375,19 @@ doctor() {
   need tart
   need packer
   need bash
-  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     need go
   fi
   [[ $(uname -m) == arm64 ]] || die "Apple silicon is required"
   require_compatible_host
   printf 'Tart: %s\n' "$(tart --version)"
   printf 'Packer: %s\n' "$(packer --version | head -1)"
-  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} ]]; then
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     printf 'Go: %s\n' "$(go version | awk '{ print $3 }')"
     printf 'Installation grace time: %s\n' "$create_grace_time"
+    if [[ -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
+      printf 'Guest provisioning: native macOS API\n'
+    fi
     printf 'Setup Assistant initial wait: %s\n' "$setup_assistant_initial_wait"
     if [[ -n ${SETUP_ASSISTANT_RESUME_SEQUENCE:-} ]]; then
       printf 'Setup Assistant resume wait: %s\n' "$setup_assistant_resume_wait"

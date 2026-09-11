@@ -8,10 +8,15 @@ The current image definitions are:
 | --- | --- | --- |
 | `sequoia-15.6.1` | macOS 15.6.1 (24G90) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
+| `macos-27.0-rc` | macOS 27.0 RC (26A428) | macOS 27 or newer |
 
 The Tahoe vanilla image has passed a clean IPSW build and an independent
 clone/reboot check on the macOS 27 host. See the
 [validation record](docs/tahoe-validation.md).
+
+macOS 27 uses native guest provisioning for the account and SSH, followed by
+explicit English/U.S. configuration and a fixed Gatekeeper sequence. Its RC
+definition is under validation; see [the investigation](docs/macos-27.md).
 
 ## Requirements
 
