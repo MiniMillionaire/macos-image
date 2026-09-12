@@ -25,46 +25,72 @@ see [the validation and investigation](docs/macos-27.md).
 - Tart 2.36 or newer
 - Packer 1.14 or newer
 - Go 1.25 or newer
+- Swift 6 or newer
 - A local Xcode XIP archive for Xcode images
 
-Packer installs the pinned Tart plugin with `packer init`.
+Packer installs the pinned Tart plugin with `packer init`. Swift Package Manager
+resolves the pinned CLI dependencies with Keychain access disabled.
 
-The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, and the Tart
-Packer plugin 1.21.0. See [Host setup](docs/host-setup.md) for the installation
-record on the macOS 27 build host.
+The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, Swift 6.2.4,
+and the Tart Packer plugin 1.21.0. See [Host setup](docs/host-setup.md) for the
+installation record on the macOS 27 build host.
+
+## Command-line interface
+
+Build the release CLI:
+
+```shell
+make cli
+```
+
+The executable is `.build/release/macos-image`. It locates the repository from
+the current directory or its ancestors. Use `--repository` when running it from
+elsewhere.
+
+```shell
+.build/release/macos-image --help
+.build/release/macos-image doctor
+.build/release/macos-image doctor --config config/tahoe-26.6.2.env
+```
+
+The Swift package exposes `MacOSImageCore` separately from the executable so a
+future SwiftUI application can use the same operation model and process runner.
+The CLI currently delegates execution to the proven `scripts/image` backend.
+That script remains available as a compatibility entry point while orchestration
+moves into the shared Swift core.
 
 ## Local workflow
 
 Check the host and the known local vanilla image:
 
 ```shell
-./scripts/image doctor
-./scripts/image test sequoia-vanilla vanilla
+.build/release/macos-image doctor
+.build/release/macos-image test sequoia-vanilla --profile vanilla
 ```
 
 Import the existing local macOS 15.6.1 image into the versioned image set, then build a base image from it:
 
 ```shell
-./scripts/image import vanilla sequoia-vanilla
-./scripts/image build base
+.build/release/macos-image import vanilla --source sequoia-vanilla
+.build/release/macos-image build base
 ```
 
 The result is `macos-sequoia-15.6.1-base`. A failed provisioning stage leaves the VM in place so it can be inspected and resumed:
 
 ```shell
-./scripts/image provision base macos-sequoia-15.6.1-base
+.build/release/macos-image provision base macos-sequoia-15.6.1-base
 ```
 
 Build the vanilla image from its pinned Apple IPSW:
 
 ```shell
-./scripts/image build vanilla
+.build/release/macos-image build vanilla
 ```
 
 The build waits 30 seconds after Tart reports installation complete, 90 seconds before the initial and post-Setup phases, and 45 seconds before resuming Setup Assistant. All waits are configurable:
 
 ```shell
-CREATE_GRACE_TIME=60s SETUP_ASSISTANT_INITIAL_WAIT=120s SETUP_ASSISTANT_RESUME_WAIT=60s SETUP_ASSISTANT_FINAL_WAIT=120s SETUP_ASSISTANT_GATEKEEPER_WAIT=120s ./scripts/image build vanilla
+CREATE_GRACE_TIME=60s SETUP_ASSISTANT_INITIAL_WAIT=120s SETUP_ASSISTANT_RESUME_WAIT=60s SETUP_ASSISTANT_FINAL_WAIT=120s SETUP_ASSISTANT_GATEKEEPER_WAIT=120s .build/release/macos-image build vanilla
 ```
 
 Use a shorter wait only after validating it on the build host.
@@ -77,19 +103,19 @@ and have a 30-minute deadline per phase.
 An optional target name preserves an existing image while testing a fresh build:
 
 ```shell
-./scripts/image build vanilla 90s macos-sequoia-15.6.1-test
+.build/release/macos-image build vanilla --initial-wait 90s --target macos-sequoia-15.6.1-test
 ```
 
 Place Xcode at `~/XcodesCache/Xcode_<version>.xip`, then run:
 
 ```shell
-./scripts/image build xcode 16.4
+.build/release/macos-image build xcode 16.4
 ```
 
 Select another image definition with `IMAGE_CONFIG`:
 
 ```shell
-IMAGE_CONFIG=config/tahoe-26.6.2.env ./scripts/image doctor
+.build/release/macos-image doctor --config config/tahoe-26.6.2.env
 ```
 
 ## Registry workflow
@@ -101,8 +127,8 @@ If `TART_REGISTRY_HOSTNAME` is set, it must match the registry host. This preven
 fallback to host credential stores. Automatic Tart cache pruning is disabled.
 
 ```shell
-REGISTRY=ghcr.io/example ./scripts/image pull base 15.6.1
-REGISTRY=ghcr.io/example ./scripts/image push base 15.6.1
+REGISTRY=ghcr.io/example .build/release/macos-image pull base --tag 15.6.1
+REGISTRY=ghcr.io/example .build/release/macos-image push base --tag 15.6.1
 ```
 
 Images use immutable macOS version tags. Mutable tags are added only by the release workflow.

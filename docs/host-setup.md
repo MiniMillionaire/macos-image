@@ -14,6 +14,9 @@ was checked against the publisher's SHA-256 value before extraction.
 | Packer | 1.16.0 | `6530042cf8f8a1f96b6607cb22b5be298be53b400cd4a2c81ab8b946964fccda` |
 | Go | 1.25.0 | `544932844156d8172f7a28f77f2ac9c15a23046698b6243f633b0a0b00c0749c` |
 
+The installed Xcode command line tools provide Swift 6.2.4 for building the
+compiled CLI.
+
 Release metadata: [Tart](https://github.com/cirruslabs/tart/releases/tag/2.36.0),
 [Packer checksums](https://releases.hashicorp.com/packer/1.16.0/packer_1.16.0_SHA256SUMS),
 and [Go archives](https://go.dev/dl/#go1.25.0).
@@ -29,8 +32,10 @@ Check the installation with:
 tart --version
 packer --version
 go version
-IMAGE_CONFIG=config/tahoe-26.6.2.env ./scripts/image doctor
-./scripts/image validate
+xcrun swift --version
+make cli
+.build/release/macos-image doctor --config config/tahoe-26.6.2.env
+.build/release/macos-image validate
 packer fmt -check -recursive .
 go test ./...
 git diff --check

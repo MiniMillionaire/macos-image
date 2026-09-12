@@ -1,5 +1,19 @@
 # Architecture
 
+## Host interface
+
+The primary host interface is the compiled Swift `macos-image` command. The
+Swift package separates the executable from `MacOSImageCore`, which owns the
+typed operation model, repository discovery, and subprocess lifecycle. This
+keeps command parsing out of the build logic and allows a future SwiftUI target
+to consume the same core.
+
+The Swift CLI currently delegates operations to `scripts/image`. The shell
+backend retains the validated Tart, Packer, and VNC sequencing behavior while
+the host orchestration migrates incrementally. The Go VNC controller is also
+kept intact until a replacement passes the same version-pinned clean builds and
+independent reboot checks.
+
 ## Build flow
 
 Tart creates the VM from a pinned Apple restore image. A small VNC controller completes Setup Assistant, then Packer owns SSH provisioning and validation. This separates version-specific screen input from the repeatable provisioning stages.
