@@ -369,6 +369,8 @@ validate() {
   done
   /bin/bash "$root_dir/tests/guest-scripts.sh"
   go test ./...
+  xcrun swift format lint --recursive Package.swift Sources tests/MacOSImageCoreTests
+  xcrun swift test --disable-keychain
 }
 
 doctor() {
@@ -408,7 +410,7 @@ doctor() {
   elif [[ -n "$registry" ]]; then
     printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$MACOS_VERSION")"
   else
-    printf 'No local vanilla source found; build one with scripts/image build vanilla\n'
+    printf 'No local vanilla source found; build one with macos-image build vanilla\n'
   fi
 }
 

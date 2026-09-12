@@ -1,32 +1,40 @@
 IMAGE_CONFIG ?= config/sequoia-15.6.1.env
+PROFILE ?= base
+SWIFT ?= xcrun swift
+CLI = .build/release/macos-image
 
-.PHONY: doctor validate vanilla base xcode test pull push
+.PHONY: cli cli-test doctor validate vanilla base xcode test pull push
 
-doctor:
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image doctor
+cli:
+	$(SWIFT) build --disable-keychain -c release --product macos-image
 
-validate:
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image validate
+cli-test:
+	$(SWIFT) test --disable-keychain
 
-vanilla:
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image build vanilla
+doctor: cli
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) doctor
 
-base:
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image build base
+validate: cli
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) validate
 
-xcode:
+vanilla: cli
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) build vanilla
+
+base: cli
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) build base
+
+xcode: cli
 	@test -n "$(XCODE_VERSION)" || (echo "XCODE_VERSION is required" >&2; exit 1)
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image build xcode "$(XCODE_VERSION)"
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) build xcode "$(XCODE_VERSION)"
 
-test:
+test: cli
 	@test -n "$(VM)" || (echo "VM is required" >&2; exit 1)
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image test "$(VM)" "$(PROFILE)"
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) test "$(VM)" --profile "$(PROFILE)"
 
-pull:
+pull: cli
 	@test -n "$(VARIANT)" || (echo "VARIANT is required" >&2; exit 1)
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image pull "$(VARIANT)" "$(TAG)"
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) pull "$(VARIANT)" $(if $(TAG),--tag "$(TAG)")
 
-push:
+push: cli
 	@test -n "$(VARIANT)" || (echo "VARIANT is required" >&2; exit 1)
-	IMAGE_CONFIG=$(IMAGE_CONFIG) ./scripts/image push "$(VARIANT)" "$(TAG)"
-
+	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) push "$(VARIANT)" $(if $(TAG),--tag "$(TAG)")
