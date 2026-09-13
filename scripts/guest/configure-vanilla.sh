@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'printf "Guest configuration failed at line %s (exit %s)\n" "$LINENO" "$?" >&2' ERR
 
 actual_version=$(sw_vers -productVersion)
 actual_build=$(sw_vers -buildVersion)
@@ -27,4 +28,7 @@ sudo systemsetup -settimezone GMT >/dev/null 2>&1
 sudo systemsetup -setsleep Off >/dev/null 2>&1
 sudo systemsetup -setcomputersleep Off >/dev/null 2>&1
 gatekeeper_status=$(spctl --status 2>&1 || true)
-test "$gatekeeper_status" = 'assessments disabled'
+if [ "$gatekeeper_status" != 'assessments disabled' ]; then
+  printf 'Unexpected Gatekeeper status: %s\n' "$gatekeeper_status" >&2
+  exit 1
+fi
