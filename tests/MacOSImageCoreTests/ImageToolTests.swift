@@ -9,7 +9,7 @@ final class ImageToolTests: XCTestCase {
     let repository = URL(fileURLWithPath: "/repository")
     let tool = ImageTool(
       repositoryURL: repository,
-      environment: ["EXISTING": "value"],
+      environment: ["EXISTING": "value", "PACKER_CONFIG": "/tmp/unsafe.json"],
       runner: runner
     )
 
@@ -25,6 +25,7 @@ final class ImageToolTests: XCTestCase {
     XCTAssertEqual(invocation.arguments, ["build", "vanilla", "90s", "guest"])
     XCTAssertEqual(invocation.environment["EXISTING"], "value")
     XCTAssertEqual(invocation.environment["IMAGE_CONFIG"], "config/test.env")
+    XCTAssertEqual(invocation.environment["PACKER_CONFIG"], "/repository/config/packer.json")
     XCTAssertEqual(invocation.currentDirectoryURL.path, "/repository")
   }
 }

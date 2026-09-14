@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+config=${IMAGE_CONFIG:-config/sequoia-15.6.1.env}
+[[ "$config" == /* ]] || config="$root_dir/$config"
+# shellcheck disable=SC1090
+source "$config"
+
+helper=${ARTIFACT_HELPER:-$root_dir/.build/tools/image-artifact}
+oras=${ORAS:-oras}
+ca=${IMAGE_CACERT:-/opt/homebrew/etc/openssl@3/cert.pem}
+credentials=
+temporary=
+
+cleanup() {
+  [[ -z "$credentials" ]] || rm -rf -- "$credentials"
+  [[ -z "$temporary" ]] || rm -rf -- "$temporary"
+}
+trap cleanup EXIT
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+require_tools() {
+  [[ -x "$helper" ]] || fail 'Run make artifact-helper first'
+  command -v "$oras" >/dev/null || fail 'ORAS 1.3.0 is required'
+  [[ -f "$ca" ]] || fail 'IMAGE_CACERT must name a PEM certificate bundle'
+  credentials=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-registry.XXXXXX")
+  printf '{}\n' > "$credentials/config.json"
+}
+
+reference_host() {
+  [[ "$1" =~ ^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+(:[A-Za-z0-9._-]+|@sha256:[0-9a-f]{64})$ ]] ||
+    fail 'A complete OCI reference is required'
+  printf '%s\n' "${1%%/*}"
+}
+
+login() {
+  local host
+  host=$(reference_host "$1")
+  [[ ${TART_REGISTRY_HOSTNAME:-} == "$host" ]] || fail 'TART_REGISTRY_HOSTNAME must match the reference'
+  [[ -n ${TART_REGISTRY_USERNAME:-} && -n ${TART_REGISTRY_PASSWORD:-} ]] || fail 'Explicit registry credentials are required'
+  local username=$TART_REGISTRY_USERNAME
+  local password=$TART_REGISTRY_PASSWORD
+  unset TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD GH_TOKEN GITHUB_TOKEN
+  printf '%s' "$password" | "$helper" run --timeout 60 -- "$oras" login "$host" \
+    --username "$username" --password-stdin --registry-config "$credentials/config.json" --ca-file "$ca" >&2
+}
+
+resolve() {
+  "$helper" run --timeout 60 -- "$oras" resolve --registry-config "$credentials/config.json" --ca-file "$ca" "$1"
+}
+
+check() {
+  local reference=$1 expected=${2:-} digest
+  reference_host "$reference" >/dev/null
+  [[ -z "$expected" || "$expected" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid expected manifest digest'
+  if digest=$(resolve "$reference" 2> "$credentials/resolve.log"); then
+    [[ -n "$expected" && "$digest" == "$expected" ]] || fail "Image already exists: $reference"
+    printf 'present\n'
+  elif grep -Eq 'MANIFEST_UNKNOWN|NAME_UNKNOWN|: not found$' "$credentials/resolve.log"; then
+    printf 'absent\n'
+  else
+    cat "$credentials/resolve.log" >&2
+    fail 'Could not establish whether the image exists'
+  fi
+}
+
+require_image_reference() {
+  local reference=$1 variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
+  [[ "$variant" != xcode ]] || variant="xcode-${XCODE_VERSION:?}"
+  local suffix="/macos-$MACOS_FAMILY-$variant:$MACOS_VERSION-$MACOS_BUILD-v$IMAGE_VERSION"
+  [[ "$reference" == *"$suffix" ]] || fail 'Reference does not match the configured image identity'
+}
+
+prepare() {
+  local vm=$1 reference=$2 layout=$3 revision source variant
+  reference_host "$reference" >/dev/null
+  require_image_reference "$reference"
+  revision=${IMAGE_REVISION:-$(git -C "$root_dir" rev-parse HEAD)}
+  [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || fail 'A source commit is required'
+  [[ -z $(git -C "$root_dir" status --porcelain --untracked-files=normal) ]] || fail 'Publication requires a clean worktree'
+  source=${IMAGE_SOURCE:-https://github.com/MiniMillionaire/macos-image}
+  variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
+  local options=()
+  [[ "$variant" != xcode ]] || options+=(--xcode-version "${XCODE_VERSION:?}")
+  env -u GH_TOKEN -u GITHUB_TOKEN -u TART_REGISTRY_PASSWORD -u TART_REGISTRY_USERNAME \
+    "$helper" export --vm "$vm" --layout "$layout" --revision "$revision" --version "$IMAGE_VERSION" \
+    --macos-version "$MACOS_VERSION" --macos-build "$MACOS_BUILD" --variant "$variant" \
+    --source "$source" "${options[@]}"
+}
+
+require_layout_identity() {
+  local layout=$1 version=$2
+  "$helper" inspect --layout "$layout" > "$credentials/image.json"
+  jq -e --arg version "$version" --arg os "$MACOS_VERSION" --arg build "$MACOS_BUILD" \
+    --arg variant "$IMAGE_VARIANT" --arg xcode "${XCODE_VERSION:-}" '
+    .image_version == $version and .macos_version == $os and .macos_build == $build and
+    .variant == $variant and .xcode_version == $xcode and (.revision | test("^[0-9a-f]{40}$"))
+  ' "$credentials/image.json" >/dev/null || fail 'Layout does not match the selected image'
+}
+
+upload() {
+  local layout=$1 reference=$2 digest state
+  require_image_reference "$reference"
+  require_layout_identity "$layout" "$IMAGE_VERSION"
+  digest=$(jq -er .manifest_digest "$credentials/image.json")
+  state=$(check "$reference" "$digest")
+  if [[ "$state" == absent ]]; then
+    "$helper" run --timeout 2700 -- "$oras" cp --from-oci-layout "$layout:image" "$reference" \
+      --to-registry-config "$credentials/config.json" --to-ca-file "$ca" --concurrency 2 --no-tty >&2
+  fi
+  [[ $(resolve "$reference") == "$digest" ]] || fail 'Uploaded manifest digest does not match'
+}
+
+download() {
+  local reference=$1 layout=$2 digest actual
+  reference_host "$reference" >/dev/null
+  [[ ! -e "$layout" && ! -L "$layout" ]] || fail "Destination already exists: $layout"
+  digest=$(resolve "$reference")
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid remote manifest digest'
+  local repository=${reference%@*}
+  repository=${repository%:*}
+  if [[ "$reference" == *@* ]]; then repository=${reference%@*}; fi
+  "$helper" run --timeout 2700 -- "$oras" cp "$repository@$digest" "$layout:image" \
+    --to-oci-layout --from-registry-config "$credentials/config.json" --from-ca-file "$ca" --concurrency 2 --no-tty >&2
+  actual=$("$helper" inspect --layout "$layout" | jq -er .manifest_digest)
+  [[ "$actual" == "$digest" ]] || fail 'Downloaded manifest digest does not match'
+}
+
+command=${1:-}
+shift || true
+case "$command" in
+  prepare)
+    [[ $# == 3 ]] || fail 'Usage: registry prepare VM REFERENCE LAYOUT'
+    prepare "$@"
+    ;;
+  check)
+    [[ $# == 1 || $# == 2 ]] || fail 'Usage: registry check REFERENCE [EXPECTED_DIGEST]'
+    require_tools
+    if [[ -n ${TART_REGISTRY_PASSWORD:-} ]]; then
+      login "$1"
+    else
+      unset TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD GH_TOKEN GITHUB_TOKEN
+    fi
+    check "$@"
+    ;;
+  upload)
+    [[ $# == 2 ]] || fail 'Usage: registry upload LAYOUT REFERENCE'
+    require_tools
+    login "$2"
+    upload "$@"
+    ;;
+  download)
+    [[ $# == 2 ]] || fail 'Usage: registry download REFERENCE LAYOUT'
+    require_tools
+    unset TART_REGISTRY_PASSWORD TART_REGISTRY_USERNAME GH_TOKEN GITHUB_TOKEN
+    download "$@"
+    ;;
+  pull)
+    [[ $# == 2 || $# == 3 ]] || fail 'Usage: registry pull REFERENCE VM [LAYOUT]'
+    require_tools
+    unset TART_REGISTRY_PASSWORD TART_REGISTRY_USERNAME GH_TOKEN GITHUB_TOKEN
+    temporary=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-pull.XXXXXX")
+    layout=${3:-$temporary/layout}
+    version=$IMAGE_VERSION
+    if [[ "$1" != *@* ]]; then
+      tag=${1##*:}
+      prefix="$MACOS_VERSION-$MACOS_BUILD-v"
+      [[ "$tag" == "$prefix"* ]] || fail 'Tag does not match the selected macOS build'
+      version=${tag#"$prefix"}
+    fi
+    [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail 'Invalid image version'
+    download "$1" "$layout"
+    require_layout_identity "$layout" "$version"
+    "$helper" import --layout "$layout" --vm "$2"
+    ;;
+  push)
+    [[ $# == 2 ]] || fail 'Usage: registry push VM REFERENCE'
+    require_tools
+    login "$2"
+    check "$2" >/dev/null
+    temporary=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-push.XXXXXX")
+    prepare "$1" "$2" "$temporary/layout"
+    upload "$temporary/layout" "$2"
+    ;;
+  *) fail 'Usage: registry <check|prepare|upload|download|pull|push> ...' ;;
+esac

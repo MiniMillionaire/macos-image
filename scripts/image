@@ -4,6 +4,10 @@ export TART_NO_AUTO_PRUNE=1
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config_path=${IMAGE_CONFIG:-config/sequoia-15.6.1.env}
+export PACKER_CONFIG="$root_dir/config/packer.json"
+[[ -f "$PACKER_CONFIG" ]] || { echo "Packer configuration not found: $PACKER_CONFIG" >&2; exit 1; }
+
+source "$root_dir/config/toolchain.env"
 
 if [[ "$config_path" != /* ]]; then
   config_path="$root_dir/$config_path"
@@ -15,7 +19,11 @@ source "$config_path"
 : "${MACOS_FAMILY:?}"
 : "${MACOS_VERSION:?}"
 : "${MACOS_BUILD:?}"
+: "${IMAGE_VERSION:?}"
+: "${IMAGE_PRERELEASE:?}"
 : "${IPSW_URL:?}"
+: "${IPSW_SIZE:?}"
+: "${IPSW_SHA256:?}"
 : "${VANILLA_TEMPLATE:?}"
 : "${DISABLE_SIP_TEMPLATE:?}"
 : "${LOCAL_VANILLA_SOURCE:?}"
@@ -27,9 +35,23 @@ source "$config_path"
 : "${MINIMUM_HOST_MAJOR:?}"
 
 registry=${REGISTRY:-}
+registry=${registry%/}
 xcode_cache=${XCODE_CACHE:-$HOME/XcodesCache}
 guest_username=${GUEST_USERNAME:-admin}
 guest_password=${GUEST_PASSWORD:-admin}
+artifact_helper=${ARTIFACT_HELPER:-$root_dir/.build/tools/image-artifact}
+registry_helper=${REGISTRY_HELPER:-$root_dir/scripts/registry}
+image_cacert=${IMAGE_CACERT:-/opt/homebrew/etc/openssl@3/cert.pem}
+ipsw_cache_dir=${IPSW_CACHE_DIR:-${TART_HOME:-$HOME/.tart}/cache/macos-image/ipsw}
+ipsw_path_override=${IPSW_PATH:-}
+packer_check_timeout_seconds=${PACKER_CHECK_TIMEOUT_SECONDS:-600}
+packer_build_timeout_seconds=${PACKER_BUILD_TIMEOUT_SECONDS:-14400}
+ipsw_fetch_timeout_seconds=${IPSW_FETCH_TIMEOUT_SECONDS:-14400}
+tart_create_timeout_seconds=${TART_CREATE_TIMEOUT_SECONDS:-14400}
+tart_clone_timeout_seconds=${TART_CLONE_TIMEOUT_SECONDS:-3600}
+tart_operation_timeout_seconds=${TART_OPERATION_TIMEOUT_SECONDS:-600}
+setup_assistant_timeout_seconds=${SETUP_ASSISTANT_TIMEOUT_SECONDS:-2100}
+registry_timeout_seconds=${REGISTRY_TIMEOUT_SECONDS:-14400}
 create_grace_time=${CREATE_GRACE_TIME:-${DEFAULT_CREATE_GRACE_TIME:-30s}}
 setup_assistant_initial_wait=${SETUP_ASSISTANT_INITIAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_INITIAL_WAIT:-90s}}
 setup_assistant_resume_wait=${SETUP_ASSISTANT_RESUME_WAIT:-${DEFAULT_SETUP_ASSISTANT_RESUME_WAIT:-45s}}
@@ -38,8 +60,12 @@ setup_assistant_final_wait=${SETUP_ASSISTANT_FINAL_WAIT:-${DEFAULT_SETUP_ASSISTA
 setup_assistant_gatekeeper_wait=${SETUP_ASSISTANT_GATEKEEPER_WAIT:-${DEFAULT_SETUP_ASSISTANT_GATEKEEPER_WAIT:-90s}}
 setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
 temporary_locale_home=
+active_pid=
+verification_vm=
+packer_plugin_checked=false
 temporary_root=${TMPDIR:-/tmp}
 temporary_root=${temporary_root%/}
+[[ -n "$temporary_root" ]] || temporary_root=/
 
 cleanup_locale_home() {
   [[ -n "$temporary_locale_home" ]] || return 0
@@ -47,15 +73,187 @@ cleanup_locale_home() {
   rm -rf -- "$temporary_locale_home"
 }
 
-trap cleanup_locale_home EXIT
+cleanup() {
+  local exit_code=$?
+  local cleanup_status=0
+  local vm=$verification_vm
+  trap - EXIT
+  verification_vm=
+  set +e
+  if [[ -n "$vm" ]]; then
+    echo "Deleting verification VM after interruption: $vm" >&2
+    delete_test_vm "$vm"
+    cleanup_status=$?
+  fi
+  cleanup_locale_home || cleanup_status=$?
+  if (( exit_code == 0 && cleanup_status != 0 )); then
+    exit_code=$cleanup_status
+  fi
+  exit "$exit_code"
+}
+
+trap cleanup EXIT
+
+forward_signal() {
+  local signal=$1
+  [[ -n "$active_pid" ]] || return 0
+  kill -s "$signal" "$active_pid" 2>/dev/null || true
+}
+
+trap 'forward_signal INT' INT
+trap 'forward_signal TERM' TERM
 
 die() {
   echo "$*" >&2
   exit 1
 }
 
+is_canonical_image_version() {
+  [[ "$1" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]
+}
+
+is_numeric_version() {
+  [[ "$1" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*))*$ ]]
+}
+
+validate_configuration() {
+  is_canonical_image_version "$IMAGE_VERSION" || die "Invalid image version: $IMAGE_VERSION"
+  [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] ||
+    die "Invalid prerelease value: $IMAGE_PRERELEASE"
+  [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
+  [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "Invalid IPSW SHA-256: $IPSW_SHA256"
+}
+
 need() {
   command -v "$1" >/dev/null || die "Missing required command: $1"
+}
+
+ensure_artifact_helper() {
+  if [[ ! -x "$artifact_helper" ]]; then
+    need go
+    mkdir -p "$(dirname "$artifact_helper")"
+    go build -trimpath -o "$artifact_helper" ./cmd/image-artifact
+  fi
+}
+
+run_bounded() {
+  local timeout_seconds=$1
+  local child_pid
+  local status
+  shift
+  [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || die "Invalid timeout: $timeout_seconds"
+  ensure_artifact_helper
+  "$artifact_helper" run --timeout "$timeout_seconds" -- "$@" &
+  active_pid=$!
+  child_pid=$active_pid
+  while true; do
+    if wait "$child_pid"; then
+      status=0
+    else
+      status=$?
+    fi
+    kill -0 "$child_pid" 2>/dev/null || break
+  done
+  active_pid=
+  return "$status"
+}
+
+capture_bounded() {
+  local timeout_seconds=$1
+  local output_file
+  local status
+  shift
+  output_file=$(mktemp "$temporary_root/macos-image-command.XXXXXX")
+  if run_bounded "$timeout_seconds" "$@" > "$output_file" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  bounded_output=$(<"$output_file")
+  rm -f -- "$output_file"
+  return "$status"
+}
+
+version_is_at_least() {
+  awk -v actual="$1" -v minimum="$2" 'BEGIN {
+    split(actual, a, ".")
+    split(minimum, m, ".")
+    for (i = 1; i <= 3; i++) {
+      av = a[i] + 0
+      mv = m[i] + 0
+      if (av > mv) exit 0
+      if (av < mv) exit 1
+    }
+    exit 0
+  }'
+}
+
+check_tool_version() {
+  local name=$1
+  local actual=$2
+  local pinned=$3
+  local minimum=$4
+  local strict=$5
+  [[ "$actual" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || die "Could not parse $name version: $actual"
+  if [[ "$strict" == true ]]; then
+    [[ "$actual" == "$pinned" ]] || die "$name $pinned is required in CI; found $actual"
+  else
+    version_is_at_least "$actual" "$minimum" || die "$name $minimum or newer is required; found $actual"
+  fi
+}
+
+verify_plugin_pin() {
+  local template
+  for template in "$root_dir"/templates/*.pkr.hcl; do
+    grep -Fq "version = \"= $PACKER_TART_PLUGIN_VERSION\"" "$template" ||
+      die "Tart Packer plugin $PACKER_TART_PLUGIN_VERSION must be pinned in $template"
+  done
+}
+
+require_installed_packer_plugin() {
+  local version_pattern=${PACKER_TART_PLUGIN_VERSION//./\\.}
+  [[ "$packer_plugin_checked" == false ]] || return 0
+  if ! capture_bounded 30 packer plugins installed; then
+    printf '%s\n' "$bounded_output" >&2
+    die 'Could not inspect installed Packer plugins'
+  fi
+  grep -F 'github.com/cirruslabs/tart' <<<"$bounded_output" |
+    grep -Eq "(^|[^0-9.])v?$version_pattern([^0-9.]|$)" ||
+    die "Tart Packer plugin $PACKER_TART_PLUGIN_VERSION is not installed"
+  packer_plugin_checked=true
+}
+
+verify_toolchain() {
+  local strict=$1
+  local output
+  need tart
+  need packer
+  need go
+  need xcrun
+
+  capture_bounded 30 tart --version || die 'Could not read the Tart version'
+  output=$bounded_output
+  actual_tart_version=$(awk 'NR == 1 { print $NF }' <<<"$output")
+  actual_tart_version=${actual_tart_version##* }
+  actual_tart_version=${actual_tart_version#v}
+  capture_bounded 30 packer --version || die 'Could not read the Packer version'
+  output=$bounded_output
+  actual_packer_version=$(awk 'NR == 1 { print $NF }' <<<"$output")
+  actual_packer_version=${actual_packer_version#v}
+  capture_bounded 30 go version || die 'Could not read the Go version'
+  output=$bounded_output
+  actual_go_version=$(awk '{ print $3 }' <<<"$output")
+  actual_go_version=${actual_go_version#go}
+  capture_bounded 30 xcrun swift --version || die 'Could not read the Swift version'
+  output=$bounded_output
+  actual_swift_version=$(sed -n '1s/.*[Vv]ersion[[:space:]]*\([0-9][0-9.]*\).*/\1/p' <<<"$output")
+
+  check_tool_version Tart "$actual_tart_version" "$TART_VERSION" "$TART_MINIMUM_VERSION" "$strict"
+  check_tool_version Packer "$actual_packer_version" "$PACKER_VERSION" "$PACKER_MINIMUM_VERSION" "$strict"
+  check_tool_version Go "$actual_go_version" "$GO_VERSION" "$GO_MINIMUM_VERSION" "$strict"
+  check_tool_version Swift "$actual_swift_version" "$SWIFT_VERSION" "$SWIFT_MINIMUM_VERSION" "$strict"
+  verify_plugin_pin
+  require_installed_packer_plugin
 }
 
 vm_exists() {
@@ -68,11 +266,13 @@ require_new_vm() {
   fi
 }
 
-require_registry_credentials() {
+require_registry_push_credentials() {
   local reference=$1
   [[ -n ${TART_REGISTRY_USERNAME:-} && -n ${TART_REGISTRY_PASSWORD:-} ]] ||
-    die 'Registry operations require TART_REGISTRY_USERNAME and TART_REGISTRY_PASSWORD; host credential stores are never used'
-  if [[ ${TART_REGISTRY_HOSTNAME+x} == x && ${TART_REGISTRY_HOSTNAME:-} != "${reference%%/*}" ]]; then
+    die 'Registry pushes require TART_REGISTRY_USERNAME and TART_REGISTRY_PASSWORD; host credential stores are never used'
+  [[ -n ${TART_REGISTRY_HOSTNAME:-} ]] ||
+    die 'Registry pushes require TART_REGISTRY_HOSTNAME'
+  if [[ ${TART_REGISTRY_HOSTNAME:-} != "${reference%%/*}" ]]; then
     die 'TART_REGISTRY_HOSTNAME does not match the requested registry'
   fi
 }
@@ -80,11 +280,13 @@ require_registry_credentials() {
 clone_vm() {
   local source=$1
   local target=$2
+  local variant=$3
   require_new_vm "$target"
   if [[ "$source" == */* ]]; then
-    require_registry_credentials "$source"
+    registry_pull "$variant" "$source" "$target"
+  else
+    run_bounded "$tart_clone_timeout_seconds" tart clone "$source" "$target"
   fi
-  tart clone "$source" "$target"
 }
 
 clear_stale_control_socket() {
@@ -110,6 +312,10 @@ require_duration() {
   [[ "$1" =~ ^([0-9]+([.][0-9]+)?(ns|us|µs|ms|s|m|h))+$ ]] || die "Invalid duration: $1"
 }
 
+require_ca_file() {
+  [[ -f "$image_cacert" && -r "$image_cacert" ]] || die "CA certificate bundle not found: $image_cacert"
+}
+
 create_locale_home() {
   local preferences
   temporary_locale_home=$(mktemp -d "$temporary_root/macos-image-locale.XXXXXX")
@@ -120,11 +326,71 @@ create_locale_home() {
   plutil -insert AppleLanguages -json '["en-US"]' "$preferences"
 }
 
+require_xcode_version() {
+  [[ -n ${XCODE_VERSION:-} ]] || die 'XCODE_VERSION is required for Xcode registry operations'
+  is_numeric_version "$XCODE_VERSION" || die "Invalid Xcode version: $XCODE_VERSION"
+}
+
+default_tag() {
+  printf '%s-%s-v%s\n' "$MACOS_VERSION" "$MACOS_BUILD" "$IMAGE_VERSION"
+}
+
+require_image_tag() {
+  local tag=$1
+  local prefix="$MACOS_VERSION-$MACOS_BUILD-v"
+  local version
+  [[ "$tag" == "$prefix"* ]] || die "Invalid image tag: $tag"
+  version=${tag#"$prefix"}
+  is_canonical_image_version "$version" || die "Invalid image tag: $tag"
+}
+
 remote_ref() {
   local variant=$1
   local tag=$2
+  local package_variant=$variant
   [[ -n "$registry" ]] || die "REGISTRY is required for registry operations"
-  printf '%s/macos-%s-%s:%s\n' "$registry" "$MACOS_FAMILY" "$variant" "$tag"
+  if [[ "$variant" == xcode ]]; then
+    require_xcode_version
+    package_variant="xcode-$XCODE_VERSION"
+  fi
+  printf '%s/macos-%s-%s:%s\n' "$registry" "$MACOS_FAMILY" "$package_variant" "$tag"
+}
+
+local_vm_for_variant() {
+  case "$1" in
+    vanilla) printf '%s\n' "$VANILLA_VM" ;;
+    base) printf '%s\n' "$BASE_VM" ;;
+    xcode)
+      require_xcode_version
+      printf 'macos-%s-%s-xcode-%s\n' "$MACOS_FAMILY" "$MACOS_VERSION" "$XCODE_VERSION"
+      ;;
+    *) die "Unknown image variant: $1" ;;
+  esac
+}
+
+registry_command() {
+  local variant=$1
+  shift
+  [[ -x "$registry_helper" ]] || die "Registry helper not found or not executable: $registry_helper"
+  run_bounded "$registry_timeout_seconds" env \
+    IMAGE_CONFIG="$config_path" \
+    IMAGE_VERSION="$IMAGE_VERSION" \
+    IMAGE_PRERELEASE="$IMAGE_PRERELEASE" \
+    MACOS_VERSION="$MACOS_VERSION" \
+    MACOS_BUILD="$MACOS_BUILD" \
+    MACOS_FAMILY="$MACOS_FAMILY" \
+    IMAGE_VARIANT="$variant" \
+    XCODE_VERSION="${XCODE_VERSION:-}" \
+    IMAGE_REVISION="${IMAGE_REVISION:-}" \
+    "$registry_helper" "$@"
+}
+
+registry_pull() {
+  local variant=$1
+  local reference=$2
+  local target=$3
+  require_new_vm "$target"
+  registry_command "$variant" pull "$reference" "$target"
 }
 
 default_source() {
@@ -136,7 +402,7 @@ default_source() {
   elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
     printf '%s\n' "$BASE_VM"
   else
-    remote_ref "$variant" "$MACOS_VERSION"
+    remote_ref "$variant" "$(default_tag)"
   fi
 }
 
@@ -145,7 +411,7 @@ import_vanilla() {
   local target=${2:-$VANILLA_VM}
   require_compatible_host
   vm_exists "$source" || die "VM not found: $source"
-  clone_vm "$source" "$target"
+  clone_vm "$source" "$target" vanilla
   clear_stale_control_socket "$target"
   packer_build templates/verify.pkr.hcl \
     -var "vm_name=$target" \
@@ -159,8 +425,28 @@ import_vanilla() {
 packer_build() {
   local template=$1
   shift
-  packer init "$root_dir/$template"
-  packer build "$@" "$root_dir/$template"
+  require_installed_packer_plugin
+  run_bounded "$packer_build_timeout_seconds" packer build "$@" "$root_dir/$template"
+}
+
+fetch_ipsw() {
+  local filename=${IPSW_URL%%\?*}
+  filename=${filename##*/}
+  if [[ -n "$ipsw_path_override" ]]; then
+    fetched_ipsw_path=$ipsw_path_override
+  else
+    fetched_ipsw_path="$ipsw_cache_dir/$filename"
+  fi
+  mkdir -p "$(dirname "$fetched_ipsw_path")"
+  require_ca_file
+  ensure_artifact_helper
+  run_bounded "$ipsw_fetch_timeout_seconds" "$artifact_helper" fetch \
+    --timeout "$ipsw_fetch_timeout_seconds" \
+    --url "$IPSW_URL" \
+    --output "$fetched_ipsw_path" \
+    --sha256 "$IPSW_SHA256" \
+    --size "$IPSW_SIZE" \
+    --ca-file "$image_cacert"
 }
 
 run_setup_phase() {
@@ -172,7 +458,7 @@ run_setup_phase() {
   printf 'Running Setup Assistant sequence: %s\n' "$sequence"
   CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="${TART_HOME:-$HOME/.tart}" \
     GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
-    go run ./cmd/setup-assistant \
+    run_bounded "$setup_assistant_timeout_seconds" go run ./cmd/setup-assistant \
       --vm "$vm" \
       --sequence "$sequence" \
       --initial-wait "$initial_wait" \
@@ -182,6 +468,7 @@ run_setup_phase() {
 build_vanilla() {
   local initial_wait=${1:-$setup_assistant_initial_wait}
   local target=${2:-$VANILLA_VM}
+  local fetched_ipsw_path
   require_compatible_host
   require_new_vm "$target"
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
@@ -202,13 +489,17 @@ build_vanilla() {
     if [[ -n ${SETUP_ASSISTANT_GATEKEEPER_SEQUENCE:-} ]]; then
       require_duration "$setup_assistant_gatekeeper_wait"
     fi
+  fi
+  fetch_ipsw
+  if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     create_locale_home
     local tart_home=${TART_HOME:-$HOME/.tart}
-    CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-      tart create "$target" --from-ipsw "$IPSW_URL" --disk-size "$DISK_SIZE_GB"
+    run_bounded "$tart_create_timeout_seconds" env \
+      CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
+      tart create "$target" --from-ipsw "$fetched_ipsw_path" --disk-size "$DISK_SIZE_GB"
     printf 'Waiting %s for installation finalization\n' "$create_grace_time"
     sleep "$create_grace_time"
-    tart set "$target" \
+    run_bounded "$tart_operation_timeout_seconds" tart set "$target" \
       --cpu "$CPU_COUNT" \
       --memory "$((MEMORY_GB * 1024))" \
       --display 1024x768 \
@@ -237,7 +528,7 @@ build_vanilla() {
   else
     packer_build "$VANILLA_TEMPLATE" \
       -var "vm_name=$target" \
-      -var "ipsw_url=$IPSW_URL" \
+      -var "ipsw_url=$fetched_ipsw_path" \
       -var "expected_version=$MACOS_VERSION" \
       -var "expected_build=$MACOS_BUILD" \
       -var "cpu_count=$CPU_COUNT" \
@@ -252,7 +543,7 @@ build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
   require_compatible_host
-  clone_vm "$source" "$target"
+  clone_vm "$source" "$target" vanilla
   disable_sip "$target"
   provision_base "$target"
 }
@@ -289,9 +580,10 @@ build_xcode() {
   local source=${2:-$(default_source base)}
   local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
   local archive="$xcode_cache/Xcode_$version.xip"
+  is_numeric_version "$version" || die "Invalid Xcode version: $version"
   require_compatible_host
   [[ -f "$archive" ]] || die "Xcode archive not found: $archive"
-  clone_vm "$source" "$target"
+  clone_vm "$source" "$target" base
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
@@ -304,18 +596,21 @@ build_xcode() {
 
 pull_image() {
   local variant=${1:?Image variant is required}
-  local tag=${2:-$MACOS_VERSION}
+  local tag=${2:-$(default_tag)}
   local remote
+  local target
+  require_image_tag "$tag"
   remote=$(remote_ref "$variant" "$tag")
-  require_registry_credentials "$remote"
-  tart pull "$remote"
+  target=$(local_vm_for_variant "$variant")
+  registry_pull "$variant" "$remote" "$target"
 }
 
 push_image() {
   local variant=${1:?Image variant is required}
-  local tag=${2:-$MACOS_VERSION}
+  local tag=${2:-$(default_tag)}
   local vm=${3:-}
   local revision
+  [[ "$tag" == "$(default_tag)" ]] || die 'Registry pushes require the configured immutable image tag'
   case "$variant" in
     vanilla) vm=${vm:-$VANILLA_VM} ;;
     base) vm=${vm:-$BASE_VM} ;;
@@ -323,12 +618,10 @@ push_image() {
     *) die "Unknown image variant: $variant" ;;
   esac
   vm_exists "$vm" || die "VM not found: $vm"
-  require_registry_credentials "$(remote_ref "$variant" "$tag")"
+  require_registry_push_credentials "$(remote_ref "$variant" "$tag")"
   revision=$(git -C "$root_dir" rev-parse HEAD 2>/dev/null || printf unknown)
-  tart push "$vm" "$(remote_ref "$variant" "$tag")" \
-    --chunk-size 4 \
-    --label "org.opencontainers.image.revision=$revision" \
-    --label "org.opencontainers.image.version=$tag"
+  IMAGE_REVISION="$revision" registry_command "$variant" \
+    push "$vm" "$(remote_ref "$variant" "$tag")"
 }
 
 verify_existing() {
@@ -340,52 +633,84 @@ verify_existing() {
     -var "profile=$profile" \
     -var "expected_build=$MACOS_BUILD" \
     -var "expected_version=$MACOS_VERSION" \
+    -var "expected_xcode_version=${XCODE_VERSION:-}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+}
+
+wait_for_disk_close() {
+  local vm=$1
+  local deadline=$((SECONDS + tart_operation_timeout_seconds))
+  local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
+  [[ -x /usr/sbin/lsof ]] || die 'Missing required command: /usr/sbin/lsof'
+  while /usr/sbin/lsof -t -- "$disk" >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || die "VM disk remained open: $vm"
+    sleep 1
+  done
+}
+
+delete_test_vm() {
+  local vm=$1
+  vm_exists "$vm" || return 0
+  run_bounded "$tart_operation_timeout_seconds" tart stop "$vm" >/dev/null 2>&1 || true
+  wait_for_disk_close "$vm"
+  run_bounded "$tart_operation_timeout_seconds" tart delete "$vm"
 }
 
 test_image() {
   local vm=${1:?VM name is required}
   local profile=${2:-base}
   local scratch="$vm-verify-$$"
+  local result=0
   vm_exists "$vm" || die "VM not found: $vm"
-  clone_vm "$vm" "$scratch"
-  if ! verify_existing "$scratch" "$profile"; then
-    echo "Verification VM retained for inspection: $scratch" >&2
-    return 1
+  verification_vm=$scratch
+  if clone_vm "$vm" "$scratch" "$profile"; then
+    if verify_existing "$scratch" "$profile"; then
+      result=0
+    else
+      result=$?
+      echo "Verification failed; deleting verification VM: $scratch" >&2
+    fi
+  else
+    result=$?
+    echo "Verification clone failed; deleting verification VM if present: $scratch" >&2
   fi
-  tart delete "$scratch"
+  delete_test_vm "$scratch"
+  verification_vm=
+  return "$result"
 }
 
 validate() {
   local template
   local script
+  require_installed_packer_plugin
   for template in "$root_dir"/templates/*.pkr.hcl; do
-    packer init "$template"
-    packer validate -syntax-only "$template"
+    run_bounded "$packer_check_timeout_seconds" packer validate -syntax-only "$template"
   done
   for script in "$root_dir"/scripts/image "$root_dir"/scripts/guest/*.sh; do
     bash -n "$script"
   done
   /bin/bash "$root_dir/tests/guest-scripts.sh"
-  go test ./...
-  xcrun swift format lint --recursive Package.swift Sources tests/MacOSImageCoreTests
-  xcrun swift test --disable-keychain
+  run_bounded 1200 go test ./...
+  run_bounded 600 xcrun swift format lint --recursive Package.swift Sources tests/MacOSImageCoreTests
+  run_bounded 1200 env GIT_ALLOW_PROTOCOL=file xcrun swift test --disable-keychain \
+    --skip-update --disable-automatic-resolution
 }
 
 doctor() {
-  need tart
-  need packer
+  if [[ ${CI:-} != true && ${MACOS_IMAGE_STRICT_TOOLCHAIN:-} != true ]]; then
+    verify_toolchain false
+  fi
   need bash
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     need go
   fi
   [[ $(uname -m) == arm64 ]] || die "Apple silicon is required"
   require_compatible_host
-  printf 'Tart: %s\n' "$(tart --version)"
-  printf 'Packer: %s\n' "$(packer --version | head -1)"
+  printf 'Tart: %s\n' "$actual_tart_version"
+  printf 'Packer: %s\n' "$actual_packer_version"
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
-    printf 'Go: %s\n' "$(go version | awk '{ print $3 }')"
+    printf 'Go: %s\n' "$actual_go_version"
     printf 'Installation grace time: %s\n' "$create_grace_time"
     if [[ -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
       printf 'Guest provisioning: native macOS API\n'
@@ -404,11 +729,14 @@ doctor() {
       printf 'Setup Assistant Gatekeeper wait: %s\n' "$setup_assistant_gatekeeper_wait"
     fi
   fi
+  printf 'Swift: %s\n' "$actual_swift_version"
+  printf 'Tart Packer plugin: %s\n' "$PACKER_TART_PLUGIN_VERSION"
+  printf 'Image version: %s\n' "$IMAGE_VERSION"
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
   elif [[ -n "$registry" ]]; then
-    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$MACOS_VERSION")"
+    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$(default_tag)")"
   else
     printf 'No local vanilla source found; build one with macos-image build vanilla\n'
   fi
@@ -428,10 +756,18 @@ Usage:
   scripts/image pull <vanilla|base|xcode> [tag]
   scripts/image push <vanilla|base|xcode> [tag] [vm]
   scripts/image test <vm> [vanilla|sip|base|xcode]
+
+Registry tags default to version-build-vimageVersion.
+Set XCODE_VERSION for Xcode registry operations and verification.
 EOF
 }
 
 cd "$root_dir"
+validate_configuration
+
+if [[ ${CI:-} == true || ${MACOS_IMAGE_STRICT_TOOLCHAIN:-} == true ]]; then
+  verify_toolchain true
+fi
 
 case ${1:-} in
   doctor) doctor ;;

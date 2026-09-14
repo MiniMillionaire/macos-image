@@ -17,6 +17,9 @@ public struct ImageTool: Sendable {
 
   public func run(_ operation: ImageOperation, configuration: String? = nil) async throws -> Int32 {
     var childEnvironment = environment
+    childEnvironment["PACKER_CONFIG"] =
+      repositoryURL
+      .appendingPathComponent("config/packer.json").path
     if let configuration {
       childEnvironment["IMAGE_CONFIG"] = configuration
     }

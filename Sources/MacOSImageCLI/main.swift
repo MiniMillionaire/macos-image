@@ -217,10 +217,11 @@ struct PullCommand: ImageSubcommand {
 
   @OptionGroup var common: CommonOptions
 
-  @Argument(help: "Image layer to pull.")
+  @Argument(help: "Image layer to pull. Xcode requires XCODE_VERSION.")
   var variant: ImageVariant
 
-  @Option(help: "OCI tag. Defaults to the configured macOS version.")
+  @Option(
+    help: "OCI tag. Defaults to version-build-vimageVersion; older image versions are accepted.")
   var tag: String?
 
   var operation: ImageOperation { .pull(variant: variant, tag: tag) }
@@ -234,10 +235,10 @@ struct PushCommand: ImageSubcommand {
 
   @OptionGroup var common: CommonOptions
 
-  @Argument(help: "Image layer to push.")
+  @Argument(help: "Image layer to push. Xcode requires XCODE_VERSION.")
   var variant: ImageVariant
 
-  @Option(help: "OCI tag. Defaults to the configured macOS version.")
+  @Option(help: "OCI tag. Must match the configured version-build-vimageVersion.")
   var tag: String?
 
   @Option(help: "Local VM name. Required for Xcode images.")
@@ -257,7 +258,7 @@ struct TestCommand: ImageSubcommand {
   @Argument(help: "Local VM to verify.")
   var vm: String
 
-  @Option(help: "Verification profile.")
+  @Option(help: "Verification profile. Xcode requires XCODE_VERSION.")
   var profile: VerificationProfile = .base
 
   var operation: ImageOperation { .test(vm: vm, profile: profile) }

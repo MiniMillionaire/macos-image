@@ -25,6 +25,11 @@ variable "expected_build" {
   type = string
 }
 
+variable "expected_xcode_version" {
+  type    = string
+  default = ""
+}
+
 variable "guest_username" {
   type = string
 }
@@ -50,6 +55,7 @@ build {
     timeout = "5m"
     environment_vars = [
       "EXPECTED_BUILD=${var.expected_build}",
+      "EXPECTED_XCODE_VERSION=${var.expected_xcode_version}",
       "EXPECTED_VERSION=${var.expected_version}",
       "GUEST_USERNAME=${var.guest_username}",
       "IMAGE_PROFILE=${var.profile}",

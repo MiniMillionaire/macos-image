@@ -3,13 +3,17 @@ PROFILE ?= base
 SWIFT ?= xcrun swift
 CLI = .build/release/macos-image
 
-.PHONY: cli cli-test doctor validate vanilla base xcode test pull push
+.PHONY: cli artifact-helper cli-test doctor validate vanilla base xcode test pull push
 
-cli:
-	$(SWIFT) build --disable-keychain -c release --product macos-image
+artifact-helper:
+	mkdir -p .build/tools
+	go build -trimpath -o .build/tools/image-artifact ./cmd/image-artifact
+
+cli: artifact-helper
+	GIT_ALLOW_PROTOCOL=file $(SWIFT) build --disable-keychain --skip-update --disable-automatic-resolution -c release --product macos-image
 
 cli-test:
-	$(SWIFT) test --disable-keychain
+	GIT_ALLOW_PROTOCOL=file $(SWIFT) test --disable-keychain --skip-update --disable-automatic-resolution
 
 doctor: cli
 	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) doctor
