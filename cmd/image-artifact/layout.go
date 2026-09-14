@@ -193,12 +193,18 @@ func validateVM(ctx context.Context, path string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "/usr/sbin/lsof", "-t", "--", filepath.Join(path, "disk.img")).CombinedOutput()
+	output, err := exec.CommandContext(ctx, "/usr/sbin/lsof", "-Fpc", "--", filepath.Join(path, "disk.img")).CombinedOutput()
 	var exit *exec.ExitError
 	if len(output) == 0 && errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return nil
 	}
-	return errors.New("VM disk is open or its state could not be checked")
+	if ctx.Err() != nil {
+		return fmt.Errorf("check VM disk: %w", ctx.Err())
+	}
+	if err != nil {
+		return fmt.Errorf("check VM disk: %w\n%s", err, strings.TrimSpace(string(output)))
+	}
+	return fmt.Errorf("VM disk is open:\n%s", strings.TrimSpace(string(output)))
 }
 
 func tartEnvironment(host string) []string {
