@@ -169,11 +169,29 @@ check_tools() {
   plugin_versions=$(.build/tools/image-artifact run --timeout 20 -- packer plugins installed 2>&1 |
     grep -F 'github.com/cirruslabs/tart' | grep -Eo 'v[0-9]+([.][0-9]+){2}' | LC_ALL=C sort -u || true)
   [[ "$plugin_versions" == "v$PACKER_TART_PLUGIN_VERSION" ]] || ci_die "Unexpected Tart Packer plugin version"
-  if [[ "$VARIANT" == xcode ]]; then
+  if [[ "$OPERATION" == upload-only ]]; then
+    local metadata="$task_root/recovery/bundle.json"
+    local result="$task_root/recovery/result.json"
+    local bundle_kib
+    [[ -f "$metadata" && ! -L "$metadata" ]] || ci_die "Saved VM metadata is missing"
+    [[ -f "$result" && ! -L "$result" ]] || ci_die "Saved image result is missing"
+    [[ $(ci_sha256 "$metadata") == "${BUNDLE_METADATA_SHA256:?}" ]] || ci_die "Saved VM metadata changed"
+    [[ $(ci_sha256 "$result") == "${SOURCE_RESULT_SHA256:?}" ]] || ci_die "Saved image result changed"
+    case $(jq -er .stage "$result") in
+      built)
+        bundle_kib=$(jq -er '([.files[].size] | add) / 1024 | ceil' "$metadata")
+        [[ "$bundle_kib" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid saved VM size"
+        minimum_kib=$((bundle_kib + (bundle_kib + 19) / 20 + 2 * 1024 * 1024))
+        ;;
+      prepared|verified) minimum_kib=$((2 * 1024 * 1024)) ;;
+      *) ci_die "Upload-only requires a built, prepared, or verified image" ;;
+    esac
+  elif [[ "$VARIANT" == xcode ]]; then
     minimum_kib=$((250 * 1024 * 1024))
   fi
   available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
-  [[ "$available" =~ ^[0-9]+$ && "$available" -ge "$minimum_kib" ]] || ci_die "The image runner does not have enough free disk space"
+  [[ "$available" =~ ^[0-9]+$ && "$available" -ge "$minimum_kib" ]] ||
+    ci_die "The image runner requires $minimum_kib KiB free; $available KiB is available"
   [[ $(git remote get-url origin) == "$repository_url" ]] || ci_die "Unexpected source origin"
   [[ -z $(git status --porcelain --untracked-files=normal) ]] || ci_die "The checked-out source is not clean"
   [[ $(git rev-parse HEAD) == "$GITHUB_SHA" ]] || ci_die "The checkout revision changed"

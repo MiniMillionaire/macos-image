@@ -172,7 +172,7 @@ validate_common_result() {
 authorize_current() {
   ci_load_profile
   case ${OPERATION:-} in
-    build|publish|recover-upload|recover-release) ;;
+    build|publish|upload-only|recover-upload|recover-release) ;;
     *) ci_die "Unknown operation: ${OPERATION:-}" ;;
   esac
 
@@ -183,7 +183,7 @@ authorize_current() {
   [[ ${GITHUB_SHA:-} =~ ^[0-9a-f]{40}$ ]] || ci_die "Invalid workflow revision"
   git merge-base --is-ancestor "$GITHUB_SHA" origin/main || ci_die "Workflow revision is not on main"
 
-  if [[ "$OPERATION" == recover-upload || "$OPERATION" == recover-release ]]; then
+  if [[ "$OPERATION" == upload-only || "$OPERATION" == recover-upload || "$OPERATION" == recover-release ]]; then
     require_run_id "${SOURCE_RUN:-}"
   else
     [[ -z ${SOURCE_RUN:-} ]] || ci_die "Source run applies only to recovery operations"
@@ -289,7 +289,7 @@ authorize_recovery() {
   validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$source_workflow_revision" "$source_step"
   validate_run_json "$BUILD_RUN_JSON" "$BUILD_JOBS_JSON" "$build_run" "$revision" "Build and verify image"
 
-  if [[ "$OPERATION" == recover-upload ]]; then
+  if [[ "$OPERATION" == upload-only || "$OPERATION" == recover-upload ]]; then
     [[ "$source_stage" == built || "$source_stage" == prepared || "$source_stage" == verified ]] ||
       ci_die "Upload recovery requires a built, prepared, or verified image"
   else

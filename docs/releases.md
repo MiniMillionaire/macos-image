@@ -78,6 +78,9 @@ macOS version/build before use.
   verified bundle for possible publication.
 - `publish` builds and verifies the image, uploads it by digest, and verifies the
   downloaded image before updating its tag.
+- `upload-only` takes a verified source run, exports and uploads its image by
+  digest, and confirms the remote digest. It does not download anonymously,
+  update tags, or create a release. It uploads without changing package visibility.
 - `recover-upload` takes a previous run ID and attempt, such as `123456789-1`.
   It validates that run's evidence and restores the verified bundle and export.
 - `recover-release` creates or completes an Xcode GitHub Release from verified
@@ -92,6 +95,17 @@ to the verified digest. Earlier tags remain untouched if digest verification fai
 A new GHCR package must be public for anonymous acceptance. Configure its
 visibility before retrying verification. Publication evidence stays in Actions
 artifacts, with additional release assets for Xcode images.
+
+After `upload-only`, the saved result remains at `prepared`. Use that upload run
+as `source_run` for `recover-upload` when ready to complete anonymous acceptance
+and update tags. This preserves the original export and digest.
+
+Upload-only runs reserve the saved bundle's full logical size, five percent for
+export overhead, and 2 GiB of remaining workspace for tools and temporary files.
+Restoring and retaining the bundle use APFS clones. If the source run already has a prepared
+export, only the 2 GiB workspace allowance is needed. Other operations still
+require 100 GiB free, or 250 GiB for Xcode images, to allow for builds and
+downloaded image checks.
 
 ## Recovery and cleanup
 
