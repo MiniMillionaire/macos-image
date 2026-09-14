@@ -22,6 +22,32 @@ OCI hashes, imported into Tart, and booted independently. The macOS 15 build
 also demonstrated recovery after a publication failure while retaining the
 original build revision and image identity.
 
+## Repository workflow
+
+These vanilla builds passed this repository's workflow:
+
+| macOS | Apple build | Revision | Clean CI build |
+| --- | --- | --- | --- |
+| 15.6.1 | 24G90 | `e4c3c95` | [34864129124](https://github.com/MiniMillionaire/macos-image/actions/runs/34864129124) |
+| 26.6.2 | 25G83 | `cd97509` | [34870929943](https://github.com/MiniMillionaire/macos-image/actions/runs/34870929943) |
+| 27.0 RC | 26A428 | `cd97509` | [34879583705](https://github.com/MiniMillionaire/macos-image/actions/runs/34879583705) |
+
+Each restored the pinned IPSW and verified a cold boot of a separate clone.
+macOS 15 completed four Setup Assistant sequences and installed Command Line
+Tools 16.4. macOS 26 completed five sequences and installed Command Line Tools
+26.6. macOS 27 used native account provisioning, a fixed Gatekeeper sequence,
+and Command Line Tools 27.0. The runner was launched over SSH as described in
+[Host setup](host-setup.md).
+
+Verified bundles were saved for publication. Their metadata matched the downloaded
+Actions artifacts, and each task's temporary files were removed.
+
+The macOS 15 image was uploaded by digest in
+[34868521410](https://github.com/MiniMillionaire/macos-image/actions/runs/34868521410).
+ORAS transferred the manifest and blobs and confirmed the remote digest. The
+package was private, so anonymous verification failed and no tags were promoted.
+The original verified bundle and export were retained for recovery.
+
 ## Publication backport
 
 The new local adapter passed a 16 MiB disk round trip through Tart export, ORAS
@@ -47,10 +73,9 @@ source. An early recovery failure preserved the original verified bundle, and a
 symlinked cache ancestor was rejected. The temporary disk bundles, registry data,
 TLS material, and build trees were removed.
 
-These checks do not constitute a fresh build or authenticated GHCR upload through
-this repository's new workflow. The ORAS upload path still needs that acceptance
-run. Base and Xcode variants, a second physical download host, and VirtualBuddy
-import are outside the recorded results.
+Full anonymous GHCR download and cold-boot acceptance through this repository's
+workflow remain pending. Base and Xcode variants, a second physical download
+host, and VirtualBuddy import are outside the recorded results.
 
 ## Cirrus tag conventions
 
@@ -68,6 +93,3 @@ controller compiled from the supplied vendor archive with an empty dependency
 module cache and network downloads disabled. The dependency lockfile and source
 checkout stayed unchanged; no VM was created, and the temporary checkout was
 removed. Prepared and verified publication records also passed recovery checks.
-
-This verifies the transfer and tag-update behavior without claiming a full
-macOS build or authenticated GHCR publication through the updated workflow.

@@ -10,9 +10,9 @@ The current image definitions are:
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 | `macos-27.0-rc` | macOS 27.0 RC (26A428) | macOS 27 or newer |
 
-All three vanilla recipes passed fresh IPSW builds in CI, followed by independent
-cold boots and full anonymous downloads of the published Tart images. These runs
-used builder revision `34f3fbe`. See the [validation record](docs/validation.md).
+All three vanilla recipes passed fresh IPSW builds and independent cold boots in
+this repository's CI. Registry publication is awaiting anonymous download
+acceptance. See the [validation record](docs/validation.md).
 Base and Xcode variants have not completed the same acceptance process.
 
 ## Requirements

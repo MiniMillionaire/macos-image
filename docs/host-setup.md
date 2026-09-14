@@ -56,11 +56,19 @@ fetch missing plugins. Downloaded IPSWs use an explicit PEM trust pool and must
 match their configured size and SHA-256. Set `IMAGE_CACERT` to use another PEM CA
 bundle; the default is `/opt/homebrew/etc/openssl@3/cert.pem`.
 
-The application running build commands needs Local Network access to reach the
-guest over SSH. On this host, connections to the Tart subnet returned
-`EHOSTUNREACH` even with a valid route and ARP entry until the user approved
-network access. No subnet exception or host reboot was needed. See Apple's
+Start the runner from Apple Terminal or an SSH session. macOS allows local
+network access for command-line tools launched there, including their children.
+For other applications, access depends on the application macOS identifies as
+responsible for the connection. See Apple's
 [Local Network privacy guidance](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+
+On this host, Packer returned `EHOSTUNREACH` from a runner launched through iTerm
+despite a valid route and ARP entry. The same Python TCP probe failed in an
+application context and connected through localhost SSH. Restarting the runner
+over SSH also let the unchanged Packer build connect. A successful connection
+from `nc` alone did not establish that Packer could connect. Compare the same
+program and guest address across launch contexts before changing the guest,
+network settings, or Setup Assistant sequence.
 
 ## Swift dependency
 
