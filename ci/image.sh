@@ -1,0 +1,759 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$root_dir"
+source ci/config.sh
+ci_load_profile
+
+repository=MiniMillionaire/macos-image
+repository_url=https://github.com/MiniMillionaire/macos-image
+workflow=.github/workflows/image.yml
+run_key="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+task_root="$RUNNER_TEMP/macos-image-$run_key"
+marker="$task_root/.ci-task"
+logs="$task_root/logs"
+tart_home="$task_root/tart"
+vm_name="macos-image-$run_key"
+source_vm="$vm_name-source"
+published_vm="$vm_name-published"
+layout="$task_root/publication/layout"
+verified_root="$HOME/.cache/macos-image/verified/minimillionaire-macos-image"
+
+export IMAGE_CONFIG="$CONFIG_PATH"
+export IMAGE_CACERT
+export IMAGE_VARIANT="$VARIANT"
+export IPSW_PATH="$task_root/restore.ipsw"
+export PACKER_CONFIG="$root_dir/config/packer.json"
+export REGISTRY
+export TART_HOME="$tart_home"
+export TART_NO_AUTO_PRUNE=1
+export XCODE_VERSION="${XCODE_VERSION:-}"
+
+expected_marker() {
+  jq -cn \
+    --arg repository "$repository" \
+    --arg run "$run_key" \
+    --arg profile "$PROFILE" \
+    --arg variant "$VARIANT_ID" \
+    '{format: 1, repository: $repository, run: $run, profile: $profile, variant: $variant}'
+}
+
+require_task() {
+  [[ "$task_root" == "$RUNNER_TEMP/macos-image-$run_key" ]] || ci_die "Invalid task path"
+  [[ -f "$marker" && ! -L "$marker" ]] || ci_die "Task marker is missing"
+  [[ $(jq -cS . "$marker") == "$(expected_marker | jq -cS .)" ]] || ci_die "Task marker does not match this run"
+}
+
+verified_directory() {
+  local build_run=$1
+  [[ "$build_run" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]] || ci_die "Invalid build run"
+  printf '%s/%s/%s/%s\n' "$verified_root" "$PROFILE" "$VARIANT_ID" "$build_run"
+}
+
+require_verified_path() {
+  local directory=$1
+  [[ "$directory" == "$verified_root/$PROFILE/$VARIANT_ID/"* ]] || ci_die "Invalid verified cache path"
+  for ancestor in "$HOME/.cache" "$HOME/.cache/macos-image" "$HOME/.cache/macos-image/verified" "$verified_root" "$verified_root/$PROFILE" "$verified_root/$PROFILE/$VARIANT_ID" "$directory"; do
+    [[ ! -L "$ancestor" ]] || ci_die "Verified cache path contains a symbolic link"
+  done
+}
+
+write_inputs() {
+  mkdir -p "$logs"
+  jq -n \
+    --arg repository "$repository" \
+    --arg workflow "$workflow" \
+    --arg run "$run_key" \
+    --arg operation "$OPERATION" \
+    --arg source_run "${SOURCE_RUN:-}" \
+    --arg workflow_revision "$GITHUB_SHA" \
+    --arg revision "$BUILD_REVISION" \
+    --arg profile "$PROFILE" \
+    --arg config "$CONFIG_PATH" \
+    --arg config_sha "$PROFILE_CONFIG_SHA256" \
+    --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
+    --arg macos_family "$MACOS_FAMILY" \
+    --arg macos_version "$MACOS_VERSION" \
+    --arg macos_build "$MACOS_BUILD" \
+    --arg image_version "$IMAGE_VERSION" \
+    --argjson prerelease "$IMAGE_PRERELEASE" \
+    --arg ipsw_url "$IPSW_URL" \
+    --argjson ipsw_size "$IPSW_SIZE" \
+    --arg ipsw_sha "$IPSW_SHA256" \
+    --arg variant "$VARIANT" \
+    --arg variant_id "$VARIANT_ID" \
+    --arg xcode "${XCODE_VERSION:-}" \
+    --arg image_tag "$IMAGE_TAG" \
+    --arg release_tag "$RELEASE_TAG" \
+    --arg package "$PACKAGE_REF" \
+    --arg tart "$TART_VERSION" \
+    --arg packer "$PACKER_VERSION" \
+    --arg go "$GO_VERSION" \
+    --arg plugin "$PACKER_TART_PLUGIN_VERSION" \
+    --arg swift "$SWIFT_VERSION" '
+      {
+        format: 1,
+        repository: $repository,
+        workflow: $workflow,
+        run_id: $run,
+        operation: $operation,
+        source_run: $source_run,
+        workflow_revision: $workflow_revision,
+        revision: $revision,
+        profile: $profile,
+        config: $config,
+        config_sha256: $config_sha,
+        toolchain_sha256: $tools_sha,
+        macos: {family: $macos_family, version: $macos_version, build: $macos_build},
+        image_version: $image_version,
+        prerelease: $prerelease,
+        ipsw: {url: $ipsw_url, size: $ipsw_size, sha256: $ipsw_sha},
+        variant: $variant,
+        variant_id: $variant_id,
+        xcode_version: $xcode,
+        image_tag: $image_tag,
+        release_tag: $release_tag,
+        package_reference: $package,
+        tools: {
+          tart: $tart,
+          packer: $packer,
+          go: $go,
+          packer_tart_plugin: $plugin,
+          swift: $swift
+        },
+        source: "",
+        source_digest: "",
+        xcode_archive_sha256: ""
+      }
+    ' > "$logs/inputs.json"
+}
+
+set_input_sources() {
+  local source=$1
+  local source_digest=$2
+  local xcode_sha=$3
+  local temporary="$logs/inputs.json.tmp"
+  jq \
+    --arg source "$source" \
+    --arg source_digest "$source_digest" \
+    --arg xcode_sha "$xcode_sha" \
+    '.source = $source | .source_digest = $source_digest | .xcode_archive_sha256 = $xcode_sha' \
+    "$logs/inputs.json" > "$temporary"
+  mv "$temporary" "$logs/inputs.json"
+}
+
+tool_version() {
+  .build/tools/image-artifact run --timeout 20 -- "$@" 2>&1 | grep -Eo '[0-9]+([.][0-9]+){1,2}' | head -1
+}
+
+check_tools() {
+  local available
+  local minimum_kib=$((100 * 1024 * 1024))
+  local plugin_versions
+  local swift_version
+  for command in bash go jq lsof make oras packer shasum swift tart; do
+    command -v "$command" >/dev/null || ci_die "Missing required command: $command"
+  done
+  [[ $(uname -m) == arm64 ]] || ci_die "The image runner must use Apple silicon"
+  [[ $(sw_vers -productVersion | cut -d. -f1) -ge "$MINIMUM_HOST_MAJOR" ]] || ci_die "The runner macOS version is too old"
+  make artifact-helper
+  [[ $(tool_version tart --version) == "$TART_VERSION" ]] || ci_die "Unexpected Tart version"
+  [[ $(tool_version packer version) == "$PACKER_VERSION" ]] || ci_die "Unexpected Packer version"
+  [[ $(tool_version go version) == "$GO_VERSION" ]] || ci_die "Unexpected Go version"
+  swift_version=$(.build/tools/image-artifact run --timeout 20 -- xcrun swift --version |
+    sed -n '1s/.*Swift version \([0-9][0-9.]*\).*/\1/p')
+  [[ "$swift_version" == "$SWIFT_VERSION" ]] || ci_die "Unexpected Swift version: $swift_version"
+  [[ $(tool_version oras version) == 1.3.0 ]] || ci_die "Unexpected ORAS version"
+  plugin_versions=$(.build/tools/image-artifact run --timeout 20 -- packer plugins installed 2>&1 |
+    grep -F 'github.com/cirruslabs/tart' | grep -Eo 'v[0-9]+([.][0-9]+){2}' | LC_ALL=C sort -u || true)
+  [[ "$plugin_versions" == "v$PACKER_TART_PLUGIN_VERSION" ]] || ci_die "Unexpected Tart Packer plugin version"
+  if [[ "$VARIANT" == xcode ]]; then
+    minimum_kib=$((250 * 1024 * 1024))
+  fi
+  available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
+  [[ "$available" =~ ^[0-9]+$ && "$available" -ge "$minimum_kib" ]] || ci_die "The image runner does not have enough free disk space"
+  [[ $(git remote get-url origin) == "$repository_url" ]] || ci_die "Unexpected source origin"
+  [[ -z $(git status --porcelain --untracked-files=normal) ]] || ci_die "The checked-out source is not clean"
+  [[ $(git rev-parse HEAD) == "$GITHUB_SHA" ]] || ci_die "The checkout revision changed"
+  .build/tools/image-artifact run --timeout 600 -- xcrun swift build --disable-keychain --skip-update \
+    --disable-automatic-resolution --disable-dependency-cache --cache-path "$task_root/swift-cache" \
+    -c release --product macos-image
+  [[ -x .build/tools/image-artifact ]] || ci_die "The artifact helper was not built"
+  .build/tools/image-artifact run --timeout 60 -- ./scripts/image doctor
+}
+
+inspect_layout() {
+  local directory=$1
+  local output=$2
+  .build/tools/image-artifact inspect --layout "$directory" > "$output"
+}
+
+require_layout() {
+  local metadata=$1
+  local expected_variant=$2
+  local expected_xcode=${3:-}
+  local expected_revision=${4:-}
+  local expected_source=${5:-}
+  jq -e \
+    --arg revision "$expected_revision" \
+    --arg image_version "$IMAGE_VERSION" \
+    --arg macos_version "$MACOS_VERSION" \
+    --arg macos_build "$MACOS_BUILD" \
+    --arg variant "$expected_variant" \
+    --arg xcode "$expected_xcode" \
+    --arg source "$expected_source" '
+      (.manifest_digest | test("^sha256:[0-9a-f]{64}$")) and
+      (.manifest_size | type == "number" and . > 0) and
+      (.blob_bytes | type == "number" and . > 0) and
+      (.revision | test("^[0-9a-f]{40}$")) and
+      ($revision == "" or .revision == $revision) and .image_version == $image_version and
+      .macos_version == $macos_version and .macos_build == $macos_build and
+      .variant == $variant and ((.xcode_version // "") == $xcode) and
+      (.source | type == "string" and length > 0) and
+      ($source == "" or .source == $source)
+    ' "$metadata" >/dev/null || ci_die "OCI metadata does not match the requested image"
+}
+
+stop_vm() {
+  local vm=$1
+  local state
+  state=$(.build/tools/image-artifact run --timeout 20 -- tart get "$vm" | awk 'NR == 2 {print $NF}')
+  if [[ "$state" == running ]]; then
+    .build/tools/image-artifact run --timeout 30 -- tart stop "$vm"
+    state=$(.build/tools/image-artifact run --timeout 20 -- tart get "$vm" | awk 'NR == 2 {print $NF}')
+  fi
+  [[ -n "$state" && "$state" != running ]] || ci_die "VM did not stop: $vm"
+}
+
+require_closed_bundle() {
+  local bundle=$1
+  local disk
+  local output
+  local status
+  while IFS= read -r disk; do
+    status=0
+    output=$(.build/tools/image-artifact run --timeout 20 -- lsof -t -- "$disk" 2>&1) || status=$?
+    [[ "$status" == 1 && -z "$output" ]] || ci_die "Could not confirm that a VM disk is closed: $disk"
+  done < <(find "$bundle" -type f -name disk.img -print)
+}
+
+bundle_files_json() {
+  local bundle=$1
+  local files='[]'
+  local relative
+  local size
+  local digest
+  [[ $(find "$bundle" -mindepth 1 -maxdepth 1 -print | sed 's#.*/##' | LC_ALL=C sort | tr '\n' ' ') == "config.json disk.img nvram.bin " ]] ||
+    ci_die "VM bundle must contain exactly config.json, disk.img and nvram.bin"
+  for relative in config.json disk.img nvram.bin; do
+    [[ -f "$bundle/$relative" && ! -L "$bundle/$relative" ]] || ci_die "Invalid VM bundle file: $relative"
+    size=$(stat -f %z "$bundle/$relative")
+    digest=$(ci_sha256 "$bundle/$relative")
+    files=$(jq -cn --argjson files "$files" --arg path "$relative" --argjson size "$size" --arg digest "$digest" \
+      '$files + [{path: $path, size: $size, sha256: $digest}]')
+  done
+  printf '%s\n' "$files"
+}
+
+save_verified_bundle() {
+  local build_run=$1
+  local bundle="$tart_home/vms/$vm_name"
+  local destination
+  local temporary
+  local files
+  destination=$(verified_directory "$build_run")
+  temporary="$destination.incomplete-$run_key"
+  [[ -d "$bundle" && ! -L "$bundle" ]] || ci_die "Built VM bundle is missing"
+  require_verified_path "$destination"
+  require_verified_path "$temporary"
+  [[ ! -e "$destination" && ! -L "$destination" && ! -e "$temporary" && ! -L "$temporary" ]] ||
+    ci_die "A verified bundle already exists for $build_run"
+  stop_vm "$vm_name"
+  require_closed_bundle "$bundle"
+  umask 077
+  if ! (
+    mkdir -p "$temporary/vm" || exit 1
+    for file in config.json disk.img nvram.bin; do
+      /bin/cp -c "$bundle/$file" "$temporary/vm/$file" || exit 1
+    done
+    files=$(bundle_files_json "$temporary/vm") || exit 1
+    jq -n \
+      --arg repository "$repository" \
+      --arg build_run "$build_run" \
+      --arg revision "$BUILD_REVISION" \
+      --arg profile "$PROFILE" \
+      --arg variant "$VARIANT_ID" \
+      --arg config_sha "$PROFILE_CONFIG_SHA256" \
+      --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
+      --argjson files "$files" '
+        {
+          format: 1,
+          repository: $repository,
+          build_run: $build_run,
+          revision: $revision,
+          profile: $profile,
+          variant: $variant,
+          config_sha256: $config_sha,
+          toolchain_sha256: $tools_sha,
+          files: $files
+        }
+      ' > "$temporary/bundle.json" || exit 1
+  ); then
+    rm -rf -- "$temporary"
+    return 1
+  fi
+  if ! mv "$temporary" "$destination"; then
+    rm -rf -- "$temporary"
+    return 1
+  fi
+  if ! cp "$destination/bundle.json" "$logs/bundle.json"; then
+    verify_bundle "$destination"
+    rm -rf -- "$destination"
+    return 1
+  fi
+}
+
+write_built_result() {
+  local build_run=$1
+  local recovery_digest=${2:-}
+  local source
+  source=$(jq -er .source "$logs/inputs.json")
+  jq -n \
+    --arg repository "$repository" \
+    --arg run "$run_key" \
+    --arg build_run "$build_run" \
+    --arg revision "$BUILD_REVISION" \
+    --arg profile "$PROFILE" \
+    --arg variant "$VARIANT" \
+    --arg variant_id "$VARIANT_ID" \
+    --arg xcode "${XCODE_VERSION:-}" \
+    --arg image_version "$IMAGE_VERSION" \
+    --arg macos_version "$MACOS_VERSION" \
+    --arg macos_build "$MACOS_BUILD" \
+    --arg release_tag "$RELEASE_TAG" \
+    --arg package "$PACKAGE_REF" \
+    --arg source "$source" \
+    --arg repository_url "$repository_url" \
+    --arg recovery_digest "$recovery_digest" '
+      {
+        format: 1,
+        result: "passed",
+        stage: "built",
+        repository: $repository,
+        run_id: $run,
+        build_run: $build_run,
+        revision: $revision,
+        profile: $profile,
+        variant: $variant,
+        variant_id: $variant_id,
+        xcode_version: $xcode,
+        image_version: $image_version,
+        macos_version: $macos_version,
+        macos_build: $macos_build,
+        release_tag: $release_tag,
+        package_reference: $package,
+        build_source: $source,
+        oci_source: $repository_url,
+        recovery_expected_digest: $recovery_digest
+      }
+    ' > "$logs/result.json"
+}
+
+verify_bundle() {
+  local directory=$1
+  local metadata="$directory/bundle.json"
+  local path
+  local actual_count
+  [[ -f "$metadata" && ! -L "$metadata" && -d "$directory/vm" && ! -L "$directory/vm" ]] || ci_die "Saved VM bundle is incomplete"
+  jq -e \
+    --arg repository "$repository" \
+    --arg build_run "$BUILD_RUN" \
+    --arg revision "$BUILD_REVISION" \
+    --arg profile "$PROFILE" \
+    --arg variant "$VARIANT_ID" \
+    --arg config_sha "$PROFILE_CONFIG_SHA256" \
+    --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" '
+      .format == 1 and .repository == $repository and .build_run == $build_run and
+      .revision == $revision and .profile == $profile and .variant == $variant and
+      .config_sha256 == $config_sha and .toolchain_sha256 == $tools_sha and
+      (.files | type == "array" and length > 0) and
+      ([.files[].path] | sort) == ["config.json", "disk.img", "nvram.bin"] and
+      all(.files[];
+        (.path | test("^[A-Za-z0-9._/-]+$")) and
+        (.size | type == "number" and . >= 0) and
+        (.sha256 | test("^[0-9a-f]{64}$")))
+    ' "$metadata" >/dev/null || ci_die "Saved VM metadata does not match this request"
+  [[ $(find "$directory/vm" -mindepth 1 -maxdepth 1 -print | sed 's#.*/##' | LC_ALL=C sort | tr '\n' ' ') == "config.json disk.img nvram.bin " ]] ||
+    ci_die "Saved VM bundle has unexpected entries"
+  actual_count=$(find "$directory/vm" -type f | wc -l | tr -d ' ')
+  [[ "$actual_count" == 3 && $(jq '.files | length' "$metadata") == 3 ]] || ci_die "Saved VM file list is incomplete"
+  while IFS= read -r path; do
+    local expected_size
+    local expected_digest
+    [[ -f "$directory/vm/$path" && ! -L "$directory/vm/$path" ]] || ci_die "Saved VM file is missing: $path"
+    expected_size=$(jq -er --arg path "$path" '.files[] | select(.path == $path) | .size' "$metadata")
+    expected_digest=$(jq -er --arg path "$path" '.files[] | select(.path == $path) | .sha256' "$metadata")
+    [[ $(stat -f %z "$directory/vm/$path") == "$expected_size" ]] || ci_die "Saved VM size mismatch: $path"
+    [[ $(ci_sha256 "$directory/vm/$path") == "$expected_digest" ]] || ci_die "Saved VM hash mismatch: $path"
+  done < <(jq -r '.files[].path' "$metadata")
+}
+
+save_publication_layout() {
+  local directory
+  local saved="$layout"
+  local temporary
+  directory=$(verified_directory "$BUILD_RUN")
+  temporary="$directory/layout.incomplete-$run_key"
+  require_verified_path "$directory"
+  verify_bundle "$directory"
+  [[ -z $(find "$saved" -type l -print -quit) ]] || ci_die "Prepared OCI layout contains a symbolic link"
+  [[ ! -e "$directory/layout" && ! -L "$directory/layout" && ! -e "$directory/layout.json" && ! -L "$directory/layout.json" &&
+     ! -e "$temporary" && ! -L "$temporary" ]] || ci_die "A prepared layout already exists for $BUILD_RUN"
+  if ! (
+    /bin/cp -cR "$saved" "$temporary" || exit 1
+    [[ -z $(find "$temporary" -type l -print -quit) ]] || exit 1
+    inspect_layout "$temporary" "$directory/layout.json.tmp" || exit 1
+    mv "$temporary" "$directory/layout" || exit 1
+    mv "$directory/layout.json.tmp" "$directory/layout.json" || exit 1
+  ); then
+    for path in "$temporary" "$directory/layout.json.tmp" "$directory/layout"; do
+      if [[ -e "$path" || -L "$path" ]]; then
+        [[ ! -L "$path" ]] || ci_die "Invalid incomplete layout cache"
+        rm -rf -- "$path"
+      fi
+    done
+    return 1
+  fi
+  if [[ $(jq -er .manifest_digest "$directory/layout.json") != "$(jq -er .manifest_digest "$logs/inspect.json")" ]]; then
+    rm -rf -- "$directory/layout"
+    rm -f -- "$directory/layout.json"
+    ci_die "Saved layout digest changed"
+  fi
+}
+
+restore_publication_layout() {
+  local directory
+  directory=$(verified_directory "$BUILD_RUN")
+  require_verified_path "$directory"
+  verify_bundle "$directory"
+  [[ -d "$directory/layout" && ! -L "$directory/layout" && -f "$directory/layout.json" && ! -L "$directory/layout.json" ]] ||
+    ci_die "The exact prepared OCI layout was not retained"
+  [[ -z $(find "$directory/layout" -type l -print -quit) ]] || ci_die "Saved OCI layout contains a symbolic link"
+  inspect_layout "$directory/layout" "$task_root/saved-layout.json"
+  [[ $(ci_sha256 "$directory/layout.json") == "$(ci_sha256 "$task_root/saved-layout.json")" ]] || ci_die "Saved layout metadata changed"
+  [[ $(jq -er .manifest_digest "$task_root/saved-layout.json") == "$1" ]] || ci_die "Saved layout digest differs from the authorized result"
+  mkdir -p "$task_root/publication"
+  /bin/cp -cR "$directory/layout" "$layout"
+}
+
+remove_verified_bundle() {
+  local directory
+  directory=$(verified_directory "$BUILD_RUN")
+  require_verified_path "$directory"
+  verify_bundle "$directory"
+  [[ "$directory" == "$verified_root/$PROFILE/$VARIANT_ID/$BUILD_RUN" ]] || ci_die "Invalid verified bundle path"
+  rm -rf -- "$directory"
+}
+
+initialize() {
+  [[ -d "$task_root" && ! -L "$task_root" ]] || ci_die "Bootstrap task directory is missing"
+  [[ "$root_dir" == "$task_root/source" ]] || ci_die "Source checkout is outside the private task"
+  [[ -f "$task_root/.bootstrap" && ! -L "$task_root/.bootstrap" ]] || ci_die "Bootstrap marker is missing"
+  jq -e --arg repository "$repository" --arg run "$run_key" --arg revision "$GITHUB_SHA" \
+    '.format == 1 and .repository == $repository and .run == $run and .revision == $revision' \
+    "$task_root/.bootstrap" >/dev/null || ci_die "Bootstrap marker does not match this run"
+  [[ ! -e "$marker" ]] || ci_die "Task is already initialized"
+  mkdir -p "$tart_home/vms" "$logs"
+  expected_marker > "$marker"
+  write_inputs
+}
+
+check_runner() {
+  require_task
+  check_tools
+}
+
+check_package_tag() {
+  require_task
+  local expected=
+  local state
+  unset GH_TOKEN
+  if [[ "$OPERATION" == recover-upload ]]; then
+    [[ $(ci_sha256 "$SOURCE_ARTIFACT_DIR/result.json") == "$SOURCE_RESULT_SHA256" ]] || ci_die "Recovery result changed after authorization"
+    expected=$(jq -er '.manifest_digest // .recovery_expected_digest // ""' "$SOURCE_ARTIFACT_DIR/result.json")
+  fi
+  if [[ -n "$expected" ]]; then
+    state=$(./scripts/registry check "$PACKAGE_REF" "$expected")
+  else
+    state=$(./scripts/registry check "$PACKAGE_REF")
+  fi
+  [[ "$state" == absent || "$state" == present ]] || ci_die "Unexpected registry state: $state"
+}
+
+build_image() {
+  require_task
+  local source=
+  local source_digest=
+  local xcode_sha=
+  local source_layout="$task_root/parent-image/layout"
+  local source_metadata="$task_root/parent-image.json"
+  local source_ref
+  local source_variant
+
+  case "$VARIANT" in
+    vanilla)
+      source=$IPSW_URL
+      source_digest="sha256:$IPSW_SHA256"
+      ./scripts/image build vanilla "" "$vm_name"
+      ;;
+    base|xcode)
+      if [[ "$VARIANT" == base ]]; then
+        source_variant=vanilla
+      else
+        source_variant=base
+      fi
+      source_ref="$REGISTRY/macos-$MACOS_FAMILY-$source_variant:$IMAGE_TAG"
+      mkdir -p "$task_root/parent-image"
+      ./scripts/registry download "$source_ref" "$source_layout"
+      inspect_layout "$source_layout" "$source_metadata"
+      require_layout "$source_metadata" "$source_variant"
+      source_digest=$(jq -er .manifest_digest "$source_metadata")
+      source="${source_ref%:*}@$source_digest"
+      .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
+      if [[ "$VARIANT" == base ]]; then
+        ./scripts/image build base "$source_vm" "$vm_name"
+      else
+        local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
+        [[ -f "$archive" && ! -L "$archive" ]] || ci_die "Xcode archive is missing: $archive"
+        xcode_sha=$(ci_sha256 "$archive")
+        ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name"
+      fi
+      ;;
+  esac
+  ./scripts/image test "$vm_name" "$VARIANT"
+  set_input_sources "$source" "$source_digest" "$xcode_sha"
+  save_verified_bundle "$run_key"
+  write_built_result "$run_key"
+}
+
+restore_image() {
+  require_task
+  local source_inputs="$SOURCE_ARTIFACT_DIR/inputs.json"
+  local source_result="$SOURCE_ARTIFACT_DIR/result.json"
+  local directory
+  local recovery_digest
+  [[ $(ci_sha256 "$source_inputs") == "$SOURCE_INPUTS_SHA256" ]] || ci_die "Recovery inputs changed after authorization"
+  [[ $(ci_sha256 "$source_result") == "$SOURCE_RESULT_SHA256" ]] || ci_die "Recovery result changed after authorization"
+  [[ $(jq -er .build_run "$source_result") == "$BUILD_RUN" ]] || ci_die "Recovery build run changed after authorization"
+  [[ $(jq -er .revision "$source_result") == "$BUILD_REVISION" ]] || ci_die "Recovery revision changed after authorization"
+  [[ $(ci_sha256 "$SOURCE_ARTIFACT_DIR/bundle.json") == "$BUNDLE_METADATA_SHA256" ]] || ci_die "Recovery bundle metadata changed after authorization"
+  directory=$(verified_directory "$BUILD_RUN")
+  require_verified_path "$directory"
+  verify_bundle "$directory"
+  [[ $(ci_sha256 "$directory/bundle.json") == "$BUNDLE_METADATA_SHA256" ]] || ci_die "Local VM metadata does not match the original build artifact"
+  /bin/cp -cR "$directory/vm" "$tart_home/vms/$vm_name"
+  set_input_sources \
+    "$(jq -er .source "$source_inputs")" \
+    "$(jq -er .source_digest "$source_inputs")" \
+    "$(jq -er .xcode_archive_sha256 "$source_inputs")"
+  cp "$SOURCE_ARTIFACT_DIR/bundle.json" "$logs/bundle.json"
+  recovery_digest=$(jq -er '.manifest_digest // .recovery_expected_digest // ""' "$source_result")
+  if [[ -z "$recovery_digest" ]]; then
+    [[ "$SOURCE_RUN" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]] || ci_die "Invalid recovery source run"
+    for path in \
+      "$directory/layout.incomplete-$BUILD_RUN" \
+      "$directory/layout.incomplete-$SOURCE_RUN" \
+      "$directory/layout.incomplete-$run_key" \
+      "$directory/layout.json.tmp" \
+      "$directory/layout" \
+      "$directory/layout.json"; do
+      if [[ -e "$path" || -L "$path" ]]; then
+        [[ ! -L "$path" ]] || ci_die "Invalid unanchored layout cache"
+        rm -rf -- "$path"
+      fi
+    done
+  fi
+  write_built_result "$BUILD_RUN" "$recovery_digest"
+}
+
+prepare_publication() {
+  require_task
+  jq -e '.result == "passed" and .stage == "built"' "$logs/result.json" >/dev/null || ci_die "A verified build is required"
+  local source
+  local inspect="$logs/inspect.json"
+  local digest
+  local hash
+  local expected
+  source=$(jq -er .oci_source "$logs/result.json")
+  expected=$(jq -er .recovery_expected_digest "$logs/result.json")
+  if [[ -n "$expected" ]]; then
+    restore_publication_layout "$expected"
+  else
+    mkdir -p "$task_root/publication"
+    IMAGE_REVISION="$BUILD_REVISION" IMAGE_SOURCE="$source" ./scripts/registry prepare "$vm_name" "$PACKAGE_REF" "$layout"
+  fi
+  inspect_layout "$layout" "$inspect"
+  require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
+  digest=$(jq -er .manifest_digest "$inspect")
+  [[ -z "$expected" || "$digest" == "$expected" ]] || ci_die "Recovered export digest differs from the original export"
+  hash=${digest#sha256:}
+  cp "$layout/blobs/sha256/$hash" "$logs/oci-manifest.json"
+  if [[ -z "$expected" ]]; then
+    save_publication_layout
+  fi
+  local temporary="$logs/result.json.tmp"
+  jq --arg digest "$digest" --argjson size "$(jq -er .manifest_size "$inspect")" --argjson bytes "$(jq -er .blob_bytes "$inspect")" \
+    '.stage = "prepared" | .manifest_digest = $digest | .manifest_size = $size | .blob_bytes = $bytes' \
+    "$logs/result.json" > "$temporary"
+  mv "$temporary" "$logs/result.json"
+  jq -n \
+    --arg image_version "$IMAGE_VERSION" \
+    --arg macos_family "$MACOS_FAMILY" \
+    --arg macos_version "$MACOS_VERSION" \
+    --arg macos_build "$MACOS_BUILD" \
+    --arg variant "$VARIANT" \
+    --arg variant_id "$VARIANT_ID" \
+    --arg xcode "${XCODE_VERSION:-}" \
+    --arg reference "${PACKAGE_REF%:*}@$digest" '
+      {
+        format: 1,
+        image_version: $image_version,
+        macos: {family: $macos_family, version: $macos_version, build: $macos_build, architecture: "arm64"},
+        variant: $variant,
+        variant_id: $variant_id,
+        xcode_version: $xcode,
+        source: {type: "prebuilt", reference: $reference}
+      }
+    ' > "$logs/image-spec.json"
+}
+
+upload_publication() {
+  require_task
+  local digest
+  local state
+  digest=$(jq -er 'select(.stage == "prepared") | .manifest_digest' "$logs/result.json")
+  unset GH_TOKEN
+  if [[ "$OPERATION" == recover-upload ]]; then
+    state=$(./scripts/registry check "$PACKAGE_REF" "$digest")
+  else
+    state=$(./scripts/registry check "$PACKAGE_REF")
+  fi
+  case "$state" in
+    absent) ./scripts/registry upload "$layout" "$PACKAGE_REF" ;;
+    present) ;;
+    *) ci_die "Unexpected registry state: $state" ;;
+  esac
+  [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "Published digest was not found"
+}
+
+verify_publication() {
+  require_task
+  local digest
+  local downloaded="$task_root/downloaded/layout"
+  local inspect="$task_root/downloaded.json"
+  local source
+  digest=$(jq -er 'select(.stage == "prepared") | .manifest_digest' "$logs/result.json")
+  source=$(jq -er .oci_source "$logs/result.json")
+  unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
+  [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "The public registry digest does not match"
+  mkdir -p "$task_root/downloaded"
+  ./scripts/registry download "$PACKAGE_REF" "$downloaded"
+  inspect_layout "$downloaded" "$inspect"
+  require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
+  [[ $(jq -er .manifest_digest "$inspect") == "$digest" ]] || ci_die "Downloaded manifest digest changed"
+  .build/tools/image-artifact import --layout "$downloaded" --vm "$published_vm"
+  ./scripts/image test "$published_vm" "$VARIANT"
+  jq -n \
+    --arg run "$run_key" \
+    --arg build_run "$BUILD_RUN" \
+    --arg revision "$BUILD_REVISION" \
+    --arg reference "$PACKAGE_REF" \
+    --arg digest "$digest" '
+      {
+        format: 1,
+        publication_run: $run,
+        build_run: $build_run,
+        revision: $revision,
+        reference: $reference,
+        digest: $digest,
+        anonymous_download: "passed",
+        import: "passed",
+        guest_test: "passed"
+      }
+    ' > "$logs/publication.json"
+  local temporary="$logs/result.json.tmp"
+  jq '.stage = "published"' "$logs/result.json" > "$temporary"
+  mv "$temporary" "$logs/result.json"
+  remove_verified_bundle
+}
+
+cleanup_task() {
+  local cache
+  local incomplete
+  local recovery_digest=
+  [[ -e "$task_root" ]] || return 0
+  [[ -d "$RUNNER_TEMP" && ! -L "$RUNNER_TEMP" && -d "$task_root" && ! -L "$task_root" ]] || ci_die "Invalid task directory"
+  require_task
+  if [[ -d "$tart_home/vms" ]]; then
+    local bundle
+    while IFS= read -r bundle; do
+      stop_vm "${bundle##*/}"
+    done < <(find "$tart_home/vms" -mindepth 1 -maxdepth 1 -type d -print)
+    require_closed_bundle "$tart_home/vms"
+  fi
+  cache=$(verified_directory "$BUILD_RUN")
+  incomplete="$cache.incomplete-$run_key"
+  require_verified_path "$cache"
+  require_verified_path "$incomplete"
+  if [[ -e "$incomplete" || -L "$incomplete" ]]; then
+    [[ -d "$incomplete" && ! -L "$incomplete" ]] || ci_die "Invalid incomplete verified cache"
+    rm -rf -- "$incomplete"
+  fi
+  if [[ -d "$cache" && ! -L "$cache" ]]; then
+    if [[ ! -f "$logs/bundle.json" || ! -f "$logs/result.json" ]]; then
+      if [[ "$BUILD_RUN" == "$run_key" ]]; then
+        verify_bundle "$cache"
+        rm -rf -- "$cache"
+        cache=
+      fi
+    elif [[ $(ci_sha256 "$cache/bundle.json") != "$(ci_sha256 "$logs/bundle.json")" ]]; then
+      ci_die "Verified cache metadata changed during the run"
+    fi
+  fi
+  if [[ -n "$cache" && -d "$cache" && ! -L "$cache" ]]; then
+    if [[ -f "$logs/result.json" ]]; then
+      recovery_digest=$(jq -er '.recovery_expected_digest // ""' "$logs/result.json")
+    fi
+    if [[ -z "$recovery_digest" && $(jq -er '.stage // ""' "$logs/result.json" 2>/dev/null || true) == built ]]; then
+      for path in "$cache/layout.incomplete-$run_key" "$cache/layout.json.tmp"; do
+        if [[ -e "$path" || -L "$path" ]]; then
+          [[ -d "$path" && ! -L "$path" ]] || [[ -f "$path" && ! -L "$path" ]] || ci_die "Invalid incomplete layout cache"
+          rm -rf -- "$path"
+        fi
+      done
+      if [[ -e "$cache/layout" || -L "$cache/layout" ]]; then
+        [[ -d "$cache/layout" && ! -L "$cache/layout" ]] || ci_die "Invalid saved layout cache"
+        rm -rf -- "$cache/layout"
+      fi
+      if [[ -e "$cache/layout.json" || -L "$cache/layout.json" ]]; then
+        [[ -f "$cache/layout.json" && ! -L "$cache/layout.json" ]] || ci_die "Invalid saved layout metadata"
+        rm -f -- "$cache/layout.json"
+      fi
+    fi
+  fi
+  rm -rf -- "$task_root"
+}
+
+case ${1:-} in
+  init) initialize ;;
+  check) check_runner ;;
+  check-tag) check_package_tag ;;
+  build) build_image ;;
+  restore) restore_image ;;
+  prepare) prepare_publication ;;
+  upload) upload_publication ;;
+  verify) verify_publication ;;
+  cleanup) cleanup_task ;;
+  *) ci_die "Usage: ci/image.sh <init|check|check-tag|build|restore|prepare|upload|verify|cleanup>" ;;
+esac

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+ci_die() {
+  echo "$*" >&2
+  exit 1
+}
+
+ci_sha256() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+ci_read_value() {
+  local file=$1
+  local key=$2
+  local line
+  local value=
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == "$key="* ]]; then
+      [[ -z "$value" ]] || ci_die "Duplicate $key in $file"
+      value=${line#*=}
+    fi
+  done < "$file"
+
+  [[ -n "$value" ]] || ci_die "Missing $key in $file"
+  [[ "$value" != *[$'\t\r\n ']* ]] || ci_die "Invalid $key in $file"
+  printf '%s\n' "$value"
+}
+
+ci_load_profile() {
+  case ${PROFILE:-} in
+    sequoia-15.6.1|tahoe-26.6.2|macos-27.0-rc) ;;
+    *) ci_die "Unknown image profile: ${PROFILE:-}" ;;
+  esac
+  case ${VARIANT:-} in
+    vanilla|base|xcode) ;;
+    *) ci_die "Unknown image variant: ${VARIANT:-}" ;;
+  esac
+
+  CONFIG_PATH="config/$PROFILE.env"
+  [[ -f "$CONFIG_PATH" && ! -L "$CONFIG_PATH" ]] || ci_die "Invalid profile file: $CONFIG_PATH"
+  [[ -f config/toolchain.env && ! -L config/toolchain.env ]] || ci_die "Invalid toolchain configuration"
+
+  MACOS_FAMILY=$(ci_read_value "$CONFIG_PATH" MACOS_FAMILY)
+  MACOS_VERSION=$(ci_read_value "$CONFIG_PATH" MACOS_VERSION)
+  MACOS_BUILD=$(ci_read_value "$CONFIG_PATH" MACOS_BUILD)
+  IMAGE_VERSION=$(ci_read_value "$CONFIG_PATH" IMAGE_VERSION)
+  IMAGE_PRERELEASE=$(ci_read_value "$CONFIG_PATH" IMAGE_PRERELEASE)
+  IPSW_URL=$(ci_read_value "$CONFIG_PATH" IPSW_URL)
+  IPSW_SIZE=$(ci_read_value "$CONFIG_PATH" IPSW_SIZE)
+  IPSW_SHA256=$(ci_read_value "$CONFIG_PATH" IPSW_SHA256)
+  MINIMUM_HOST_MAJOR=$(ci_read_value "$CONFIG_PATH" MINIMUM_HOST_MAJOR)
+
+  TART_VERSION=$(ci_read_value config/toolchain.env TART_VERSION)
+  PACKER_VERSION=$(ci_read_value config/toolchain.env PACKER_VERSION)
+  GO_VERSION=$(ci_read_value config/toolchain.env GO_VERSION)
+  PACKER_TART_PLUGIN_VERSION=$(ci_read_value config/toolchain.env PACKER_TART_PLUGIN_VERSION)
+  SWIFT_VERSION=$(ci_read_value config/toolchain.env SWIFT_VERSION)
+
+  [[ "$MACOS_FAMILY" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || ci_die "Invalid macOS family"
+  [[ "$MACOS_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid macOS version"
+  [[ "$MACOS_BUILD" =~ ^[0-9A-Z]+$ ]] || ci_die "Invalid macOS build"
+  [[ "$IMAGE_VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]] || ci_die "Invalid image version"
+  [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] || ci_die "Invalid prerelease value"
+  [[ "$IPSW_URL" == https://updates.cdn-apple.com/* ]] || ci_die "Invalid IPSW URL"
+  [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid IPSW size"
+  [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || ci_die "Invalid IPSW SHA-256"
+  [[ "$MINIMUM_HOST_MAJOR" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid host version"
+  for version in "$TART_VERSION" "$PACKER_VERSION" "$GO_VERSION" "$PACKER_TART_PLUGIN_VERSION" "$SWIFT_VERSION"; do
+    [[ "$version" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid tool version: $version"
+  done
+
+  if [[ "$VARIANT" == xcode ]]; then
+    [[ ${XCODE_VERSION:-} =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)([.](0|[1-9][0-9]*))?$ ]] || ci_die "Xcode images require an exact Xcode version"
+    VARIANT_ID="xcode-$XCODE_VERSION"
+  else
+    [[ -z ${XCODE_VERSION:-} ]] || ci_die "Xcode version applies only to Xcode images"
+    VARIANT_ID=$VARIANT
+  fi
+
+  [[ ${REGISTRY:-} == ghcr.io/minimillionaire ]] || ci_die "Unexpected registry: ${REGISTRY:-}"
+  IMAGE_TAG="$MACOS_VERSION-$MACOS_BUILD-v$IMAGE_VERSION"
+  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT_ID:$IMAGE_TAG"
+  RELEASE_TAG="$VARIANT_ID/$IMAGE_TAG"
+  PROFILE_CONFIG_SHA256=$(ci_sha256 "$CONFIG_PATH")
+  TOOLCHAIN_CONFIG_SHA256=$(ci_sha256 config/toolchain.env)
+}
+
+ci_write_output() {
+  local name=$1
+  local value=$2
+  [[ -n ${GITHUB_OUTPUT:-} ]] || ci_die "GITHUB_OUTPUT is not set"
+  printf '%s=%s\n' "$name" "$value" >> "$GITHUB_OUTPUT"
+}

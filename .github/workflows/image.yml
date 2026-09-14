@@ -1,0 +1,452 @@
+name: Build and publish macOS image
+run-name: ${{ inputs.operation }} ${{ inputs.profile }} ${{ inputs.variant }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Authoritative macOS configuration
+        type: choice
+        options:
+          - sequoia-15.6.1
+          - tahoe-26.6.2
+          - macos-27.0-rc
+        default: sequoia-15.6.1
+      variant:
+        description: Image variant
+        type: choice
+        options:
+          - vanilla
+          - base
+          - xcode
+        default: vanilla
+      xcode_version:
+        description: Exact Xcode version for an Xcode image
+        type: string
+        default: ''
+      operation:
+        description: Build, publish, or resume a verified stage
+        type: choice
+        options:
+          - build
+          - publish
+          - recover-upload
+          - recover-release
+        default: build
+      source_run:
+        description: Source run ID-attempt for a recovery operation
+        type: string
+        default: ''
+      release_tag:
+        description: Exact existing variant/version Git tag for publication
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: macos-image-publication
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Authorize image request
+    if: >-
+      github.repository == 'MiniMillionaire/macos-image' &&
+      github.repository_owner == 'MiniMillionaire' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
+      github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      actions: read
+      contents: read
+    env:
+      REGISTRY: ghcr.io/minimillionaire
+      TRUSTED_ACTOR: ${{ vars.TRUSTED_ACTOR || 'cocoa-xu' }}
+      PROFILE: ${{ inputs.profile }}
+      VARIANT: ${{ inputs.variant }}
+      XCODE_VERSION: ${{ inputs.xcode_version }}
+      OPERATION: ${{ inputs.operation }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+    outputs:
+      profile: ${{ steps.current.outputs.profile }}
+      config: ${{ steps.current.outputs.config }}
+      operation: ${{ steps.current.outputs.operation }}
+      variant: ${{ steps.current.outputs.variant }}
+      variant_id: ${{ steps.current.outputs.variant_id }}
+      xcode_version: ${{ steps.current.outputs.xcode_version }}
+      image_tag: ${{ steps.current.outputs.image_tag }}
+      release_tag: ${{ steps.current.outputs.release_tag }}
+      package_ref: ${{ steps.current.outputs.package_ref }}
+      revision: ${{ steps.recovery.outputs.revision || github.sha }}
+      build_run: ${{ steps.recovery.outputs.build_run || format('{0}-{1}', github.run_id, github.run_attempt) }}
+      source_inputs_sha256: ${{ steps.recovery.outputs.source_inputs_sha256 }}
+      source_result_sha256: ${{ steps.recovery.outputs.source_result_sha256 }}
+      bundle_metadata_sha256: ${{ steps.recovery.outputs.bundle_metadata_sha256 }}
+      source_run_id: ${{ steps.current.outputs.source_run_id }}
+      publication_run: ${{ steps.recovery.outputs.publication_run || format('{0}-{1}', github.run_id, github.run_attempt) }}
+      publication_run_id: ${{ steps.recovery.outputs.publication_run_id || github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Authorize current request
+        id: current
+        timeout-minutes: 2
+        run: bash ci/authorize.sh current
+      - name: Read source run evidence
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.current.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.current.outputs.source_run_attempt }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/source-evidence"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" > "$RUNNER_TEMP/source-evidence/run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT/jobs?per_page=100" > "$RUNNER_TEMP/source-evidence/jobs.json"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 5
+        with:
+          name: macos-image-${{ inputs.source_run }}
+          path: ${{ runner.temp }}/source-artifact
+          github-token: ${{ github.token }}
+          repository: MiniMillionaire/macos-image
+          run-id: ${{ steps.current.outputs.source_run_id }}
+      - name: Read source metadata
+        id: source
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 2
+        env:
+          SOURCE_ARTIFACT_DIR: ${{ runner.temp }}/source-artifact
+          SOURCE_RUN_JSON: ${{ runner.temp }}/source-evidence/run.json
+          SOURCE_JOBS_JSON: ${{ runner.temp }}/source-evidence/jobs.json
+        run: bash ci/authorize.sh source-metadata
+      - name: Read original build evidence
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ steps.source.outputs.build_run_id }}
+          BUILD_RUN_ATTEMPT: ${{ steps.source.outputs.build_run_attempt }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/build-evidence"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/attempts/$BUILD_RUN_ATTEMPT" > "$RUNNER_TEMP/build-evidence/run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/attempts/$BUILD_RUN_ATTEMPT/jobs?per_page=100" > "$RUNNER_TEMP/build-evidence/jobs.json"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 5
+        with:
+          name: macos-image-${{ steps.source.outputs.build_run }}
+          path: ${{ runner.temp }}/build-artifact
+          github-token: ${{ github.token }}
+          repository: MiniMillionaire/macos-image
+          run-id: ${{ steps.source.outputs.build_run_id }}
+      - name: Authorize recovery evidence
+        id: recovery
+        if: inputs.operation == 'recover-upload' || inputs.operation == 'recover-release'
+        timeout-minutes: 2
+        env:
+          SOURCE_ARTIFACT_DIR: ${{ runner.temp }}/source-artifact
+          BUILD_ARTIFACT_DIR: ${{ runner.temp }}/build-artifact
+          SOURCE_RUN_JSON: ${{ runner.temp }}/source-evidence/run.json
+          SOURCE_JOBS_JSON: ${{ runner.temp }}/source-evidence/jobs.json
+          BUILD_RUN_JSON: ${{ runner.temp }}/build-evidence/run.json
+          BUILD_JOBS_JSON: ${{ runner.temp }}/build-evidence/jobs.json
+        run: bash ci/authorize.sh recovery
+      - uses: actions/checkout@v7
+        if: inputs.operation != 'recover-release'
+        timeout-minutes: 5
+        with:
+          repository: apple/swift-argument-parser
+          ref: 6a52f3251125d74daf04fcbd5e6f08a75d074382
+          path: .ci-dependency
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Prepare offline source bundles
+        if: inputs.operation != 'recover-release'
+        timeout-minutes: 3
+        run: |
+          dependency_revision=$(jq -er '.pins[] | select(.identity == "swift-argument-parser") | .state.revision' Package.resolved)
+          test "$dependency_revision" = 6a52f3251125d74daf04fcbd5e6f08a75d074382
+          test "$(git -C .ci-dependency rev-parse HEAD)" = "$dependency_revision"
+          mkdir -p "$RUNNER_TEMP/macos-image-sources"
+          git bundle create "$RUNNER_TEMP/macos-image-sources/source.bundle" HEAD
+          git -C .ci-dependency bundle create "$RUNNER_TEMP/macos-image-sources/swift-argument-parser.bundle" HEAD
+          source_sha=$(shasum -a 256 "$RUNNER_TEMP/macos-image-sources/source.bundle" | awk '{print $1}')
+          dependency_sha=$(shasum -a 256 "$RUNNER_TEMP/macos-image-sources/swift-argument-parser.bundle" | awk '{print $1}')
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg revision "$GITHUB_SHA" \
+            --arg dependency_revision "$dependency_revision" \
+            --arg source_sha "$source_sha" \
+            --arg dependency_sha "$dependency_sha" \
+            '{
+              format: 1,
+              repository: $repository,
+              revision: $revision,
+              dependency_revision: $dependency_revision,
+              source_sha256: $source_sha,
+              dependency_sha256: $dependency_sha
+            }' > "$RUNNER_TEMP/macos-image-sources/sources.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: inputs.operation != 'recover-release'
+        timeout-minutes: 5
+        with:
+          name: macos-image-sources-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/macos-image-sources/
+          if-no-files-found: error
+          retention-days: 1
+
+  image:
+    name: Build, publish, or recover image
+    needs: authorize
+    if: needs.authorize.outputs.operation != 'recover-release'
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 600
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    env:
+      PATH: /opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+      REGISTRY: ghcr.io/minimillionaire
+      IMAGE_CACERT: /opt/homebrew/etc/openssl@3/cert.pem
+      PROFILE: ${{ needs.authorize.outputs.profile }}
+      VARIANT: ${{ needs.authorize.outputs.variant }}
+      XCODE_VERSION: ${{ needs.authorize.outputs.xcode_version }}
+      OPERATION: ${{ needs.authorize.outputs.operation }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      BUILD_REVISION: ${{ needs.authorize.outputs.revision }}
+      BUILD_RUN: ${{ needs.authorize.outputs.build_run }}
+      SOURCE_INPUTS_SHA256: ${{ needs.authorize.outputs.source_inputs_sha256 }}
+      SOURCE_RESULT_SHA256: ${{ needs.authorize.outputs.source_result_sha256 }}
+      BUNDLE_METADATA_SHA256: ${{ needs.authorize.outputs.bundle_metadata_sha256 }}
+      GIT_CONFIG_NOSYSTEM: '1'
+      GIT_CONFIG_GLOBAL: /dev/null
+      GIT_CONFIG_COUNT: '3'
+      GIT_CONFIG_KEY_0: credential.helper
+      GIT_CONFIG_VALUE_0: ''
+      GIT_CONFIG_KEY_1: protocol.allow
+      GIT_CONFIG_VALUE_1: never
+      GIT_CONFIG_KEY_2: protocol.file.allow
+      GIT_CONFIG_VALUE_2: always
+      GIT_ALLOW_PROTOCOL: file
+      GIT_TERMINAL_PROMPT: '0'
+      TART_NO_AUTO_PRUNE: '1'
+      PACKER_LOG: '1'
+      GUEST_USERNAME: admin
+      GUEST_PASSWORD: admin
+    steps:
+      - name: Mark private task root
+        timeout-minutes: 2
+        run: |
+          task="$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test ! -e "$task" && test ! -L "$task"
+          mkdir -p "$task/logs"
+          jq -n --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg revision "$GITHUB_SHA" \
+            '{format: 1, repository: $repository, run: $run, revision: $revision}' > "$task/.bootstrap"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        timeout-minutes: 5
+        with:
+          name: macos-image-sources-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/input
+          github-token: ${{ github.token }}
+          repository: MiniMillionaire/macos-image
+          run-id: ${{ github.run_id }}
+      - name: Create offline source checkout
+        timeout-minutes: 10
+        run: |
+          task="$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          input="$task/input"
+          source="$task/source"
+          dependency="$task/swift-argument-parser.git"
+          test -d "$task" && test ! -L "$task" && test -d "$input" && test ! -L "$input"
+          test ! -e "$source" && test ! -L "$source" && test ! -e "$dependency" && test ! -L "$dependency"
+          test -f "$task/.bootstrap" && test ! -L "$task/.bootstrap"
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg revision "$GITHUB_SHA" \
+            '.format == 1 and .repository == $repository and .run == $run and .revision == $revision' "$task/.bootstrap" >/dev/null
+          exec > >(tee "$task/logs/bootstrap.log") 2>&1
+          for file in sources.json source.bundle swift-argument-parser.bundle; do
+            test -f "$input/$file" && test ! -L "$input/$file"
+          done
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg revision "$GITHUB_SHA" '
+            .format == 1 and .repository == $repository and .revision == $revision and
+            (.dependency_revision | test("^[0-9a-f]{40}$")) and
+            (.source_sha256 | test("^[0-9a-f]{64}$")) and
+            (.dependency_sha256 | test("^[0-9a-f]{64}$"))
+          ' "$input/sources.json"
+          test "$(shasum -a 256 "$input/source.bundle" | awk '{print $1}')" = "$(jq -er .source_sha256 "$input/sources.json")"
+          test "$(shasum -a 256 "$input/swift-argument-parser.bundle" | awk '{print $1}')" = "$(jq -er .dependency_sha256 "$input/sources.json")"
+          git bundle list-heads "$input/source.bundle" | grep -F "$GITHUB_SHA HEAD"
+          git bundle list-heads "$input/swift-argument-parser.bundle" | grep -F "$(jq -er .dependency_revision "$input/sources.json") HEAD"
+          git clone --no-checkout "$input/source.bundle" "$source"
+          git -C "$source" checkout --detach "$GITHUB_SHA"
+          git -C "$source" remote set-url origin https://github.com/MiniMillionaire/macos-image
+          git clone --mirror "$input/swift-argument-parser.bundle" "$dependency"
+          test "$(git -C "$dependency" rev-parse HEAD)" = "$(jq -er .dependency_revision "$input/sources.json")"
+          printf '.swiftpm/\n' >> "$source/.git/info/exclude"
+          xcrun swift package --disable-keychain --package-path "$source" config set-mirror \
+            --original https://github.com/apple/swift-argument-parser \
+            --mirror "file://$dependency"
+      - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6
+        timeout-minutes: 5
+        with:
+          version: 1.3.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 10
+        with:
+          name: macos-image-${{ inputs.source_run }}
+          path: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/recovery
+          github-token: ${{ github.token }}
+          repository: MiniMillionaire/macos-image
+          run-id: ${{ needs.authorize.outputs.source_run_id }}
+      - name: Initialize private task
+        timeout-minutes: 2
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh init 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/init.log"
+      - name: Check runner and tools
+        timeout-minutes: 10
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh check 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/check.log"
+      - name: Check immutable package tag
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 5
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          SOURCE_ARTIFACT_DIR: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/recovery
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/image.sh check-tag 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/check-tag.log"
+      - name: Build and verify image
+        if: needs.authorize.outputs.operation == 'build' || needs.authorize.outputs.operation == 'publish'
+        timeout-minutes: 260
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          PACKER_LOG_PATH: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/logs/packer.log
+        run: bash ci/image.sh build 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/build.log"
+      - name: Restore verified image
+        if: needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 60
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          SOURCE_ARTIFACT_DIR: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/recovery
+        run: bash ci/image.sh restore 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/restore.log"
+      - name: Prepare image publication
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 45
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh prepare 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/prepare.log"
+      - name: Upload image
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 60
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/image.sh upload 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/upload.log"
+      - name: Verify published image
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 120
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          PACKER_LOG_PATH: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/logs/packer.log
+        run: bash ci/image.sh verify 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/verify.log"
+      - name: Upload logs and metadata
+        if: always()
+        timeout-minutes: 5
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: macos-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/logs/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Clean private task
+        if: always()
+        timeout-minutes: 10
+        working-directory: ${{ runner.temp }}
+        run: |
+          task="$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test "$task" = "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test -d "$RUNNER_TEMP" && test ! -L "$RUNNER_TEMP" && test -d "$task" && test ! -L "$task"
+          test -f "$task/.bootstrap" && test ! -L "$task/.bootstrap"
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg revision "$GITHUB_SHA" \
+            '.format == 1 and .repository == $repository and .run == $run and .revision == $revision' "$task/.bootstrap" >/dev/null
+          if test -f "$task/source/ci/image.sh" && test ! -L "$task/source" && test ! -L "$task/source/ci/image.sh" &&
+             test -f "$task/.ci-task" && test ! -L "$task/.ci-task"; then
+            bash "$task/source/ci/image.sh" cleanup
+          elif test ! -e "$task/.ci-task" && test ! -L "$task/.ci-task"; then
+            rm -rf -- "$task"
+          else
+            echo "Refusing to clean an unmarked task directory" >&2
+            exit 1
+          fi
+
+  release:
+    name: Create GitHub release
+    needs: [authorize, image]
+    if: >-
+      always() && needs.authorize.result == 'success' &&
+      (needs.authorize.outputs.operation == 'recover-release' ||
+       ((needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload') &&
+        needs.image.result == 'success'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    env:
+      REGISTRY: ghcr.io/minimillionaire
+      IMAGE_CACERT: /etc/ssl/certs/ca-certificates.crt
+      PROFILE: ${{ needs.authorize.outputs.profile }}
+      VARIANT: ${{ needs.authorize.outputs.variant }}
+      XCODE_VERSION: ${{ needs.authorize.outputs.xcode_version }}
+      PUBLICATION_RUN: ${{ needs.authorize.outputs.publication_run }}
+      EXPECTED_INPUTS_SHA256: ${{ inputs.operation == 'recover-release' && needs.authorize.outputs.source_inputs_sha256 || '' }}
+      EXPECTED_RESULT_SHA256: ${{ inputs.operation == 'recover-release' && needs.authorize.outputs.source_result_sha256 || '' }}
+      GH_REPO: MiniMillionaire/macos-image
+      GH_PROMPT_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6
+        timeout-minutes: 3
+        with:
+          version: 1.3.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        timeout-minutes: 5
+        with:
+          name: macos-image-${{ needs.authorize.outputs.publication_run }}
+          path: ${{ runner.temp }}/publication-artifact
+          github-token: ${{ github.token }}
+          repository: MiniMillionaire/macos-image
+          run-id: ${{ needs.authorize.outputs.publication_run_id }}
+      - name: Build registry helper
+        timeout-minutes: 3
+        run: make artifact-helper
+      - name: Create verified release
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_CONFIG_DIR: ${{ runner.temp }}/gh-config
+          PUBLICATION_ARTIFACT_DIR: ${{ runner.temp }}/publication-artifact
+        run: bash ci/release.sh
