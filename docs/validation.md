@@ -42,11 +42,20 @@ and Command Line Tools 27.0. The runner was launched over SSH as described in
 Verified bundles were saved for publication. Their metadata matched the downloaded
 Actions artifacts, and each task's temporary files were removed.
 
-The macOS 15 image was uploaded by digest in
-[34868521410](https://github.com/MiniMillionaire/macos-image/actions/runs/34868521410).
-ORAS transferred the manifest and blobs and confirmed the remote digest. The
-package was private, so anonymous verification failed and no tags were promoted.
-The original verified bundle and export were retained for recovery.
+All three images were uploaded by digest:
+
+| macOS | Upload run | OCI blob size |
+| --- | --- | --- |
+| 15.6.1 | [34868521410](https://github.com/MiniMillionaire/macos-image/actions/runs/34868521410) | 19.58 GiB |
+| 26.6.2 | [34882256051](https://github.com/MiniMillionaire/macos-image/actions/runs/34882256051) | 23.12 GiB |
+| 27.0 RC | [34885745399](https://github.com/MiniMillionaire/macos-image/actions/runs/34885745399) | 28.88 GiB |
+
+ORAS transferred the manifests and blobs and confirmed the remote digests.
+All three packages remained private. The macOS 15 and 26 workflows stopped at
+anonymous verification. The macOS 27 upload-only workflow passed and skipped
+anonymous verification and tag promotion. No tags or Releases were created.
+The original verified bundles and exports were retained for recovery, and the
+temporary task directories were removed.
 
 ## Publication backport
 
