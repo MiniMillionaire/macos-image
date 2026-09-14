@@ -14,8 +14,8 @@ was checked against the publisher's SHA-256 value before extraction.
 | Packer | 1.16.0 | `6530042cf8f8a1f96b6607cb22b5be298be53b400cd4a2c81ab8b946964fccda` |
 | Go | 1.25.0 | `544932844156d8172f7a28f77f2ac9c15a23046698b6243f633b0a0b00c0749c` |
 
-The installed Xcode command line tools provide Swift 6.2.4 for building the
-compiled CLI.
+The current Xcode toolchain provides Swift 6.4 for building the compiled CLI.
+This version passed validation on September 14, 2026.
 
 Release metadata: [Tart](https://github.com/cirruslabs/tart/releases/tag/2.36.0),
 [Packer checksums](https://releases.hashicorp.com/packer/1.16.0/packer_1.16.0_SHA256SUMS),
@@ -29,6 +29,7 @@ Symlinks for `tart`, `packer`, `go`, and `gofmt` are in `/opt/homebrew/bin`.
 Check the installation with:
 
 ```shell
+export PACKER_CONFIG="$PWD/config/packer.json"
 tart --version
 packer --version
 go version
@@ -42,12 +43,40 @@ git diff --check
 ```
 
 Local IPSW installation and local VM operations do not require registry
-credentials. Never use the host Keychain for this project. Registry operations
-require explicit `TART_REGISTRY_USERNAME` and `TART_REGISTRY_PASSWORD`; Tart's
-fallback credential providers can otherwise access the host Keychain.
+credentials. Never use the host Keychain for this project. Registry uploads
+require explicit `TART_REGISTRY_HOSTNAME`, `TART_REGISTRY_USERNAME`, and
+`TART_REGISTRY_PASSWORD`. ORAS uses a private temporary auth configuration and an
+explicit PEM CA bundle. Public downloads use an empty auth configuration. Tart
+only connects to the loopback adapter for registry operations.
+
+`config/toolchain.env` records the verified tool versions. CI requires exact
+matches. `config/packer.json` disables Checkpoint before every Packer invocation.
+The Tart plugin must already be installed; builds do not use `packer init` to
+fetch missing plugins. Downloaded IPSWs use an explicit PEM trust pool and must
+match their configured size and SHA-256. Set `IMAGE_CACERT` to use another PEM CA
+bundle; the default is `/opt/homebrew/etc/openssl@3/cert.pem`.
 
 The application running build commands needs Local Network access to reach the
 guest over SSH. On this host, connections to the Tart subnet returned
 `EHOSTUNREACH` even with a valid route and ARP entry until the user approved
 network access. No subnet exception or host reboot was needed. See Apple's
 [Local Network privacy guidance](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+
+## Swift dependency
+
+The first local CLI build needs a local Git checkout or mirror of
+`apple/swift-argument-parser` containing the revision in `Package.resolved`.
+Point SwiftPM at that repository before running `make cli`:
+
+```shell
+SWIFT_ARGUMENT_PARSER_PATH=/absolute/path/to/swift-argument-parser
+GIT_ALLOW_PROTOCOL=file xcrun swift package --disable-keychain config set-mirror \
+  --original https://github.com/apple/swift-argument-parser \
+  --mirror "file://$SWIFT_ARGUMENT_PARSER_PATH"
+printf '.swiftpm/\n' >> .git/info/exclude
+make cli
+```
+
+The mirror is local configuration and must not be committed. CI supplies its own
+mirror from a Git bundle. `GIT_ALLOW_PROTOCOL=file` applies to build processes;
+it does not change the user's Git configuration or restrict IPSW and OCI transfers.

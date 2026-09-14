@@ -1,6 +1,6 @@
 # macOS images for Tart
 
-This repository builds reproducible macOS virtual machine images for Tart. It supports a local-first workflow and OCI publication.
+This repository builds macOS virtual machine images for Tart. It supports local builds and OCI publication.
 
 The current image definitions are:
 
@@ -10,14 +10,10 @@ The current image definitions are:
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 | `macos-27.0-rc` | macOS 27.0 RC (26A428) | macOS 27 or newer |
 
-The Tahoe vanilla image has passed a clean IPSW build and an independent
-clone/reboot check on the macOS 27 host. See the
-[validation record](docs/tahoe-validation.md).
-
-macOS 27 uses native guest provisioning for the account and SSH, followed by
-explicit English/U.S. configuration and a fixed Gatekeeper sequence. Its RC
-vanilla image also passed a clean build and independent clone/reboot check;
-see [the validation and investigation](docs/macos-27.md).
+All three vanilla recipes passed fresh IPSW builds in CI, followed by independent
+cold boots and full anonymous downloads of the published Tart images. These runs
+used builder revision `34f3fbe`. See the [validation record](docs/validation.md).
+Base and Xcode variants have not completed the same acceptance process.
 
 ## Requirements
 
@@ -26,16 +22,25 @@ see [the validation and investigation](docs/macos-27.md).
 - Packer 1.14 or newer
 - Go 1.25 or newer
 - Swift 6 or newer
+- ORAS 1.3.0 and jq for registry operations
+- A PEM CA bundle for downloads
 - A local Xcode XIP archive for Xcode images
 
-Packer installs the pinned Tart plugin with `packer init`. Swift Package Manager
-resolves the pinned CLI dependencies with Keychain access disabled.
+`make validate` also requires actionlint and ShellCheck.
 
-The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, Swift 6.2.4,
+Install the pinned Tart Packer plugin before building. The build checks for the
+local plugin and does not download it. Packer update checks and telemetry are
+disabled by the tracked configuration. Swift Package Manager uses the locked CLI
+dependency with Keychain access disabled. Builds allow only local Git transports;
+CI provides source bundles and a local dependency mirror.
+
+The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, Swift 6.4,
 and the Tart Packer plugin 1.21.0. See [Host setup](docs/host-setup.md) for the
 installation record on the macOS 27 build host.
 
 ## Command-line interface
+
+For a first local build, configure the [local dependency mirror](docs/host-setup.md#swift-dependency).
 
 Build the release CLI:
 
@@ -55,7 +60,8 @@ elsewhere.
 
 The Swift package exposes `MacOSImageCore` separately from the executable so a
 future SwiftUI application can use the same operation model and process runner.
-The CLI currently delegates execution to the proven `scripts/image` backend.
+The CLI delegates execution to `scripts/image`. A compiled Go helper handles
+verified downloads, command deadlines, and the local Tart/OCI format adapter.
 That script remains available as a compatibility entry point while orchestration
 moves into the shared Swift core.
 
@@ -81,7 +87,8 @@ The result is `macos-sequoia-15.6.1-base`. A failed provisioning stage leaves th
 .build/release/macos-image provision base macos-sequoia-15.6.1-base
 ```
 
-Build the vanilla image from its pinned Apple IPSW:
+Build the vanilla image from its pinned Apple IPSW. The download must match both
+the recorded size and SHA-256 before Tart can restore it:
 
 ```shell
 .build/release/macos-image build vanilla
@@ -120,18 +127,36 @@ Select another image definition with `IMAGE_CONFIG`:
 
 ## Registry workflow
 
-Set `REGISTRY` to an OCI namespace such as `ghcr.io/example` and provide Tart registry credentials through `TART_REGISTRY_USERNAME` and `TART_REGISTRY_PASSWORD`.
-
-Registry operations fail before invoking Tart when these credentials are missing.
-If `TART_REGISTRY_HOSTNAME` is set, it must match the registry host. This prevents
-fallback to host credential stores. Automatic Tart cache pruning is disabled.
+Set `REGISTRY` to an OCI namespace and `IMAGE_CACERT` to a PEM CA bundle.
+Public downloads use an empty registry credential configuration:
 
 ```shell
-REGISTRY=ghcr.io/example .build/release/macos-image pull base --tag 15.6.1
-REGISTRY=ghcr.io/example .build/release/macos-image push base --tag 15.6.1
+export REGISTRY=ghcr.io/example
+export IMAGE_CACERT=/opt/homebrew/etc/openssl@3/cert.pem
+.build/release/macos-image pull vanilla
 ```
 
-Images use immutable macOS version tags. Mutable tags are added only by the release workflow.
+The downloaded image is checked and imported into the configured local VM name.
+An existing VM with that name is never replaced. To upload a stopped, verified VM,
+provide `TART_REGISTRY_HOSTNAME`, `TART_REGISTRY_USERNAME`, and
+`TART_REGISTRY_PASSWORD` explicitly, then run:
+
+```shell
+.build/release/macos-image push vanilla
+```
+
+Uploads require a clean checkout. Credentials are passed to ORAS through stdin
+and a temporary private configuration file, which is removed on exit. Tart only
+connects to the local format adapter; ORAS handles registry HTTPS with the
+explicit CA bundle. Automatic Tart cache pruning is disabled.
+
+Each variant has a separate package, such as `macos-tahoe-vanilla`. Tags combine
+the macOS version, Apple build, and this project's image version:
+`26.6.2-25G83-v0.1.0`. Rebuilding that macOS version requires a new image version;
+published tags are never overwritten. Consumers can pin the manifest digest.
+For Xcode registry operations, set `XCODE_VERSION`; the package name includes it.
+
+See [Releases](docs/releases.md) for CI authorization, verification, and recovery.
 
 ## Image layers
 

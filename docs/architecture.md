@@ -74,10 +74,27 @@ the installer.
 
 ## Versioning
 
-Every restore image is pinned by version, build, and Apple CDN URL. A build fails if the installed version or build differs.
+Every restore image is pinned by version, build, Apple CDN URL, size, and SHA-256.
+The download is verified before Tart starts. A build fails if the installed
+version or build differs. `IMAGE_VERSION` identifies the image recipe separately
+from the macOS version; rebuilding the same Apple build increments it.
 
 Apple did not publish a UniversalMac restore IPSW for macOS 15.7. A 15.7 image therefore requires a separate, same-major update stage from the 15.6.1 restore image. That stage must select macOS 15 update labels explicitly and verify the resulting build before publication.
 
 ## Artifacts
 
-Tart pushes VM images as OCI artifacts. Each variant uses a separate package name and an immutable version tag. Builds add OCI revision and version labels.
+Tart exports its native OCI manifest and blobs through a loopback registry into
+an OCI image layout. ORAS copies that layout to the remote registry without
+changing the manifest or blob contents. Downloads take the reverse path. The
+adapter is part of the existing Go module and has no third-party dependencies.
+
+Each variant uses a separate package name and an immutable
+`<macOS version>-<Apple build>-v<image version>` tag. Labels record the source
+commit, repository, macOS version/build, image version, and variant. Xcode images
+also record their Xcode version. The manifest digest identifies the exact bytes.
+
+The release workflow verifies a fresh clone before publication, then downloads
+the full image anonymously, imports it, and checks another cold boot. GitHub
+Release creation follows these checks. Recovery preserves the original export:
+Tart includes an upload timestamp in its manifest, so exporting the same VM again
+does not preserve its digest. See [Releases](releases.md).
