@@ -31,8 +31,9 @@ Base and Xcode variants have not completed the same acceptance process.
 Install the pinned Tart Packer plugin before building. The build checks for the
 local plugin and does not download it. Packer update checks and telemetry are
 disabled by the tracked configuration. Swift Package Manager uses the locked CLI
-dependency with Keychain access disabled. Builds allow only local Git transports;
-CI provides source bundles and a local dependency mirror.
+dependency with Keychain access disabled. Builds allow only local Git transports
+and disable Go network dependency fetches. CI provides source bundles, Go vendor
+sources, and a local Swift dependency mirror.
 
 The verified toolchain is Tart 2.36.0, Packer 1.16.0, Go 1.25.0, Swift 6.4,
 and the Tart Packer plugin 1.21.0. See [Host setup](docs/host-setup.md) for the
@@ -150,11 +151,34 @@ and a temporary private configuration file, which is removed on exit. Tart only
 connects to the local format adapter; ORAS handles registry HTTPS with the
 explicit CA bundle. Automatic Tart cache pruning is disabled.
 
-Each variant has a separate package, such as `macos-tahoe-vanilla`. Tags combine
-the macOS version, Apple build, and this project's image version:
-`26.6.2-25G83-v0.1.0`. Rebuilding that macOS version requires a new image version;
-published tags are never overwritten. Consumers can pin the manifest digest.
-For Xcode registry operations, set `XCODE_VERSION`; the package name includes it.
+Package names and tags follow
+[Cirrus macOS images](https://github.com/cirruslabs/macos-image-templates):
+
+```text
+ghcr.io/minimillionaire/macos-sequoia-vanilla:latest
+ghcr.io/minimillionaire/macos-tahoe-vanilla:latest
+ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest
+ghcr.io/minimillionaire/macos-tahoe-base:latest
+ghcr.io/minimillionaire/macos-sequoia-xcode:16.4
+```
+
+Vanilla and base use `latest`. Xcode versions share one package per macOS family;
+the Xcode version is the tag. Tags can change after a rebuild. Pin a manifest
+digest with `@sha256:...` when consuming exact image bytes. The image records its
+macOS version, Apple build, Xcode version, and source commit in OCI metadata.
+
+For Xcode registry operations, set `XCODE_VERSION` to the installed compiler
+version. `XCODE_TAG` defaults to that version; it can name a prerelease such as
+`27-beta-6` while `XCODE_VERSION` is `27.0`. A numeric pull tag supplies the compiler
+version automatically:
+
+```shell
+.build/release/macos-image pull xcode --tag 16.4
+```
+
+CI uploads by digest and verifies the anonymous download and cold boot before
+updating tags. Xcode's optional `latest` alias is updated only when explicitly
+requested for a stable Xcode tag.
 
 See [Releases](docs/releases.md) for CI authorization, verification, and recovery.
 

@@ -51,3 +51,23 @@ These checks do not constitute a fresh build or authenticated GHCR upload throug
 this repository's new workflow. The ORAS upload path still needs that acceptance
 run. Base and Xcode variants, a second physical download host, and VirtualBuddy
 import are outside the recorded results.
+
+## Cirrus tag conventions
+
+ORAS 1.3.0 passed a local HTTPS registry check using an explicit PEM CA. Uploading
+by digest left an existing `latest` tag untouched. A full anonymous digest
+download passed, and promotion then updated the tag while preserving the older
+manifest. Xcode `16.4` and `latest` tags shared one package and digest. A prerelease
+latest update and a mismatched digest were rejected. The registry and temporary
+files were removed afterward.
+
+`make validate` passed after the tag changes. The workflow bootstrap, tool
+preflight, and cleanup also passed from a clean source bundle at `1b21a63`.
+Swift built with a fresh dependency cache and a local mirror. The Go VNC
+controller compiled from the supplied vendor archive with an empty dependency
+module cache and network downloads disabled. The dependency lockfile and source
+checkout stayed unchanged; no VM was created, and the temporary checkout was
+removed. Prepared and verified publication records also passed recovery checks.
+
+This verifies the transfer and tag-update behavior without claiming a full
+macOS build or authenticated GHCR publication through the updated workflow.

@@ -80,3 +80,8 @@ make cli
 The mirror is local configuration and must not be committed. CI supplies its own
 mirror from a Git bundle. `GIT_ALLOW_PROTOCOL=file` applies to build processes;
 it does not change the user's Git configuration or restrict IPSW and OCI transfers.
+
+Go builds also disable module and toolchain downloads. Local builds need the
+`go-vnc` dependency from `go.sum` in their existing module cache. CI supplies a
+verified vendor archive from its hosted job, so the Mac does not fetch Go source
+or checksums over HTTPS.

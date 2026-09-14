@@ -62,7 +62,9 @@ Both macOS 26 and 27 then use the same SSH-only
 vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned RC and
 the observed native API behavior.
 
-Daily base and Xcode builds clone a validated vanilla image and use SSH only. Vanilla rebuilds are reserved for macOS restore-image changes.
+Base builds clone a validated vanilla image; Xcode builds clone a validated base
+image. Both use SSH provisioning. Vanilla rebuilds are reserved for macOS
+restore-image changes.
 
 Guest scripts run with Apple's Bash 3.2. A failing standalone `[[ ... ]]`
 condition does not trigger `set -e` in that shell. Assertions use `test` or an
@@ -76,8 +78,8 @@ the installer.
 
 Every restore image is pinned by version, build, Apple CDN URL, size, and SHA-256.
 The download is verified before Tart starts. A build fails if the installed
-version or build differs. `IMAGE_VERSION` identifies the image recipe separately
-from the macOS version; rebuilding the same Apple build increments it.
+version or build differs. The source commit identifies the recipe; the OCI
+manifest digest identifies the built image.
 
 Apple did not publish a UniversalMac restore IPSW for macOS 15.7. A 15.7 image therefore requires a separate, same-major update stage from the 15.6.1 restore image. That stage must select macOS 15 update labels explicitly and verify the resulting build before publication.
 
@@ -88,13 +90,15 @@ an OCI image layout. ORAS copies that layout to the remote registry without
 changing the manifest or blob contents. Downloads take the reverse path. The
 adapter is part of the existing Go module and has no third-party dependencies.
 
-Each variant uses a separate package name and an immutable
-`<macOS version>-<Apple build>-v<image version>` tag. Labels record the source
-commit, repository, macOS version/build, image version, and variant. Xcode images
-also record their Xcode version. The manifest digest identifies the exact bytes.
+Package names follow Cirrus: `macos-<family>-vanilla`, `macos-<family>-base`, and
+`macos-<family>-xcode`. Vanilla/base use `latest`; Xcode uses its version as the
+tag. Labels record the source commit, repository, macOS version/build, and
+variant. Xcode images also record their installed Xcode version. Tags can be
+updated after a rebuild; consumers pin a digest for exact bytes.
 
-The release workflow verifies a fresh clone before publication, then downloads
-the full image anonymously, imports it, and checks another cold boot. GitHub
-Release creation follows these checks. Recovery preserves the original export:
+The release workflow verifies a fresh clone before uploading by digest, then
+downloads the full image anonymously, imports it, and checks another cold boot.
+Only then does it update the version or latest tag. Xcode publications are
+recorded in a GitHub Release named for their Xcode tag. Recovery preserves the original export:
 Tart includes an upload timestamp in its manifest, so exporting the same VM again
 does not preserve its digest. See [Releases](releases.md).
