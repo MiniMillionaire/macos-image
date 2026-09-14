@@ -156,17 +156,15 @@ if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
   git merge-base --is-ancestor "$tag_revision" origin/main || ci_die "Existing Xcode tag is not on main"
 fi
 if ! gh release view "$RELEASE_TAG" --repo "$repository" --json tagName,isDraft,isPrerelease > "$release_json" 2> "$scratch/release-view.log"; then
-  options=()
+  options=("$RELEASE_TAG" --repo "$repository" --title "Xcode $XCODE_TAG images" --notes-file "$notes")
   if [[ "$XCODE_PRERELEASE" == true ]]; then
     options+=(--prerelease --latest=false)
   fi
   if [[ -n "$tag_revision" ]]; then
-    gh release create "$RELEASE_TAG" --repo "$repository" --verify-tag \
-      --title "Xcode $XCODE_TAG images" --notes-file "$notes" "${options[@]}" ||
+    gh release create "${options[@]}" --verify-tag ||
       ci_die "Could not create the release from the existing Xcode tag"
   else
-    gh release create "$RELEASE_TAG" --repo "$repository" --target "$revision" \
-      --title "Xcode $XCODE_TAG images" --notes-file "$notes" "${options[@]}" ||
+    gh release create "${options[@]}" --target "$revision" ||
       ci_die "Could not create the Xcode tag and release at the verified revision"
   fi
   gh release view "$RELEASE_TAG" --repo "$repository" --json tagName,isDraft,isPrerelease > "$release_json"

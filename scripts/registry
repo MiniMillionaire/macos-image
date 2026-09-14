@@ -113,12 +113,14 @@ prepare() {
   [[ -z $(git -C "$root_dir" status --porcelain --untracked-files=normal) ]] || fail 'Publication requires a clean worktree'
   source=${IMAGE_SOURCE:-https://github.com/MiniMillionaire/macos-image}
   variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
-  local options=()
+  local options=(
+    --vm "$vm" --layout "$layout" --revision "$revision"
+    --macos-version "$MACOS_VERSION" --macos-build "$MACOS_BUILD" --variant "$variant"
+    --source "$source"
+  )
   [[ "$variant" != xcode ]] || options+=(--xcode-version "${XCODE_VERSION:?}")
   env -u GH_TOKEN -u GITHUB_TOKEN -u TART_REGISTRY_PASSWORD -u TART_REGISTRY_USERNAME \
-    "$helper" export --vm "$vm" --layout "$layout" --revision "$revision" \
-    --macos-version "$MACOS_VERSION" --macos-build "$MACOS_BUILD" --variant "$variant" \
-    --source "$source" "${options[@]}"
+    "$helper" export "${options[@]}"
 }
 
 require_layout_identity() {
