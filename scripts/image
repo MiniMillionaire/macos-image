@@ -251,8 +251,7 @@ verify_toolchain() {
   actual_tart_version=${actual_tart_version#v}
   capture_bounded 30 packer --version || die 'Could not read the Packer version'
   output=$bounded_output
-  actual_packer_version=$(awk 'NR == 1 { print $NF }' <<<"$output")
-  actual_packer_version=${actual_packer_version#v}
+  actual_packer_version=$(awk '$1 == "Packer" && $2 ~ /^v[0-9]/ { sub(/^v/, "", $2); print $2; exit }' <<<"$output")
   capture_bounded 30 go version || die 'Could not read the Go version'
   output=$bounded_output
   actual_go_version=$(awk '{ print $3 }' <<<"$output")
