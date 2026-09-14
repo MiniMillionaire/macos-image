@@ -3,6 +3,10 @@ PROFILE ?= base
 SWIFT ?= xcrun swift
 CLI = .build/release/macos-image
 
+export GOPROXY = off
+export GOSUMDB = off
+export GOTOOLCHAIN = local
+
 .PHONY: cli artifact-helper cli-test doctor validate vanilla base xcode test pull push
 
 artifact-helper:

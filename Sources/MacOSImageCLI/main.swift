@@ -217,11 +217,12 @@ struct PullCommand: ImageSubcommand {
 
   @OptionGroup var common: CommonOptions
 
-  @Argument(help: "Image layer to pull. Xcode requires XCODE_VERSION.")
+  @Argument(help: "Image layer to pull. Xcode labels require XCODE_VERSION.")
   var variant: ImageVariant
 
   @Option(
-    help: "OCI tag. Defaults to version-build-vimageVersion; older image versions are accepted.")
+    help: "OCI tag. Vanilla and base use latest; Xcode also accepts latest with XCODE_VERSION."
+  )
   var tag: String?
 
   var operation: ImageOperation { .pull(variant: variant, tag: tag) }
@@ -238,7 +239,9 @@ struct PushCommand: ImageSubcommand {
   @Argument(help: "Image layer to push. Xcode requires XCODE_VERSION.")
   var variant: ImageVariant
 
-  @Option(help: "OCI tag. Must match the configured version-build-vimageVersion.")
+  @Option(
+    help: "OCI tag. Vanilla and base use latest; Xcode requires a versioned tag."
+  )
   var tag: String?
 
   @Option(help: "Local VM name. Required for Xcode images.")

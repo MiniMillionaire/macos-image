@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 export TART_NO_AUTO_PRUNE=1
+export GOPROXY=off
+export GOSUMDB=off
+export GOTOOLCHAIN=local
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config_path=${IMAGE_CONFIG:-config/sequoia-15.6.1.env}
@@ -19,7 +22,6 @@ source "$config_path"
 : "${MACOS_FAMILY:?}"
 : "${MACOS_VERSION:?}"
 : "${MACOS_BUILD:?}"
-: "${IMAGE_VERSION:?}"
 : "${IMAGE_PRERELEASE:?}"
 : "${IPSW_URL:?}"
 : "${IPSW_SIZE:?}"
@@ -108,16 +110,27 @@ die() {
   exit 1
 }
 
-is_canonical_image_version() {
-  [[ "$1" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]
+is_numeric_version() {
+  [[ "$1" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}$ ]]
 }
 
-is_numeric_version() {
-  [[ "$1" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*))*$ ]]
+is_xcode_tag() {
+  (( ${#1} <= 128 )) &&
+    [[ "$1" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}(-[a-z0-9]+([.-][a-z0-9]+)*)?$ ]]
+}
+
+versions_match() {
+  awk -v left="$1" -v right="$2" 'BEGIN {
+    split(left, l, ".")
+    split(right, r, ".")
+    for (i = 1; i <= 3; i++) {
+      if ((l[i] + 0) != (r[i] + 0)) exit 1
+    }
+    exit 0
+  }'
 }
 
 validate_configuration() {
-  is_canonical_image_version "$IMAGE_VERSION" || die "Invalid image version: $IMAGE_VERSION"
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] ||
     die "Invalid prerelease value: $IMAGE_PRERELEASE"
   [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
@@ -327,33 +340,50 @@ create_locale_home() {
 }
 
 require_xcode_version() {
-  [[ -n ${XCODE_VERSION:-} ]] || die 'XCODE_VERSION is required for Xcode registry operations'
+  [[ -n ${XCODE_VERSION:-} ]] || die 'XCODE_VERSION is required for Xcode operations'
   is_numeric_version "$XCODE_VERSION" || die "Invalid Xcode version: $XCODE_VERSION"
-}
-
-default_tag() {
-  printf '%s-%s-v%s\n' "$MACOS_VERSION" "$MACOS_BUILD" "$IMAGE_VERSION"
-}
-
-require_image_tag() {
-  local tag=$1
-  local prefix="$MACOS_VERSION-$MACOS_BUILD-v"
-  local version
-  [[ "$tag" == "$prefix"* ]] || die "Invalid image tag: $tag"
-  version=${tag#"$prefix"}
-  is_canonical_image_version "$version" || die "Invalid image tag: $tag"
 }
 
 remote_ref() {
   local variant=$1
   local tag=$2
-  local package_variant=$variant
   [[ -n "$registry" ]] || die "REGISTRY is required for registry operations"
-  if [[ "$variant" == xcode ]]; then
+  case "$variant" in
+    vanilla|base)
+      [[ "$tag" == latest ]] || die "$variant images use the latest registry tag"
+      ;;
+    xcode)
+      [[ "$tag" == latest ]] || is_xcode_tag "$tag" || die "Invalid Xcode tag: $tag"
+      ;;
+    *) die "Unknown image variant: $variant" ;;
+  esac
+  printf '%s/macos-%s-%s:%s\n' "$registry" "$MACOS_FAMILY" "$variant" "$tag"
+}
+
+select_xcode_tag() {
+  local requested=$1
+  local infer_version=$2
+  local allow_latest=$3
+  local numeric_prefix
+  selected_xcode_tag=${requested:-${XCODE_TAG:-${XCODE_VERSION:-}}}
+  [[ -n "$selected_xcode_tag" ]] || die 'XCODE_VERSION or XCODE_TAG is required for Xcode registry operations'
+  if [[ "$selected_xcode_tag" == latest ]]; then
+    [[ "$allow_latest" == true ]] || die 'Xcode pushes require a versioned tag'
     require_xcode_version
-    package_variant="xcode-$XCODE_VERSION"
+    return 0
   fi
-  printf '%s/macos-%s-%s:%s\n' "$registry" "$MACOS_FAMILY" "$package_variant" "$tag"
+  is_xcode_tag "$selected_xcode_tag" || die "Invalid Xcode tag: $selected_xcode_tag"
+  if [[ -z ${XCODE_VERSION:-} ]]; then
+    [[ "$infer_version" == true ]] || die 'XCODE_VERSION is required to verify an Xcode image'
+    is_numeric_version "$selected_xcode_tag" ||
+      die 'XCODE_VERSION is required when an Xcode tag is not a numeric version'
+    XCODE_VERSION=$selected_xcode_tag
+    [[ "$XCODE_VERSION" == *.* ]] || XCODE_VERSION+=.0
+  fi
+  require_xcode_version
+  numeric_prefix=${selected_xcode_tag%%-*}
+  versions_match "$numeric_prefix" "$XCODE_VERSION" ||
+    die 'The Xcode tag version must match XCODE_VERSION'
 }
 
 local_vm_for_variant() {
@@ -374,13 +404,13 @@ registry_command() {
   [[ -x "$registry_helper" ]] || die "Registry helper not found or not executable: $registry_helper"
   run_bounded "$registry_timeout_seconds" env \
     IMAGE_CONFIG="$config_path" \
-    IMAGE_VERSION="$IMAGE_VERSION" \
     IMAGE_PRERELEASE="$IMAGE_PRERELEASE" \
     MACOS_VERSION="$MACOS_VERSION" \
     MACOS_BUILD="$MACOS_BUILD" \
     MACOS_FAMILY="$MACOS_FAMILY" \
     IMAGE_VARIANT="$variant" \
     XCODE_VERSION="${XCODE_VERSION:-}" \
+    XCODE_TAG="${selected_xcode_tag:-}" \
     IMAGE_REVISION="${IMAGE_REVISION:-}" \
     "$registry_helper" "$@"
 }
@@ -402,7 +432,7 @@ default_source() {
   elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
     printf '%s\n' "$BASE_VM"
   else
-    remote_ref "$variant" "$(default_tag)"
+    remote_ref "$variant" latest
   fi
 }
 
@@ -596,10 +626,15 @@ build_xcode() {
 
 pull_image() {
   local variant=${1:?Image variant is required}
-  local tag=${2:-$(default_tag)}
+  local tag=${2:-}
   local remote
   local target
-  require_image_tag "$tag"
+  if [[ "$variant" == xcode ]]; then
+    select_xcode_tag "$tag" true true
+    tag=$selected_xcode_tag
+  else
+    tag=${tag:-latest}
+  fi
   remote=$(remote_ref "$variant" "$tag")
   target=$(local_vm_for_variant "$variant")
   registry_pull "$variant" "$remote" "$target"
@@ -607,18 +642,28 @@ pull_image() {
 
 push_image() {
   local variant=${1:?Image variant is required}
-  local tag=${2:-$(default_tag)}
+  local tag=${2:-}
   local vm=${3:-}
   local revision
-  [[ "$tag" == "$(default_tag)" ]] || die 'Registry pushes require the configured immutable image tag'
   case "$variant" in
-    vanilla) vm=${vm:-$VANILLA_VM} ;;
-    base) vm=${vm:-$BASE_VM} ;;
-    xcode) [[ -n "$vm" ]] || die "A local VM name is required for Xcode images" ;;
+    vanilla)
+      tag=${tag:-latest}
+      vm=${vm:-$VANILLA_VM}
+      ;;
+    base)
+      tag=${tag:-latest}
+      vm=${vm:-$BASE_VM}
+      ;;
+    xcode)
+      select_xcode_tag "$tag" false false
+      tag=$selected_xcode_tag
+      [[ -n "$vm" ]] || die "A local VM name is required for Xcode images"
+      ;;
     *) die "Unknown image variant: $variant" ;;
   esac
   vm_exists "$vm" || die "VM not found: $vm"
   require_registry_push_credentials "$(remote_ref "$variant" "$tag")"
+  test_image "$vm" "$variant"
   revision=$(git -C "$root_dir" rev-parse HEAD 2>/dev/null || printf unknown)
   IMAGE_REVISION="$revision" registry_command "$variant" \
     push "$vm" "$(remote_ref "$variant" "$tag")"
@@ -662,6 +707,7 @@ test_image() {
   local profile=${2:-base}
   local scratch="$vm-verify-$$"
   local result=0
+  [[ "$profile" != xcode ]] || require_xcode_version
   vm_exists "$vm" || die "VM not found: $vm"
   verification_vm=$scratch
   if clone_vm "$vm" "$scratch" "$profile"; then
@@ -731,12 +777,11 @@ doctor() {
   fi
   printf 'Swift: %s\n' "$actual_swift_version"
   printf 'Tart Packer plugin: %s\n' "$PACKER_TART_PLUGIN_VERSION"
-  printf 'Image version: %s\n' "$IMAGE_VERSION"
   printf 'macOS: %s (%s)\n' "$MACOS_VERSION" "$MACOS_BUILD"
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
   elif [[ -n "$registry" ]]; then
-    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$(default_tag)")"
+    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla latest)"
   else
     printf 'No local vanilla source found; build one with macos-image build vanilla\n'
   fi
@@ -757,8 +802,10 @@ Usage:
   scripts/image push <vanilla|base|xcode> [tag] [vm]
   scripts/image test <vm> [vanilla|sip|base|xcode]
 
-Registry tags default to version-build-vimageVersion.
-Set XCODE_VERSION for Xcode registry operations and verification.
+Vanilla and base images use the latest registry tag.
+Xcode tags default to XCODE_TAG or XCODE_VERSION; pushes require a versioned tag.
+Xcode pulls accept latest with XCODE_VERSION.
+Set XCODE_VERSION for prerelease Xcode tags.
 EOF
 }
 

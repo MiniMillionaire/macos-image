@@ -20,13 +20,6 @@ attempt_part() {
   printf '%s\n' "${1##*-}"
 }
 
-require_tag_revision() {
-  local revision=$1
-  local actual
-  actual=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}") || ci_die "Release tag does not exist: $RELEASE_TAG"
-  [[ "$actual" == "$revision" ]] || ci_die "Release tag does not point to the image revision"
-}
-
 validate_run_json() {
   local run_json=$1
   local jobs_json=$2
@@ -96,7 +89,7 @@ validate_prepared_metadata() {
   local stage
   local digest
   stage=$(jq -er .stage "$result")
-  if [[ "$stage" != prepared && "$stage" != published ]]; then
+  if [[ "$stage" != prepared && "$stage" != verified && "$stage" != published ]]; then
     return 0
   fi
   validate_metadata_file "$directory/inspect.json"
@@ -107,14 +100,13 @@ validate_prepared_metadata() {
   jq -e \
     --arg digest "$digest" \
     --arg revision "$(jq -er .revision "$result")" \
-    --arg image_version "$IMAGE_VERSION" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
     --arg variant "$VARIANT" \
     --arg xcode "${XCODE_VERSION:-}" \
     --arg source "https://github.com/$repository" '
       .manifest_digest == $digest and .revision == $revision and
-      .image_version == $image_version and .macos_version == $macos_version and
+      .macos_version == $macos_version and
       .macos_build == $macos_build and .variant == $variant and
       ((.xcode_version // "") == $xcode) and .source == $source
     ' "$directory/inspect.json" >/dev/null || ci_die "Saved OCI metadata does not match this request"
@@ -131,18 +123,24 @@ validate_common_result() {
     --arg config "$CONFIG_PATH" \
     --arg config_sha "$PROFILE_CONFIG_SHA256" \
     --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
+    --arg macos_family "$MACOS_FAMILY" \
+    --arg macos_version "$MACOS_VERSION" \
+    --arg macos_build "$MACOS_BUILD" \
+    --argjson prerelease "$IMAGE_PRERELEASE" \
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
-    --arg image_tag "$IMAGE_TAG" \
-    --arg release_tag "$RELEASE_TAG" \
+    --arg xcode_tag "$XCODE_TAG" \
+    --argjson update_latest "$UPDATE_LATEST" \
     --arg package "$PACKAGE_REF" '
       .format == 1 and .repository == $repository and .workflow == $workflow and
       .profile == $profile and .config == $config and
       .config_sha256 == $config_sha and .toolchain_sha256 == $tools_sha and
+      .macos == {family: $macos_family, version: $macos_version, build: $macos_build} and
+      .prerelease == $prerelease and
       .variant == $variant and .variant_id == $variant_id and
-      .xcode_version == $xcode and .image_tag == $image_tag and
-      .release_tag == $release_tag and .package_reference == $package
+      .xcode_version == $xcode and .xcode_tag == $xcode_tag and
+      .update_latest == $update_latest and .package_reference == $package
     ' "$inputs" >/dev/null || ci_die "Saved inputs do not match this request"
 
   jq -e \
@@ -151,16 +149,16 @@ validate_common_result() {
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
-    --arg image_version "$IMAGE_VERSION" \
+    --arg xcode_tag "$XCODE_TAG" \
+    --argjson update_latest "$UPDATE_LATEST" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
-    --arg release_tag "$RELEASE_TAG" \
     --arg package "$PACKAGE_REF" '
       .format == 1 and .result == "passed" and .repository == $repository and
       .profile == $profile and .variant == $variant and .variant_id == $variant_id and
-      .xcode_version == $xcode and .image_version == $image_version and
+      .xcode_version == $xcode and .xcode_tag == $xcode_tag and .update_latest == $update_latest and
       .macos_version == $macos_version and .macos_build == $macos_build and
-      .release_tag == $release_tag and .package_reference == $package and
+      .package_reference == $package and
       (.revision | test("^[0-9a-f]{40}$")) and
       (.run_id | test("^[1-9][0-9]*-[1-9][0-9]*$")) and
       (.build_run | test("^[1-9][0-9]*-[1-9][0-9]*$"))
@@ -185,20 +183,12 @@ authorize_current() {
   [[ ${GITHUB_SHA:-} =~ ^[0-9a-f]{40}$ ]] || ci_die "Invalid workflow revision"
   git merge-base --is-ancestor "$GITHUB_SHA" origin/main || ci_die "Workflow revision is not on main"
 
-  if [[ "$OPERATION" == build ]]; then
-    [[ -z ${RELEASE_TAG_INPUT:-} ]] || ci_die "Build-only runs do not accept a release tag"
-  else
-    [[ ${RELEASE_TAG_INPUT:-} == "$RELEASE_TAG" ]] || ci_die "Release tag must be exactly $RELEASE_TAG"
-    if [[ "$OPERATION" == publish ]]; then
-      require_tag_revision "$GITHUB_SHA"
-    fi
-  fi
-
   if [[ "$OPERATION" == recover-upload || "$OPERATION" == recover-release ]]; then
     require_run_id "${SOURCE_RUN:-}"
   else
     [[ -z ${SOURCE_RUN:-} ]] || ci_die "Source run applies only to recovery operations"
   fi
+  [[ "$OPERATION" != recover-release || "$VARIANT" == xcode ]] || ci_die "Only Xcode images have GitHub releases"
 
   ci_write_output profile "$PROFILE"
   ci_write_output config "$CONFIG_PATH"
@@ -206,9 +196,10 @@ authorize_current() {
   ci_write_output variant "$VARIANT"
   ci_write_output variant_id "$VARIANT_ID"
   ci_write_output xcode_version "${XCODE_VERSION:-}"
-  ci_write_output image_tag "$IMAGE_TAG"
-  ci_write_output release_tag "$RELEASE_TAG"
+  ci_write_output xcode_tag "$XCODE_TAG"
+  ci_write_output update_latest "$UPDATE_LATEST"
   ci_write_output package_ref "$PACKAGE_REF"
+  ci_write_output go_version "$GO_VERSION"
   if [[ -n ${SOURCE_RUN:-} ]]; then
     ci_write_output source_run_id "$(run_id_part "$SOURCE_RUN")"
     ci_write_output source_run_attempt "$(attempt_part "$SOURCE_RUN")"
@@ -236,14 +227,14 @@ read_source_metadata() {
   case "$source_stage" in
     built) source_step="Build and verify image" ;;
     prepared) source_step="Prepare image publication" ;;
-    published) source_step="Verify published image" ;;
+    verified) source_step="Verify image digest" ;;
+    published) source_step="Confirm published tags" ;;
     *) ci_die "Unknown source stage: $source_stage" ;;
   esac
   validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$workflow_revision" "$source_step"
   validate_bundle_metadata "$SOURCE_ARTIFACT_DIR/bundle.json" "$build_run" "$revision"
   validate_prepared_metadata "$SOURCE_ARTIFACT_DIR" "$result"
   git merge-base --is-ancestor "$revision" origin/main || ci_die "Saved revision is not on main"
-  require_tag_revision "$revision"
 
   ci_write_output revision "$revision"
   ci_write_output build_run "$build_run"
@@ -280,7 +271,7 @@ authorize_recovery() {
   [[ $(jq -er .revision "$build_result") == "$revision" ]] || ci_die "Build and source revisions differ"
   [[ $(jq -er .run_id "$build_result") == "$build_run" ]] || ci_die "Original build metadata has the wrong run ID"
   [[ $(jq -er .build_run "$build_result") == "$build_run" ]] || ci_die "Original build metadata is not self-contained"
-  [[ $(jq -er .stage "$build_result") =~ ^(built|prepared|published)$ ]] || ci_die "Original build did not pass"
+  [[ $(jq -er .stage "$build_result") =~ ^(built|prepared|verified|published)$ ]] || ci_die "Original build did not pass"
   validate_bundle_metadata "$SOURCE_ARTIFACT_DIR/bundle.json" "$build_run" "$revision"
   validate_bundle_metadata "$BUILD_ARTIFACT_DIR/bundle.json" "$build_run" "$revision"
   [[ $(ci_sha256 "$SOURCE_ARTIFACT_DIR/bundle.json") == "$(ci_sha256 "$BUILD_ARTIFACT_DIR/bundle.json")" ]] ||
@@ -291,14 +282,16 @@ authorize_recovery() {
   case "$source_stage" in
     built) source_step="Build and verify image" ;;
     prepared) source_step="Prepare image publication" ;;
-    published) source_step="Verify published image" ;;
+    verified) source_step="Verify image digest" ;;
+    published) source_step="Confirm published tags" ;;
     *) ci_die "Unknown source stage: $source_stage" ;;
   esac
   validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$source_workflow_revision" "$source_step"
   validate_run_json "$BUILD_RUN_JSON" "$BUILD_JOBS_JSON" "$build_run" "$revision" "Build and verify image"
 
   if [[ "$OPERATION" == recover-upload ]]; then
-    [[ "$source_stage" == built || "$source_stage" == prepared ]] || ci_die "Upload recovery requires a built or prepared image"
+    [[ "$source_stage" == built || "$source_stage" == prepared || "$source_stage" == verified ]] ||
+      ci_die "Upload recovery requires a built, prepared, or verified image"
   else
     [[ "$source_stage" == published ]] || ci_die "Release recovery requires a published image"
     for path in publication.json image-spec.json oci-manifest.json; do

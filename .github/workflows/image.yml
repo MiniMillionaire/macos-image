@@ -24,6 +24,14 @@ on:
         description: Exact Xcode version for an Xcode image
         type: string
         default: ''
+      xcode_tag:
+        description: Xcode tag; blank uses the exact Xcode version
+        type: string
+        default: ''
+      update_latest:
+        description: Also update the stable Xcode latest alias
+        type: boolean
+        default: false
       operation:
         description: Build, publish, or resume a verified stage
         type: choice
@@ -35,10 +43,6 @@ on:
         default: build
       source_run:
         description: Source run ID-attempt for a recovery operation
-        type: string
-        default: ''
-      release_tag:
-        description: Exact existing variant/version Git tag for publication
         type: string
         default: ''
 
@@ -74,9 +78,10 @@ jobs:
       PROFILE: ${{ inputs.profile }}
       VARIANT: ${{ inputs.variant }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
+      XCODE_TAG: ${{ inputs.xcode_tag }}
+      UPDATE_LATEST: ${{ inputs.update_latest }}
       OPERATION: ${{ inputs.operation }}
       SOURCE_RUN: ${{ inputs.source_run }}
-      RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
     outputs:
       profile: ${{ steps.current.outputs.profile }}
       config: ${{ steps.current.outputs.config }}
@@ -84,9 +89,10 @@ jobs:
       variant: ${{ steps.current.outputs.variant }}
       variant_id: ${{ steps.current.outputs.variant_id }}
       xcode_version: ${{ steps.current.outputs.xcode_version }}
-      image_tag: ${{ steps.current.outputs.image_tag }}
-      release_tag: ${{ steps.current.outputs.release_tag }}
+      xcode_tag: ${{ steps.current.outputs.xcode_tag }}
+      update_latest: ${{ steps.current.outputs.update_latest }}
       package_ref: ${{ steps.current.outputs.package_ref }}
+      go_version: ${{ steps.current.outputs.go_version }}
       revision: ${{ steps.recovery.outputs.revision || github.sha }}
       build_run: ${{ steps.recovery.outputs.build_run || format('{0}-{1}', github.run_id, github.run_attempt) }}
       source_inputs_sha256: ${{ steps.recovery.outputs.source_inputs_sha256 }}
@@ -175,6 +181,12 @@ jobs:
           path: .ci-dependency
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        if: inputs.operation != 'recover-release'
+        timeout-minutes: 5
+        with:
+          go-version: ${{ steps.current.outputs.go_version }}
+          cache: false
       - name: Prepare offline source bundles
         if: inputs.operation != 'recover-release'
         timeout-minutes: 3
@@ -183,23 +195,29 @@ jobs:
           test "$dependency_revision" = 6a52f3251125d74daf04fcbd5e6f08a75d074382
           test "$(git -C .ci-dependency rev-parse HEAD)" = "$dependency_revision"
           mkdir -p "$RUNNER_TEMP/macos-image-sources"
+          go mod vendor -o "$RUNNER_TEMP/macos-image-sources/vendor"
+          tar -czf "$RUNNER_TEMP/macos-image-sources/go-vendor.tar.gz" -C "$RUNNER_TEMP/macos-image-sources" vendor
+          rm -rf -- "$RUNNER_TEMP/macos-image-sources/vendor"
           git bundle create "$RUNNER_TEMP/macos-image-sources/source.bundle" HEAD
           git -C .ci-dependency bundle create "$RUNNER_TEMP/macos-image-sources/swift-argument-parser.bundle" HEAD
           source_sha=$(shasum -a 256 "$RUNNER_TEMP/macos-image-sources/source.bundle" | awk '{print $1}')
           dependency_sha=$(shasum -a 256 "$RUNNER_TEMP/macos-image-sources/swift-argument-parser.bundle" | awk '{print $1}')
+          vendor_sha=$(shasum -a 256 "$RUNNER_TEMP/macos-image-sources/go-vendor.tar.gz" | awk '{print $1}')
           jq -n \
             --arg repository "$GITHUB_REPOSITORY" \
             --arg revision "$GITHUB_SHA" \
             --arg dependency_revision "$dependency_revision" \
             --arg source_sha "$source_sha" \
             --arg dependency_sha "$dependency_sha" \
+            --arg vendor_sha "$vendor_sha" \
             '{
               format: 1,
               repository: $repository,
               revision: $revision,
               dependency_revision: $dependency_revision,
               source_sha256: $source_sha,
-              dependency_sha256: $dependency_sha
+              dependency_sha256: $dependency_sha,
+              go_vendor_sha256: $vendor_sha
             }' > "$RUNNER_TEMP/macos-image-sources/sources.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: inputs.operation != 'recover-release'
@@ -227,6 +245,8 @@ jobs:
       PROFILE: ${{ needs.authorize.outputs.profile }}
       VARIANT: ${{ needs.authorize.outputs.variant }}
       XCODE_VERSION: ${{ needs.authorize.outputs.xcode_version }}
+      XCODE_TAG: ${{ needs.authorize.outputs.xcode_tag }}
+      UPDATE_LATEST: ${{ needs.authorize.outputs.update_latest }}
       OPERATION: ${{ needs.authorize.outputs.operation }}
       SOURCE_RUN: ${{ inputs.source_run }}
       BUILD_REVISION: ${{ needs.authorize.outputs.revision }}
@@ -245,6 +265,10 @@ jobs:
       GIT_CONFIG_VALUE_2: always
       GIT_ALLOW_PROTOCOL: file
       GIT_TERMINAL_PROMPT: '0'
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: 'local'
+      GOFLAGS: '-mod=vendor'
       TART_NO_AUTO_PRUNE: '1'
       PACKER_LOG: '1'
       GUEST_USERNAME: admin
@@ -279,25 +303,40 @@ jobs:
           jq -e --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg revision "$GITHUB_SHA" \
             '.format == 1 and .repository == $repository and .run == $run and .revision == $revision' "$task/.bootstrap" >/dev/null
           exec > >(tee "$task/logs/bootstrap.log") 2>&1
-          for file in sources.json source.bundle swift-argument-parser.bundle; do
+          for file in sources.json source.bundle swift-argument-parser.bundle go-vendor.tar.gz; do
             test -f "$input/$file" && test ! -L "$input/$file"
           done
           jq -e --arg repository "$GITHUB_REPOSITORY" --arg revision "$GITHUB_SHA" '
             .format == 1 and .repository == $repository and .revision == $revision and
             (.dependency_revision | test("^[0-9a-f]{40}$")) and
             (.source_sha256 | test("^[0-9a-f]{64}$")) and
-            (.dependency_sha256 | test("^[0-9a-f]{64}$"))
+            (.dependency_sha256 | test("^[0-9a-f]{64}$")) and
+            (.go_vendor_sha256 | test("^[0-9a-f]{64}$"))
           ' "$input/sources.json"
           test "$(shasum -a 256 "$input/source.bundle" | awk '{print $1}')" = "$(jq -er .source_sha256 "$input/sources.json")"
           test "$(shasum -a 256 "$input/swift-argument-parser.bundle" | awk '{print $1}')" = "$(jq -er .dependency_sha256 "$input/sources.json")"
+          test "$(shasum -a 256 "$input/go-vendor.tar.gz" | awk '{print $1}')" = "$(jq -er .go_vendor_sha256 "$input/sources.json")"
+          tar -tzf "$input/go-vendor.tar.gz" > "$task/vendor-files.txt"
+          test -s "$task/vendor-files.txt"
+          while IFS= read -r entry; do
+            case "$entry" in
+              vendor|vendor/*) ;;
+              *) echo "Invalid vendored Go path: $entry" >&2; exit 1 ;;
+            esac
+            case "/$entry/" in
+              */../*) echo "Invalid vendored Go path: $entry" >&2; exit 1 ;;
+            esac
+          done < "$task/vendor-files.txt"
           git bundle list-heads "$input/source.bundle" | grep -F "$GITHUB_SHA HEAD"
           git bundle list-heads "$input/swift-argument-parser.bundle" | grep -F "$(jq -er .dependency_revision "$input/sources.json") HEAD"
           git clone --no-checkout "$input/source.bundle" "$source"
           git -C "$source" checkout --detach "$GITHUB_SHA"
           git -C "$source" remote set-url origin https://github.com/MiniMillionaire/macos-image
+          tar -xzf "$input/go-vendor.tar.gz" -C "$source"
+          test -d "$source/vendor" && test -z "$(find "$source/vendor" -type l -print -quit)"
           git clone --mirror "$input/swift-argument-parser.bundle" "$dependency"
           test "$(git -C "$dependency" rev-parse HEAD)" = "$(jq -er .dependency_revision "$input/sources.json")"
-          printf '.swiftpm/\n' >> "$source/.git/info/exclude"
+          printf '.swiftpm/\nvendor/\n' >> "$source/.git/info/exclude"
           xcrun swift package --disable-keychain --package-path "$source" config set-mirror \
             --original https://github.com/apple/swift-argument-parser \
             --mirror "file://$dependency"
@@ -322,16 +361,6 @@ jobs:
         timeout-minutes: 10
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         run: bash ci/image.sh check 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/check.log"
-      - name: Check immutable package tag
-        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
-        timeout-minutes: 5
-        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
-        env:
-          SOURCE_ARTIFACT_DIR: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/recovery
-          TART_REGISTRY_HOSTNAME: ghcr.io
-          TART_REGISTRY_USERNAME: ${{ github.actor }}
-          TART_REGISTRY_PASSWORD: ${{ github.token }}
-        run: bash ci/image.sh check-tag 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/check-tag.log"
       - name: Build and verify image
         if: needs.authorize.outputs.operation == 'build' || needs.authorize.outputs.operation == 'publish'
         timeout-minutes: 260
@@ -351,7 +380,7 @@ jobs:
         timeout-minutes: 45
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         run: bash ci/image.sh prepare 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/prepare.log"
-      - name: Upload image
+      - name: Upload image manifest
         if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
         timeout-minutes: 60
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
@@ -360,13 +389,27 @@ jobs:
           TART_REGISTRY_USERNAME: ${{ github.actor }}
           TART_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/image.sh upload 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/upload.log"
-      - name: Verify published image
+      - name: Verify image digest
         if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
         timeout-minutes: 120
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         env:
           PACKER_LOG_PATH: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/logs/packer.log
         run: bash ci/image.sh verify 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/verify.log"
+      - name: Promote image tags
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 5
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/image.sh promote 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/promote.log"
+      - name: Confirm published tags
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 5
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh complete 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/complete.log"
       - name: Upload logs and metadata
         if: always()
         timeout-minutes: 5
@@ -403,6 +446,7 @@ jobs:
     needs: [authorize, image]
     if: >-
       always() && needs.authorize.result == 'success' &&
+      needs.authorize.outputs.variant == 'xcode' &&
       (needs.authorize.outputs.operation == 'recover-release' ||
        ((needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload') &&
         needs.image.result == 'success'))
@@ -417,6 +461,8 @@ jobs:
       PROFILE: ${{ needs.authorize.outputs.profile }}
       VARIANT: ${{ needs.authorize.outputs.variant }}
       XCODE_VERSION: ${{ needs.authorize.outputs.xcode_version }}
+      XCODE_TAG: ${{ needs.authorize.outputs.xcode_tag }}
+      UPDATE_LATEST: ${{ needs.authorize.outputs.update_latest }}
       PUBLICATION_RUN: ${{ needs.authorize.outputs.publication_run }}
       EXPECTED_INPUTS_SHA256: ${{ inputs.operation == 'recover-release' && needs.authorize.outputs.source_inputs_sha256 || '' }}
       EXPECTED_RESULT_SHA256: ${{ inputs.operation == 'recover-release' && needs.authorize.outputs.source_result_sha256 || '' }}

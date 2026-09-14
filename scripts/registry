@@ -60,7 +60,7 @@ check() {
   reference_host "$reference" >/dev/null
   [[ -z "$expected" || "$expected" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid expected manifest digest'
   if digest=$(resolve "$reference" 2> "$credentials/resolve.log"); then
-    [[ -n "$expected" && "$digest" == "$expected" ]] || fail "Image already exists: $reference"
+    [[ -z "$expected" || "$digest" == "$expected" ]] || fail "Manifest digest changed: $reference"
     printf 'present\n'
   elif grep -Eq 'MANIFEST_UNKNOWN|NAME_UNKNOWN|: not found$' "$credentials/resolve.log"; then
     printf 'absent\n'
@@ -72,9 +72,36 @@ check() {
 
 require_image_reference() {
   local reference=$1 variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
-  [[ "$variant" != xcode ]] || variant="xcode-${XCODE_VERSION:?}"
-  local suffix="/macos-$MACOS_FAMILY-$variant:$MACOS_VERSION-$MACOS_BUILD-v$IMAGE_VERSION"
+  local tag=latest
+  case "$variant" in
+    vanilla|base) ;;
+    xcode)
+      [[ ${XCODE_VERSION:-} =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}$ ]] || fail 'Invalid Xcode version'
+      tag=${XCODE_TAG:-${XCODE_VERSION:?XCODE_VERSION is required}}
+      (( ${#tag} <= 128 )) || fail 'Xcode tag exceeds 128 characters'
+      [[ "$tag" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}(-[a-z0-9]+([.-][a-z0-9]+)*)?$ ]] || fail 'Invalid Xcode tag'
+      awk -v tag="${tag%%-*}" -v version="$XCODE_VERSION" 'BEGIN {
+        split(tag, a, "."); split(version, b, ".")
+        for (i = 1; i <= 3; i++) if (a[i] + 0 != b[i] + 0) exit 1
+      }' || fail 'Xcode tag does not match the installed version'
+      if [[ ${2:-false} == true && "$reference" == *:latest ]]; then
+        [[ "$tag" =~ ^[0-9]+([.][0-9]+)*$ ]] || fail 'Prerelease Xcode images cannot update latest'
+        tag=latest
+      fi
+      ;;
+    *) fail "Unknown image variant: $variant" ;;
+  esac
+  local suffix="/macos-$MACOS_FAMILY-$variant:$tag"
   [[ "$reference" == *"$suffix" ]] || fail 'Reference does not match the configured image identity'
+}
+
+reference_repository() {
+  reference_host "$1" >/dev/null
+  if [[ "$1" == *@* ]]; then
+    printf '%s\n' "${1%@*}"
+  else
+    printf '%s\n' "${1%:*}"
+  fi
 }
 
 prepare() {
@@ -89,32 +116,44 @@ prepare() {
   local options=()
   [[ "$variant" != xcode ]] || options+=(--xcode-version "${XCODE_VERSION:?}")
   env -u GH_TOKEN -u GITHUB_TOKEN -u TART_REGISTRY_PASSWORD -u TART_REGISTRY_USERNAME \
-    "$helper" export --vm "$vm" --layout "$layout" --revision "$revision" --version "$IMAGE_VERSION" \
+    "$helper" export --vm "$vm" --layout "$layout" --revision "$revision" \
     --macos-version "$MACOS_VERSION" --macos-build "$MACOS_BUILD" --variant "$variant" \
     --source "$source" "${options[@]}"
 }
 
 require_layout_identity() {
-  local layout=$1 version=$2
+  local layout=$1
   "$helper" inspect --layout "$layout" > "$credentials/image.json"
-  jq -e --arg version "$version" --arg os "$MACOS_VERSION" --arg build "$MACOS_BUILD" \
+  jq -e --arg os "$MACOS_VERSION" --arg build "$MACOS_BUILD" \
     --arg variant "$IMAGE_VARIANT" --arg xcode "${XCODE_VERSION:-}" '
-    .image_version == $version and .macos_version == $os and .macos_build == $build and
+    .macos_version == $os and .macos_build == $build and
     .variant == $variant and .xcode_version == $xcode and (.revision | test("^[0-9a-f]{40}$"))
   ' "$credentials/image.json" >/dev/null || fail 'Layout does not match the selected image'
 }
 
 upload() {
-  local layout=$1 reference=$2 digest state
+  local layout=$1 reference=$2 digest target
   require_image_reference "$reference"
-  require_layout_identity "$layout" "$IMAGE_VERSION"
+  require_layout_identity "$layout"
   digest=$(jq -er .manifest_digest "$credentials/image.json")
-  state=$(check "$reference" "$digest")
-  if [[ "$state" == absent ]]; then
-    "$helper" run --timeout 2700 -- "$oras" cp --from-oci-layout "$layout:image" "$reference" \
+  target="$(reference_repository "$reference")@$digest"
+  if [[ $(check "$target" "$digest") == absent ]]; then
+    "$helper" run --timeout 2700 -- "$oras" cp --from-oci-layout "$layout:image" "$target" \
       --to-registry-config "$credentials/config.json" --to-ca-file "$ca" --concurrency 2 --no-tty >&2
   fi
-  [[ $(resolve "$reference") == "$digest" ]] || fail 'Uploaded manifest digest does not match'
+  [[ $(resolve "$target") == "$digest" ]] || fail 'Uploaded manifest digest does not match'
+  printf '%s\n' "$digest"
+}
+
+promote() {
+  local reference=$1 digest=$2 repository
+  require_image_reference "$reference" true
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid manifest digest'
+  repository=$(reference_repository "$reference")
+  [[ $(resolve "$repository@$digest") == "$digest" ]] || fail 'Uploaded manifest was not found'
+  "$helper" run --timeout 120 -- "$oras" tag "$repository@$digest" "${reference##*:}" \
+    --registry-config "$credentials/config.json" --ca-file "$ca" >&2
+  [[ $(resolve "$reference") == "$digest" ]] || fail 'Promoted tag does not match the verified digest'
 }
 
 download() {
@@ -123,9 +162,8 @@ download() {
   [[ ! -e "$layout" && ! -L "$layout" ]] || fail "Destination already exists: $layout"
   digest=$(resolve "$reference")
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid remote manifest digest'
-  local repository=${reference%@*}
-  repository=${repository%:*}
-  if [[ "$reference" == *@* ]]; then repository=${reference%@*}; fi
+  local repository
+  repository=$(reference_repository "$reference")
   "$helper" run --timeout 2700 -- "$oras" cp "$repository@$digest" "$layout:image" \
     --to-oci-layout --from-registry-config "$credentials/config.json" --from-ca-file "$ca" --concurrency 2 --no-tty >&2
   actual=$("$helper" inspect --layout "$layout" | jq -er .manifest_digest)
@@ -155,6 +193,12 @@ case "$command" in
     login "$2"
     upload "$@"
     ;;
+  promote)
+    [[ $# == 2 ]] || fail 'Usage: registry promote REFERENCE DIGEST'
+    require_tools
+    login "$1"
+    promote "$@"
+    ;;
   download)
     [[ $# == 2 ]] || fail 'Usage: registry download REFERENCE LAYOUT'
     require_tools
@@ -167,26 +211,19 @@ case "$command" in
     unset TART_REGISTRY_PASSWORD TART_REGISTRY_USERNAME GH_TOKEN GITHUB_TOKEN
     temporary=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-pull.XXXXXX")
     layout=${3:-$temporary/layout}
-    version=$IMAGE_VERSION
-    if [[ "$1" != *@* ]]; then
-      tag=${1##*:}
-      prefix="$MACOS_VERSION-$MACOS_BUILD-v"
-      [[ "$tag" == "$prefix"* ]] || fail 'Tag does not match the selected macOS build'
-      version=${tag#"$prefix"}
-    fi
-    [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail 'Invalid image version'
     download "$1" "$layout"
-    require_layout_identity "$layout" "$version"
+    require_layout_identity "$layout"
     "$helper" import --layout "$layout" --vm "$2"
     ;;
   push)
     [[ $# == 2 ]] || fail 'Usage: registry push VM REFERENCE'
     require_tools
     login "$2"
-    check "$2" >/dev/null
     temporary=$(mktemp -d "${TMPDIR:-/tmp}/macos-image-push.XXXXXX")
     prepare "$1" "$2" "$temporary/layout"
-    upload "$temporary/layout" "$2"
+    digest=$(upload "$temporary/layout" "$2")
+    "$root_dir/scripts/registry" download "$(reference_repository "$2")@$digest" "$temporary/downloaded"
+    promote "$2" "$digest"
     ;;
-  *) fail 'Usage: registry <check|prepare|upload|download|pull|push> ...' ;;
+  *) fail 'Usage: registry <check|prepare|upload|promote|download|pull|push> ...' ;;
 esac

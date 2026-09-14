@@ -9,6 +9,15 @@ ci_sha256() {
   shasum -a 256 "$1" | awk '{print $1}'
 }
 
+ci_version_key() {
+  local value=$1
+  local major
+  local minor
+  local patch
+  IFS=. read -r major minor patch <<< "$value"
+  printf '%s.%s.%s\n' "$major" "${minor:-0}" "${patch:-0}"
+}
+
 ci_read_value() {
   local file=$1
   local key=$2
@@ -44,7 +53,6 @@ ci_load_profile() {
   MACOS_FAMILY=$(ci_read_value "$CONFIG_PATH" MACOS_FAMILY)
   MACOS_VERSION=$(ci_read_value "$CONFIG_PATH" MACOS_VERSION)
   MACOS_BUILD=$(ci_read_value "$CONFIG_PATH" MACOS_BUILD)
-  IMAGE_VERSION=$(ci_read_value "$CONFIG_PATH" IMAGE_VERSION)
   IMAGE_PRERELEASE=$(ci_read_value "$CONFIG_PATH" IMAGE_PRERELEASE)
   IPSW_URL=$(ci_read_value "$CONFIG_PATH" IPSW_URL)
   IPSW_SIZE=$(ci_read_value "$CONFIG_PATH" IPSW_SIZE)
@@ -60,7 +68,6 @@ ci_load_profile() {
   [[ "$MACOS_FAMILY" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || ci_die "Invalid macOS family"
   [[ "$MACOS_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid macOS version"
   [[ "$MACOS_BUILD" =~ ^[0-9A-Z]+$ ]] || ci_die "Invalid macOS build"
-  [[ "$IMAGE_VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]] || ci_die "Invalid image version"
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] || ci_die "Invalid prerelease value"
   [[ "$IPSW_URL" == https://updates.cdn-apple.com/* ]] || ci_die "Invalid IPSW URL"
   [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid IPSW size"
@@ -70,18 +77,41 @@ ci_load_profile() {
     [[ "$version" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid tool version: $version"
   done
 
+  UPDATE_LATEST=${UPDATE_LATEST:-false}
+  [[ "$UPDATE_LATEST" == true || "$UPDATE_LATEST" == false ]] || ci_die "Invalid update-latest value"
   if [[ "$VARIANT" == xcode ]]; then
     [[ ${XCODE_VERSION:-} =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)([.](0|[1-9][0-9]*))?$ ]] || ci_die "Xcode images require an exact Xcode version"
-    VARIANT_ID="xcode-$XCODE_VERSION"
+    XCODE_TAG=${XCODE_TAG:-$XCODE_VERSION}
+    [[ ${#XCODE_TAG} -le 128 ]] || ci_die "Xcode tag is too long"
+    [[ "$XCODE_TAG" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}(-[a-z0-9]+([.-][a-z0-9]+)*)?$ ]] ||
+      ci_die "Invalid Xcode tag"
+    [[ $(ci_version_key "${XCODE_TAG%%-*}") == "$(ci_version_key "$XCODE_VERSION")" ]] ||
+      ci_die "Xcode tag does not match the Xcode version"
+    if [[ "$XCODE_TAG" =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}$ ]]; then
+      XCODE_PRERELEASE=false
+    else
+      XCODE_PRERELEASE=true
+      [[ "$UPDATE_LATEST" == false ]] || ci_die "Prerelease Xcode tags cannot update latest"
+    fi
+    VARIANT_ID="xcode-$XCODE_TAG"
   else
     [[ -z ${XCODE_VERSION:-} ]] || ci_die "Xcode version applies only to Xcode images"
+    [[ -z ${XCODE_TAG:-} ]] || ci_die "Xcode tag applies only to Xcode images"
+    [[ "$UPDATE_LATEST" == false ]] || ci_die "Only Xcode images can update the latest alias"
+    XCODE_TAG=
+    XCODE_PRERELEASE=false
     VARIANT_ID=$VARIANT
   fi
 
   [[ ${REGISTRY:-} == ghcr.io/minimillionaire ]] || ci_die "Unexpected registry: ${REGISTRY:-}"
-  IMAGE_TAG="$MACOS_VERSION-$MACOS_BUILD-v$IMAGE_VERSION"
-  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT_ID:$IMAGE_TAG"
-  RELEASE_TAG="$VARIANT_ID/$IMAGE_TAG"
+  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:latest"
+  LATEST_REF=
+  RELEASE_TAG=
+  if [[ "$VARIANT" == xcode ]]; then
+    PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:$XCODE_TAG"
+    [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:latest"
+    RELEASE_TAG=$XCODE_TAG
+  fi
   PROFILE_CONFIG_SHA256=$(ci_sha256 "$CONFIG_PATH")
   TOOLCHAIN_CONFIG_SHA256=$(ci_sha256 config/toolchain.env)
 }

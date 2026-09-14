@@ -29,6 +29,7 @@ export REGISTRY
 export TART_HOME="$tart_home"
 export TART_NO_AUTO_PRUNE=1
 export XCODE_VERSION="${XCODE_VERSION:-}"
+export XCODE_TAG
 
 expected_marker() {
   jq -cn \
@@ -76,7 +77,6 @@ write_inputs() {
     --arg macos_family "$MACOS_FAMILY" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
-    --arg image_version "$IMAGE_VERSION" \
     --argjson prerelease "$IMAGE_PRERELEASE" \
     --arg ipsw_url "$IPSW_URL" \
     --argjson ipsw_size "$IPSW_SIZE" \
@@ -84,9 +84,10 @@ write_inputs() {
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
-    --arg image_tag "$IMAGE_TAG" \
-    --arg release_tag "$RELEASE_TAG" \
+    --arg xcode_tag "$XCODE_TAG" \
+    --argjson update_latest "$UPDATE_LATEST" \
     --arg package "$PACKAGE_REF" \
+    --arg latest "$LATEST_REF" \
     --arg tart "$TART_VERSION" \
     --arg packer "$PACKER_VERSION" \
     --arg go "$GO_VERSION" \
@@ -106,15 +107,15 @@ write_inputs() {
         config_sha256: $config_sha,
         toolchain_sha256: $tools_sha,
         macos: {family: $macos_family, version: $macos_version, build: $macos_build},
-        image_version: $image_version,
         prerelease: $prerelease,
         ipsw: {url: $ipsw_url, size: $ipsw_size, sha256: $ipsw_sha},
         variant: $variant,
         variant_id: $variant_id,
         xcode_version: $xcode,
-        image_tag: $image_tag,
-        release_tag: $release_tag,
+        xcode_tag: $xcode_tag,
+        update_latest: $update_latest,
         package_reference: $package,
+        latest_reference: $latest,
         tools: {
           tart: $tart,
           packer: $packer,
@@ -197,7 +198,6 @@ require_layout() {
   local expected_source=${5:-}
   jq -e \
     --arg revision "$expected_revision" \
-    --arg image_version "$IMAGE_VERSION" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
     --arg variant "$expected_variant" \
@@ -207,7 +207,7 @@ require_layout() {
       (.manifest_size | type == "number" and . > 0) and
       (.blob_bytes | type == "number" and . > 0) and
       (.revision | test("^[0-9a-f]{40}$")) and
-      ($revision == "" or .revision == $revision) and .image_version == $image_version and
+      ($revision == "" or .revision == $revision) and
       .macos_version == $macos_version and .macos_build == $macos_build and
       .variant == $variant and ((.xcode_version // "") == $xcode) and
       (.source | type == "string" and length > 0) and
@@ -328,11 +328,12 @@ write_built_result() {
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
-    --arg image_version "$IMAGE_VERSION" \
+    --arg xcode_tag "$XCODE_TAG" \
+    --argjson update_latest "$UPDATE_LATEST" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
-    --arg release_tag "$RELEASE_TAG" \
     --arg package "$PACKAGE_REF" \
+    --arg latest "$LATEST_REF" \
     --arg source "$source" \
     --arg repository_url "$repository_url" \
     --arg recovery_digest "$recovery_digest" '
@@ -348,11 +349,12 @@ write_built_result() {
         variant: $variant,
         variant_id: $variant_id,
         xcode_version: $xcode,
-        image_version: $image_version,
+        xcode_tag: $xcode_tag,
+        update_latest: $update_latest,
         macos_version: $macos_version,
         macos_build: $macos_build,
-        release_tag: $release_tag,
         package_reference: $package,
+        latest_reference: $latest,
         build_source: $source,
         oci_source: $repository_url,
         recovery_expected_digest: $recovery_digest
@@ -474,23 +476,6 @@ check_runner() {
   check_tools
 }
 
-check_package_tag() {
-  require_task
-  local expected=
-  local state
-  unset GH_TOKEN
-  if [[ "$OPERATION" == recover-upload ]]; then
-    [[ $(ci_sha256 "$SOURCE_ARTIFACT_DIR/result.json") == "$SOURCE_RESULT_SHA256" ]] || ci_die "Recovery result changed after authorization"
-    expected=$(jq -er '.manifest_digest // .recovery_expected_digest // ""' "$SOURCE_ARTIFACT_DIR/result.json")
-  fi
-  if [[ -n "$expected" ]]; then
-    state=$(./scripts/registry check "$PACKAGE_REF" "$expected")
-  else
-    state=$(./scripts/registry check "$PACKAGE_REF")
-  fi
-  [[ "$state" == absent || "$state" == present ]] || ci_die "Unexpected registry state: $state"
-}
-
 build_image() {
   require_task
   local source=
@@ -513,7 +498,7 @@ build_image() {
       else
         source_variant=base
       fi
-      source_ref="$REGISTRY/macos-$MACOS_FAMILY-$source_variant:$IMAGE_TAG"
+      source_ref="$REGISTRY/macos-$MACOS_FAMILY-$source_variant:latest"
       mkdir -p "$task_root/parent-image"
       ./scripts/registry download "$source_ref" "$source_layout"
       inspect_layout "$source_layout" "$source_metadata"
@@ -608,21 +593,23 @@ prepare_publication() {
     "$logs/result.json" > "$temporary"
   mv "$temporary" "$logs/result.json"
   jq -n \
-    --arg image_version "$IMAGE_VERSION" \
     --arg macos_family "$MACOS_FAMILY" \
     --arg macos_version "$MACOS_VERSION" \
     --arg macos_build "$MACOS_BUILD" \
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
+    --arg xcode_tag "$XCODE_TAG" \
+    --argjson update_latest "$UPDATE_LATEST" \
     --arg reference "${PACKAGE_REF%:*}@$digest" '
       {
         format: 1,
-        image_version: $image_version,
         macos: {family: $macos_family, version: $macos_version, build: $macos_build, architecture: "arm64"},
         variant: $variant,
         variant_id: $variant_id,
         xcode_version: $xcode,
+        xcode_tag: $xcode_tag,
+        update_latest: $update_latest,
         source: {type: "prebuilt", reference: $reference}
       }
     ' > "$logs/image-spec.json"
@@ -631,20 +618,20 @@ prepare_publication() {
 upload_publication() {
   require_task
   local digest
+  local digest_ref
   local state
   digest=$(jq -er 'select(.stage == "prepared") | .manifest_digest' "$logs/result.json")
+  digest_ref="${PACKAGE_REF%:*}@$digest"
   unset GH_TOKEN
-  if [[ "$OPERATION" == recover-upload ]]; then
-    state=$(./scripts/registry check "$PACKAGE_REF" "$digest")
-  else
-    state=$(./scripts/registry check "$PACKAGE_REF")
-  fi
+  state=$(./scripts/registry check "$digest_ref" "$digest")
   case "$state" in
-    absent) ./scripts/registry upload "$layout" "$PACKAGE_REF" ;;
+    absent)
+      [[ $(./scripts/registry upload "$layout" "$PACKAGE_REF") == "$digest" ]] || ci_die "Registry upload returned the wrong digest"
+      ;;
     present) ;;
     *) ci_die "Unexpected registry state: $state" ;;
   esac
-  [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "Published digest was not found"
+  [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "Uploaded digest was not found"
 }
 
 verify_publication() {
@@ -653,12 +640,14 @@ verify_publication() {
   local downloaded="$task_root/downloaded/layout"
   local inspect="$task_root/downloaded.json"
   local source
+  local digest_ref
   digest=$(jq -er 'select(.stage == "prepared") | .manifest_digest' "$logs/result.json")
+  digest_ref="${PACKAGE_REF%:*}@$digest"
   source=$(jq -er .oci_source "$logs/result.json")
   unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
-  [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "The public registry digest does not match"
+  [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "The uploaded digest is not public"
   mkdir -p "$task_root/downloaded"
-  ./scripts/registry download "$PACKAGE_REF" "$downloaded"
+  ./scripts/registry download "$digest_ref" "$downloaded"
   inspect_layout "$downloaded" "$inspect"
   require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
   [[ $(jq -er .manifest_digest "$inspect") == "$digest" ]] || ci_die "Downloaded manifest digest changed"
@@ -668,21 +657,59 @@ verify_publication() {
     --arg run "$run_key" \
     --arg build_run "$BUILD_RUN" \
     --arg revision "$BUILD_REVISION" \
-    --arg reference "$PACKAGE_REF" \
+    --arg digest_reference "$digest_ref" \
+    --arg tag_reference "$PACKAGE_REF" \
+    --arg latest_reference "$LATEST_REF" \
     --arg digest "$digest" '
       {
         format: 1,
         publication_run: $run,
         build_run: $build_run,
         revision: $revision,
-        reference: $reference,
+        digest_reference: $digest_reference,
+        tag_reference: $tag_reference,
+        latest_reference: $latest_reference,
         digest: $digest,
         anonymous_download: "passed",
         import: "passed",
-        guest_test: "passed"
+        guest_test: "passed",
+        tag_promotion: "pending",
+        latest_promotion: "pending"
       }
     ' > "$logs/publication.json"
   local temporary="$logs/result.json.tmp"
+  jq '.stage = "verified"' "$logs/result.json" > "$temporary"
+  mv "$temporary" "$logs/result.json"
+}
+
+promote_publication() {
+  require_task
+  local digest
+  digest=$(jq -er 'select(.stage == "verified") | .manifest_digest' "$logs/result.json")
+  ./scripts/registry promote "$PACKAGE_REF" "$digest"
+  if [[ -n "$LATEST_REF" ]]; then
+    ./scripts/registry promote "$LATEST_REF" "$digest"
+  fi
+}
+
+complete_publication() {
+  require_task
+  local digest
+  local latest_status=skipped
+  local temporary
+  digest=$(jq -er 'select(.stage == "verified") | .manifest_digest' "$logs/result.json")
+  unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
+  [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "Published tag does not match the verified digest"
+  if [[ -n "$LATEST_REF" ]]; then
+    [[ $(./scripts/registry check "$LATEST_REF" "$digest") == present ]] || ci_die "Latest tag does not match the verified digest"
+    latest_status=passed
+  fi
+  temporary="$logs/publication.json.tmp"
+  jq --arg latest_status "$latest_status" \
+    '.tag_promotion = "passed" | .latest_promotion = $latest_status' \
+    "$logs/publication.json" > "$temporary"
+  mv "$temporary" "$logs/publication.json"
+  temporary="$logs/result.json.tmp"
   jq '.stage = "published"' "$logs/result.json" > "$temporary"
   mv "$temporary" "$logs/result.json"
   remove_verified_bundle
@@ -748,12 +775,13 @@ cleanup_task() {
 case ${1:-} in
   init) initialize ;;
   check) check_runner ;;
-  check-tag) check_package_tag ;;
   build) build_image ;;
   restore) restore_image ;;
   prepare) prepare_publication ;;
   upload) upload_publication ;;
   verify) verify_publication ;;
+  promote) promote_publication ;;
+  complete) complete_publication ;;
   cleanup) cleanup_task ;;
-  *) ci_die "Usage: ci/image.sh <init|check|check-tag|build|restore|prepare|upload|verify|cleanup>" ;;
+  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|cleanup>" ;;
 esac

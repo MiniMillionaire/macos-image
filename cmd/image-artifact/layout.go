@@ -145,8 +145,8 @@ func inspect(layout string) (descriptor, map[string]any, error) {
 	}
 	info := map[string]any{"manifest_digest": entry.Digest, "manifest_size": entry.Size, "blob_bytes": total}
 	for key, label := range map[string]string{
-		"revision": "org.opencontainers.image.revision", "image_version": "org.opencontainers.image.version",
-		"source": "org.opencontainers.image.source", "macos_version": "dev.macos-image.version",
+		"revision": "org.opencontainers.image.revision",
+		"source":   "org.opencontainers.image.source", "macos_version": "dev.macos-image.version",
 		"macos_build": "dev.macos-image.build", "variant": "dev.macos-image.variant",
 		"xcode_version": "dev.macos-image.xcode-version",
 	} {
@@ -219,7 +219,6 @@ func exportImage(ctx context.Context, args []string) (err error) {
 	vm := flags.String("vm", "", "Stopped local VM")
 	layout := flags.String("layout", "", "New OCI layout directory")
 	revision := flags.String("revision", "", "Source commit SHA")
-	version := flags.String("version", "", "Image version")
 	osVersion := flags.String("macos-version", "", "macOS version")
 	build := flags.String("macos-build", "", "Apple build")
 	variant := flags.String("variant", "", "Image variant")
@@ -229,7 +228,7 @@ func exportImage(ctx context.Context, args []string) (err error) {
 		return err
 	}
 	if *layout == "" || !regexp.MustCompile(`\A[0-9a-f]{40}\z`).MatchString(*revision) ||
-		*version == "" || *osVersion == "" || *build == "" || *source == "" ||
+		*osVersion == "" || *build == "" || *source == "" ||
 		(*variant != "vanilla" && *variant != "base" && *variant != "xcode") || (*variant == "xcode" && *xcode == "") {
 		return errors.New("export requires complete image identity and a new layout path")
 	}
@@ -254,8 +253,8 @@ func exportImage(ctx context.Context, args []string) (err error) {
 	}
 	defer registry.close()
 	labels := map[string]string{
-		"org.opencontainers.image.revision": *revision, "org.opencontainers.image.version": *version,
-		"org.opencontainers.image.source": *source, "dev.macos-image.version": *osVersion,
+		"org.opencontainers.image.revision": *revision,
+		"org.opencontainers.image.source":   *source, "dev.macos-image.version": *osVersion,
 		"dev.macos-image.build": *build, "dev.macos-image.variant": *variant,
 	}
 	if *xcode != "" {
