@@ -128,10 +128,18 @@ After `upload-only`, the saved result remains at `prepared`. Use that upload run
 as `source_run` for `recover-upload` when ready to complete anonymous acceptance
 and update tags. This preserves the original export and digest.
 
+After the anonymous download passes verification, the saved recovery layout
+shares its blobs with that download through APFS clones. Each replacement is
+atomic and checked against its digest. The original task export is then removed
+before import. An interrupted replacement leaves the exact export recoverable.
+
 Upload-only runs reserve the saved bundle's full logical size, five percent for
 export overhead, and 2 GiB of remaining workspace for tools and temporary files.
 Restoring and retaining the bundle use APFS clones. If the source run already has a prepared
-export, only the 2 GiB workspace allowance is needed. Other operations still
+export, only the 2 GiB workspace allowance is needed. Recovering a prepared
+export reserves the larger of its download size and allocated VM size, plus
+20 GiB. Publication checks space before downloading and importing, pruning
+unused parent caches when necessary. Fresh builds still
 require 100 GiB free, or 250 GiB for Xcode images, to allow for builds and
 downloaded image checks, less the space already occupied by the verified parent
 cache selected for that build.

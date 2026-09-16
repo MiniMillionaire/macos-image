@@ -170,7 +170,7 @@ check_tools() {
   plugin_versions=$(.build/tools/image-artifact run --timeout 20 -- packer plugins installed 2>&1 |
     grep -F 'github.com/cirruslabs/tart' | grep -Eo 'v[0-9]+([.][0-9]+){2}' | LC_ALL=C sort -u || true)
   [[ "$plugin_versions" == "v$PACKER_TART_PLUGIN_VERSION" ]] || ci_die "Unexpected Tart Packer plugin version"
-  if [[ "$OPERATION" == upload-only ]]; then
+  if [[ "$OPERATION" == upload-only || "$OPERATION" == recover-upload ]]; then
     local metadata="$task_root/recovery/bundle.json"
     local result="$task_root/recovery/result.json"
     local bundle_kib
@@ -180,12 +180,31 @@ check_tools() {
     [[ $(ci_sha256 "$result") == "${SOURCE_RESULT_SHA256:?}" ]] || ci_die "Saved image result changed"
     case $(jq -er .stage "$result") in
       built)
-        bundle_kib=$(jq -er '([.files[].size] | add) / 1024 | ceil' "$metadata")
-        [[ "$bundle_kib" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid saved VM size"
-        minimum_kib=$((bundle_kib + (bundle_kib + 19) / 20 + 2 * 1024 * 1024))
+        if [[ "$OPERATION" == upload-only ]]; then
+          bundle_kib=$(jq -er '([.files[].size] | add) / 1024 | ceil' "$metadata")
+          [[ "$bundle_kib" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid saved VM size"
+          minimum_kib=$((bundle_kib + (bundle_kib + 19) / 20 + 2 * 1024 * 1024))
+        elif [[ "$VARIANT" == xcode ]]; then
+          minimum_kib=$((250 * 1024 * 1024))
+        fi
         ;;
-      prepared|verified) minimum_kib=$((2 * 1024 * 1024)) ;;
-      *) ci_die "Upload-only requires a built, prepared, or verified image" ;;
+      prepared|verified)
+        minimum_kib=$((2 * 1024 * 1024))
+        if [[ "$OPERATION" == recover-upload ]]; then
+          local directory download_kib import_kib
+          directory=$(verified_directory "$BUILD_RUN")
+          require_verified_path "$directory"
+          [[ -d "$directory/vm" && ! -L "$directory/vm" &&
+             -z $(find "$directory/vm" -type l -print -quit) ]] || ci_die "Invalid saved VM directory"
+          download_kib=$(jq -er '.blob_bytes | select(type == "number" and . > 0) | . / 1024 | ceil' "$result")
+          import_kib=$(du -sk "$directory/vm" | awk '{print $1}')
+          [[ "$download_kib" =~ ^[1-9][0-9]*$ && "$import_kib" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid publication size"
+          minimum_kib=$download_kib
+          (( import_kib <= minimum_kib )) || minimum_kib=$import_kib
+          minimum_kib=$((minimum_kib + 20 * 1024 * 1024))
+        fi
+        ;;
+      *) ci_die "Recovery requires a built, prepared, or verified image" ;;
     esac
   elif [[ "$VARIANT" == xcode ]]; then
     minimum_kib=$((250 * 1024 * 1024))
@@ -660,6 +679,49 @@ upload_publication() {
   [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "Uploaded digest was not found"
 }
 
+require_publication_space() {
+  [[ "$1" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid publication size"
+  local minimum_kib=$(($1 + 20 * 1024 * 1024)) available
+  parent_cache_init
+  parent_cache_prune "$minimum_kib"
+  available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
+  [[ "$available" =~ ^[0-9]+$ && "$available" -ge "$minimum_kib" ]] ||
+    ci_die "Publication requires $minimum_kib KiB free; $available KiB is available"
+}
+
+retain_downloaded_layout() {
+  local downloaded=$1 digest=$2 directory hash blob
+  local temporary="$task_root/publication/downloaded-blob"
+  local metadata="$task_root/retained-layout.json"
+  directory=$(verified_directory "$BUILD_RUN")
+  require_verified_path "$directory"
+  [[ -d "$directory/layout" && ! -L "$directory/layout" &&
+     -f "$directory/layout.json" && ! -L "$directory/layout.json" &&
+     -z $(find "$directory/layout" -type l -print -quit) ]] || ci_die "Invalid saved publication layout"
+  [[ -d "$downloaded" && ! -L "$downloaded" &&
+     -z $(find "$downloaded" -type l -print -quit) ]] || ci_die "Invalid downloaded publication layout"
+  [[ $(stat -f '%d' "$downloaded") == "$(stat -f '%d' "$directory/layout")" ]] ||
+    ci_die "Publication layouts must be on the same filesystem"
+  [[ ! -e "$temporary" && ! -L "$temporary" ]] || ci_die "Publication clone destination already exists"
+  inspect_layout "$directory/layout" "$metadata"
+  [[ $(ci_sha256 "$metadata") == "$(ci_sha256 "$directory/layout.json")" &&
+     $(jq -er .manifest_digest "$metadata") == "$digest" ]] || ci_die "Saved publication layout changed"
+  for blob in "$directory/layout/blobs/sha256/"*; do
+    hash=${blob##*/}
+    [[ "$hash" =~ ^[0-9a-f]{64}$ && -f "$blob" && ! -L "$blob" &&
+       -f "$downloaded/blobs/sha256/$hash" && ! -L "$downloaded/blobs/sha256/$hash" ]] ||
+      ci_die "Invalid publication blob: $hash"
+    /bin/cp -c "$downloaded/blobs/sha256/$hash" "$temporary"
+    [[ $(ci_sha256 "$temporary") == "$hash" ]] || ci_die "Downloaded publication blob changed: $hash"
+    mv -f "$temporary" "$blob"
+  done
+  inspect_layout "$directory/layout" "$metadata"
+  [[ $(ci_sha256 "$metadata") == "$(ci_sha256 "$directory/layout.json")" ]] ||
+    ci_die "Retained publication layout changed"
+  rm -rf -- "$layout"
+  printf 'Retained the verified anonymous download with APFS clones\n'
+}
+
 verify_publication() {
   require_task
   local digest
@@ -672,11 +734,14 @@ verify_publication() {
   source=$(jq -er .oci_source "$logs/result.json")
   unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
   [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "The uploaded digest is not public"
+  require_publication_space "$(jq -er '.blob_bytes / 1024 | ceil' "$logs/result.json")"
   mkdir -p "$task_root/downloaded"
   ./scripts/registry download "$digest_ref" "$downloaded"
   inspect_layout "$downloaded" "$inspect"
   require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
   [[ $(jq -er .manifest_digest "$inspect") == "$digest" ]] || ci_die "Downloaded manifest digest changed"
+  retain_downloaded_layout "$downloaded" "$digest"
+  require_publication_space "$(du -sk "$(verified_directory "$BUILD_RUN")/vm" | awk '{print $1}')"
   .build/tools/image-artifact import --layout "$downloaded" --vm "$published_vm"
   ./scripts/image test "$published_vm" "$VARIANT"
   jq -n \
