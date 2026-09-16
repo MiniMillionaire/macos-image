@@ -17,6 +17,6 @@ brew "wix/brew/applesimutils", trusted: true
 brew "xcbeautify"
 brew "xcodes"
 
-brew "codex"
-cask "amazon-q"
+cask "codex"
+cask "kiro-cli"
 cask "claude-code"

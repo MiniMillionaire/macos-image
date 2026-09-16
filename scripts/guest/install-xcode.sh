@@ -20,6 +20,14 @@ rm -f "$archive"
 sudo xcode-select --switch "$target"
 sudo xcodebuild -license accept
 xcodebuild -runFirstLaunch
+
+brew bundle --file=/tmp/Brewfile.xcode
+mise use --global --pin tuist@latest
+grep -Fqx 'export PATH="$HOME/.local/share/mise/shims:$PATH"' "$HOME/.zprofile" ||
+  printf '%s\n' 'export PATH="$HOME/.local/share/mise/shims:$PATH"' >> "$HOME/.zprofile"
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+tuist version
+
 xcodebuild -downloadAllPlatforms
 
 if [[ -n "$XCODE_COMPONENTS" ]]; then
@@ -28,10 +36,3 @@ if [[ -n "$XCODE_COMPONENTS" ]]; then
     xcodebuild -downloadComponent "$component"
   done
 fi
-
-brew bundle --file=/tmp/Brewfile.xcode
-mise use --global --pin tuist@latest
-grep -Fqx 'export PATH="$HOME/.local/share/mise/shims:$PATH"' "$HOME/.zprofile" ||
-  printf '%s\n' 'export PATH="$HOME/.local/share/mise/shims:$PATH"' >> "$HOME/.zprofile"
-export PATH="$HOME/.local/share/mise/shims:$PATH"
-tuist version
