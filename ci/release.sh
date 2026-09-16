@@ -104,8 +104,9 @@ jq -e \
   ' "$publication" >/dev/null || ci_die "Publication verification did not pass"
 
 [[ "sha256:$(ci_sha256 "$manifest")" == "$digest" ]] || ci_die "OCI manifest digest changed"
-grep -Fx "Verified image profile: $VARIANT" "$artifact/verify.log" >/dev/null || ci_die "Published guest profile verification is missing"
-grep -Eq '^Boot session: [0-9A-Fa-f-]+$' "$artifact/verify.log" || ci_die "Published guest boot evidence is missing"
+verification_output=$(sed -n $'s/\033\\[[0-9;]*m//g; s/^==> tart-cli\\.verify: //p' "$artifact/verify.log")
+grep -Fx "Verified image profile: $VARIANT" <<< "$verification_output" >/dev/null || ci_die "Published guest profile verification is missing"
+grep -Eq '^Boot session: [0-9A-Fa-f-]+$' <<< "$verification_output" || ci_die "Published guest boot evidence is missing"
 jq -e \
   --arg digest "$digest" \
   --arg revision "$revision" \
