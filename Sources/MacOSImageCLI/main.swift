@@ -46,6 +46,7 @@ struct MacOSImageCommand: AsyncParsableCommand {
       ProvisionCommand.self,
       PullCommand.self,
       PushCommand.self,
+      ResizeCommand.self,
       TestCommand.self,
     ]
   )
@@ -248,6 +249,28 @@ struct PushCommand: ImageSubcommand {
   var vm: String?
 
   var operation: ImageOperation { .push(variant: variant, tag: tag, vm: vm) }
+}
+
+struct ResizeCommand: ImageSubcommand {
+  static let configuration = CommandConfiguration(
+    commandName: "resize",
+    abstract: "Clone a stopped local VM and expand its disk before first use."
+  )
+
+  @OptionGroup var common: CommonOptions
+
+  @Argument(help: "Stopped local VM to clone.")
+  var source: String
+
+  @Option(help: "Name for the new local VM.")
+  var target: String
+
+  @Option(help: "New disk size in decimal GB; must exceed the source disk size.")
+  var diskSize: Int
+
+  var operation: ImageOperation {
+    .resize(source: source, target: target, diskSize: diskSize)
+  }
 }
 
 struct TestCommand: ImageSubcommand {

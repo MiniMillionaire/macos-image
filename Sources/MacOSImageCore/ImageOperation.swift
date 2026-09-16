@@ -28,6 +28,7 @@ public enum ImageOperation: Equatable, Sendable {
   case provision(stage: ProvisioningStage, vm: String)
   case pull(variant: ImageVariant, tag: String?)
   case push(variant: ImageVariant, tag: String?, vm: String?)
+  case resize(source: String, target: String, diskSize: Int)
   case test(vm: String, profile: VerificationProfile)
 
   public var legacyArguments: [String] {
@@ -50,6 +51,8 @@ public enum ImageOperation: Equatable, Sendable {
       ["pull", variant.rawValue] + positional([tag])
     case .push(let variant, let tag, let vm):
       ["push", variant.rawValue] + positional([tag, vm])
+    case .resize(let source, let target, let diskSize):
+      ["resize", source, target, String(diskSize)]
     case .test(let vm, let profile):
       ["test", vm, profile.rawValue]
     }

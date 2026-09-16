@@ -673,6 +673,49 @@ push_image() {
     push "$vm" "$(remote_ref "$variant" "$tag")"
 }
 
+resize_image() {
+  local source=${1:-}
+  local target=${2:-}
+  local disk_size_gb=${3:-}
+  local source_config
+  local source_disk_gb
+
+  [[ "$source" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]] || die "Invalid source VM name: $source"
+  [[ "$target" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]] || die "Invalid target VM name: $target"
+  [[ "$source" != "$target" ]] || die 'Source and target VM names must differ'
+  [[ "$disk_size_gb" =~ ^[1-9][0-9]*$ ]] || die "Invalid disk size in GB: $disk_size_gb"
+  (( ${#disk_size_gb} <= 5 )) || die 'Disk size exceeds Tart limit'
+  (( disk_size_gb <= 65535 )) || die 'Disk size exceeds Tart limit'
+
+  require_compatible_host
+  need jq
+  [[ -d "${TART_HOME:-$HOME/.tart}/vms/$source" && ! -L "${TART_HOME:-$HOME/.tart}/vms/$source" ]] ||
+    die "Local source VM not found: $source"
+  capture_bounded 30 tart get "$source" --format json || die "Local source VM not found: $source"
+  source_config=$bounded_output
+  [[ $(jq -r '.OS' <<<"$source_config") == darwin ]] || die 'Source must be a macOS VM'
+  [[ $(jq -r '.DiskFormat' <<<"$source_config") == raw ]] || die 'Source must use a raw disk'
+  [[ $(jq -r '.State' <<<"$source_config") == stopped ]] || die "Source VM must be stopped: $source"
+  source_disk_gb=$(jq -r '.Disk' <<<"$source_config")
+  [[ "$source_disk_gb" =~ ^[1-9][0-9]*$ ]] || die 'Could not read source disk size'
+  (( disk_size_gb > source_disk_gb )) || die "Disk size must exceed source size: $source_disk_gb GB"
+  require_new_vm "$target"
+  [[ ! -e "${TART_HOME:-$HOME/.tart}/vms/$target" && ! -L "${TART_HOME:-$HOME/.tart}/vms/$target" ]] ||
+    die "VM path already exists: $target"
+  require_installed_packer_plugin
+
+  clone_vm "$source" "$target" vanilla
+  clear_stale_control_socket "$target"
+  packer_build templates/resize.pkr.hcl \
+    -var "vm_name=$target" \
+    -var "disk_size_gb=$disk_size_gb" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+  verify_existing "$target" vanilla
+  printf 'Resized clone %s from %s to %s GB and verified an independent boot\n' \
+    "$target" "$source" "$disk_size_gb"
+}
+
 verify_existing() {
   local vm=${1:?VM name is required}
   local profile=${2:?Verification profile is required}
@@ -804,6 +847,7 @@ Usage:
   scripts/image provision disable-sip <vm>
   scripts/image pull <vanilla|base|xcode> [tag]
   scripts/image push <vanilla|base|xcode> [tag] [vm]
+  scripts/image resize <source> <target> <disk-size-gb>
   scripts/image test <vm> [vanilla|sip|base|xcode]
 
 Vanilla and base images use the latest registry tag.
@@ -844,6 +888,7 @@ case ${1:-} in
     ;;
   pull) pull_image "${2:-}" "${3:-}" ;;
   push) push_image "${2:-}" "${3:-}" "${4:-}" ;;
+  resize) resize_image "${2:-}" "${3:-}" "${4:-}" ;;
   test) test_image "${2:-}" "${3:-}" ;;
   *) usage; exit 1 ;;
 esac

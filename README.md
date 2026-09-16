@@ -144,7 +144,18 @@ export IMAGE_CACERT=/opt/homebrew/etc/openssl@3/cert.pem
 ```
 
 The downloaded image is checked and imported into the configured local VM name.
-An existing VM with that name is never replaced. To upload a stopped, verified VM,
+An existing VM with that name is never replaced. To prepare a larger working clone:
+
+```shell
+.build/release/macos-image resize macos-sequoia-15.6.1-vanilla \
+  --target sequoia-work --disk-size 160
+```
+
+This preserves Recovery, checks usable capacity, and verifies a separate boot.
+See [Disk size](docs/disk-size.md) for supported layouts and the difference from
+`tart set --disk-size`.
+
+To upload a stopped, verified VM,
 provide `TART_REGISTRY_HOSTNAME`, `TART_REGISTRY_USERNAME`, and
 `TART_REGISTRY_PASSWORD` explicitly, then run:
 
