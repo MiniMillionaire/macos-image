@@ -11,8 +11,8 @@ The current image definitions are:
 | `macos-27.0-rc` | macOS 27.0 RC (26A428) | macOS 27 or newer |
 
 All three vanilla recipes passed fresh IPSW builds and independent cold boots in
-this repository's CI and were uploaded to private GHCR packages by digest.
-Anonymous download acceptance and tag publication remain pending.
+this repository's CI and are available in public GHCR packages by digest.
+Full anonymous download acceptance and tag publication remain pending.
 See the [validation record](docs/validation.md).
 Base and Xcode variants have not completed the same acceptance process.
 

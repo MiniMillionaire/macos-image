@@ -57,6 +57,13 @@ anonymous verification and tag promotion. No tags or Releases were created.
 The original verified bundles and exports were retained for recovery, and the
 temporary task directories were removed.
 
+On September 16, 2026, all three packages were made public. Anonymous manifest
+and configuration downloads passed their SHA-256 checks and matched the original
+upload records. A HEAD request for a disk blob in each image returned 200 with
+the expected size. Full anonymous image downloads and cold boots remain pending.
+The local VM and OCI caches were removed during disk cleanup; metadata and CI
+records were retained.
+
 ## Publication backport
 
 The new local adapter passed a 16 MiB disk round trip through Tart export, ORAS
