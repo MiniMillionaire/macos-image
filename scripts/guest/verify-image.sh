@@ -36,7 +36,7 @@ verify_vanilla() {
 }
 
 verify_base() {
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+  source "$HOME/.zprofile"
   guest_agent_path=$(realpath /opt/homebrew/bin/tart-guest-agent)
   test -d /Users/runner
   test -f "$HOME/.ssh/known_hosts"
