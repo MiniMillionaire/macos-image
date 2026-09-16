@@ -2,6 +2,7 @@
 set -euo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
+eval "$(rbenv init - bash)"
 android_home="$HOME/android-sdk"
 flutter_home="$HOME/flutter"
 
