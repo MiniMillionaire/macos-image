@@ -30,3 +30,8 @@ if [[ -n "$XCODE_COMPONENTS" ]]; then
 fi
 
 brew bundle --file=/tmp/Brewfile.xcode
+mise use --global --pin tuist@latest
+grep -Fqx 'export PATH="$HOME/.local/share/mise/shims:$PATH"' "$HOME/.zprofile" ||
+  printf '%s\n' 'export PATH="$HOME/.local/share/mise/shims:$PATH"' >> "$HOME/.zprofile"
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+tuist version

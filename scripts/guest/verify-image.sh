@@ -68,8 +68,9 @@ case "$IMAGE_PROFILE" in
     verify_base
     test -n "$EXPECTED_XCODE_VERSION"
     test "$(xcode-select -p)" = "/Applications/Xcode_$EXPECTED_XCODE_VERSION.app/Contents/Developer"
-    command -v xcodebuild xcodes flutter sdkmanager >/dev/null
+    command -v xcodebuild xcodes flutter sdkmanager tuist >/dev/null
     xcodebuild -version | grep -Fx "Xcode $EXPECTED_XCODE_VERSION"
+    tuist version
     flutter doctor
     ;;
   *)
