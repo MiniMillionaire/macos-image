@@ -14,12 +14,12 @@ brew bundle --file=/tmp/Brewfile.base
 git lfs install
 sudo softwareupdate --install-rosetta --agree-to-license
 
-if ! rbenv versions --bare | grep -Fxq 2.7.8; then
+if ! rbenv versions --bare | grep -Fx 2.7.8 >/dev/null; then
   rbenv install 2.7.8
 fi
 
 latest_ruby=$(rbenv install -l | grep -Ev '[-a-z]' | tail -1)
-if ! rbenv versions --bare | grep -Fxq "$latest_ruby"; then
+if ! rbenv versions --bare | grep -Fx "$latest_ruby" >/dev/null; then
   rbenv install "$latest_ruby"
 fi
 rbenv global "$latest_ruby"

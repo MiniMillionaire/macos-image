@@ -146,7 +146,7 @@ set_input_sources() {
 }
 
 tool_version() {
-  .build/tools/image-artifact run --timeout 20 -- "$@" 2>&1 | grep -Eo '[0-9]+([.][0-9]+){1,2}' | head -1
+  .build/tools/image-artifact run --timeout 20 -- "$@" 2>&1 | grep -Eo '[0-9]+([.][0-9]+){1,2}' | sed -n '1p'
 }
 
 check_tools() {

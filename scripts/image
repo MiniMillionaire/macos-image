@@ -231,7 +231,7 @@ require_installed_packer_plugin() {
     die 'Could not inspect installed Packer plugins'
   fi
   grep -F 'github.com/cirruslabs/tart' <<<"$bounded_output" |
-    grep -Eq "(^|[^0-9.])v?$version_pattern([^0-9.]|$)" ||
+    grep -E "(^|[^0-9.])v?$version_pattern([^0-9.]|$)" >/dev/null ||
     die "Tart Packer plugin $PACKER_TART_PLUGIN_VERSION is not installed"
   packer_plugin_checked=true
 }

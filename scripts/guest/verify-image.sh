@@ -44,7 +44,7 @@ verify_base() {
   for tool in brew git gh jq node npm pnpm rbenv tart-guest-agent yarn; do
     command -v "$tool" >/dev/null
   done
-  csrutil status | grep -Fq disabled
+  csrutil status | grep -F disabled >/dev/null
   sudo launchctl print system/dev.macos-image.tart-guest-daemon >/dev/null
   tcc_query="
     SELECT count(*) FROM access
@@ -60,7 +60,7 @@ verify_base() {
 
 case "$IMAGE_PROFILE" in
   vanilla) verify_vanilla ;;
-  sip) csrutil status | grep -Fq disabled ;;
+  sip) csrutil status | grep -F disabled >/dev/null ;;
   base)
     verify_vanilla
     verify_base
