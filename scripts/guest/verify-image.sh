@@ -26,6 +26,11 @@ verify_vanilla() {
   gatekeeper_status=$(spctl --status 2>&1 || true)
   [[ "$gatekeeper_status" == 'assessments disabled' ]] || { echo "Unexpected Gatekeeper status: $gatekeeper_status" >&2; exit 1; }
   console_user=$(stat -f %Su /dev/console)
+  console_deadline=$((SECONDS + 120))
+  while [[ "$console_user" != "$GUEST_USERNAME" && $SECONDS -lt $console_deadline ]]; do
+    sleep 5
+    console_user=$(stat -f %Su /dev/console)
+  done
   [[ "$console_user" == "$GUEST_USERNAME" ]] || { echo "Automatic login failed: $console_user" >&2; exit 1; }
   developer_dir=$(xcode-select -p)
   test -d "$developer_dir"
