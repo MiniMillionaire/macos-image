@@ -60,9 +60,26 @@ temporary task directories were removed.
 On September 16, 2026, all three packages were made public. Anonymous manifest
 and configuration downloads passed their SHA-256 checks and matched the original
 upload records. A HEAD request for a disk blob in each image returned 200 with
-the expected size. Full anonymous image downloads and cold boots remain pending.
-The local VM and OCI caches were removed during disk cleanup; metadata and CI
-records were retained.
+the expected size. The local VM and OCI caches were removed during disk cleanup;
+metadata and CI records were retained.
+
+Sequoia and Tahoe completed publication on September 16:
+
+| macOS | Publication run | Tag |
+| --- | --- | --- |
+| 15.6.1 | [35071207716](https://github.com/MiniMillionaire/macos-image/actions/runs/35071207716) | `macos-sequoia-vanilla:latest` |
+| 26.6.2 | [35071876839](https://github.com/MiniMillionaire/macos-image/actions/runs/35071876839) | `macos-tahoe-vanilla:latest` |
+
+Both runs downloaded the full image anonymously, checked its OCI hashes,
+imported it, and verified a separate cold boot before publishing the tag under
+`ghcr.io/minimillionaire`. Anonymous tag checks passed. The original digests
+were preserved:
+
+- Sequoia: `sha256:37db3b09d4877a2522adc80aa944f91cc3f9f659cde65af8c4d405e43e4e15f3`
+- Tahoe: `sha256:86777a3e30fcbba7d8fe6aeb43adbab33e9cecbc249c3ccdf26b17511ff0f8ba`
+
+The saved bundles and temporary task directories were removed after publication.
+Golden Gate full anonymous download acceptance remains pending.
 
 ## Publication backport
 
@@ -89,9 +106,8 @@ source. An early recovery failure preserved the original verified bundle, and a
 symlinked cache ancestor was rejected. The temporary disk bundles, registry data,
 TLS material, and build trees were removed.
 
-Full anonymous GHCR download and cold-boot acceptance through this repository's
-workflow remain pending. Base and Xcode variants, a second physical download
-host, and VirtualBuddy import are outside the recorded results.
+Base and Xcode variants, a second physical download host, and VirtualBuddy
+import are outside the recorded results.
 
 ## Cirrus tag conventions
 

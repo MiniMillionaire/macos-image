@@ -12,7 +12,9 @@ The current image definitions are:
 
 All three vanilla recipes passed fresh IPSW builds and independent cold boots in
 this repository's CI and are available in public GHCR packages by digest.
-Full anonymous download acceptance and tag publication remain pending.
+Sequoia and Tahoe also passed full anonymous downloads and cold boots and are
+published as `macos-sequoia-vanilla:latest` and `macos-tahoe-vanilla:latest` under
+`ghcr.io/minimillionaire`. Golden Gate tag publication remains pending.
 See the [validation record](docs/validation.md).
 Base and Xcode variants have not completed the same acceptance process.
 
