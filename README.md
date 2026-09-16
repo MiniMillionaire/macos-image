@@ -17,7 +17,9 @@ published as `macos-sequoia-vanilla:latest` and `macos-tahoe-vanilla:latest` und
 `ghcr.io/minimillionaire`. Golden Gate tag publication remains pending.
 See the [validation record](docs/validation.md).
 The Sequoia and Tahoe base variants passed the same acceptance process and are
-published with `latest` tags. Xcode acceptance remains pending.
+published with `latest` tags. Xcode images passed full anonymous download and
+cold-boot acceptance as `macos-sequoia-xcode:26.3` and
+`macos-tahoe-xcode:26.6`.
 
 ## Requirements
 
@@ -121,7 +123,7 @@ An optional target name preserves an existing image while testing a fresh build:
 Place Xcode at `~/XcodesCache/Xcode_<version>.xip`, then run:
 
 ```shell
-.build/release/macos-image build xcode 16.4
+.build/release/macos-image build xcode 26.3
 ```
 
 Select another image definition with `IMAGE_CONFIG`:

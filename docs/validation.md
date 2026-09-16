@@ -104,6 +104,70 @@ Anonymous tag checks passed. Both OS versions and Apple builds remained unchange
 The temporary VMs, downloaded images, and saved recovery bundles were removed
 after publication.
 
+## Xcode images
+
+Sequoia 15.6.1 (24G90) with Xcode 26.3 passed its build and independent cold boot
+in [35096059846](https://github.com/MiniMillionaire/macos-image/actions/runs/35096059846),
+at revision `fb81cc1`. Publication continued from the same verified bundle and
+OCI export in [35100517384](https://github.com/MiniMillionaire/macos-image/actions/runs/35100517384).
+The complete 59.86 GiB image was downloaded anonymously, checked, imported,
+and cold-boot tested before tag `26.3` was promoted.
+
+- Reference: `ghcr.io/minimillionaire/macos-sequoia-xcode:26.3`
+- Digest: `sha256:c7bdd6d7fdd7722a0b9eb8978558df9bd08678eff58d9b0234ae9701c32bf6c1`
+- Downloaded image boot: `05BB2D35-D241-4D88-97B9-BA0904C2D57A`
+- Release: [26.3](https://github.com/MiniMillionaire/macos-image/releases/tag/26.3)
+
+Checks covered Xcode, its four arm64 simulator runtimes, Tuist, Flutter,
+Android SDK 36, CocoaPods, and fastlane. Flutter's Xcode and Android checks
+passed. Chrome is not installed. The macOS version/build, account, language,
+and keyboard settings remained unchanged.
+
+The publication job timed out while hashing its local recovery bundle after
+successful tag confirmation. Cache removal now runs separately. Release recovery
+[35112072265](https://github.com/MiniMillionaire/macos-image/actions/runs/35112072265)
+passed, including anonymous registry checks and verification of uploaded release
+assets. The saved recovery bundle and temporary VMs were removed. No `latest`
+alias was updated.
+
+Tahoe 26.6.2 (25G83) with Xcode 26.6 completed its build and publication acceptance
+in [35112264080](https://github.com/MiniMillionaire/macos-image/actions/runs/35112264080),
+at revision `4c45230`. The workflow used its published base image, installed the
+Apple Silicon XIP and all four arm64 simulator runtimes, and verified separate
+cold boots before and after publication.
+
+- Reference: `ghcr.io/minimillionaire/macos-tahoe-xcode:26.6`
+- Digest: `sha256:d1257eec6bb3c52e37bc77dbf974e38c4862e7dbd8cb9bc30c5417079b38bd25`
+- OCI blob size: 63.27 GiB
+- Downloaded image boot: `254BC390-2001-4F66-85CC-7B14E6F9159A`
+- Release: [26.6](https://github.com/MiniMillionaire/macos-image/releases/tag/26.6)
+
+The macOS version/build and locale settings remained unchanged. Xcode, Flutter,
+Android, and the installed development tools passed verification. The downloaded
+runtimes were iOS 26.5 (23F77), watchOS 26.5 (23T570), tvOS 26.5 (23L470),
+and visionOS 26.5 (23O470). The `latest` alias was not updated.
+The same CI run completed cache cleanup and the hosted Release job, including
+verification of uploaded assets. Its temporary VMs and recovery bundle were removed.
+
+## Parent cache
+
+Three separate Sequoia Xcode CI builds reused the same verified base image
+without downloading its 21.52 GiB OCI layout again. Each run resolved the parent
+tag and checked the cached bytes before creating a private APFS clone. Disk
+pressure during publication later removed the owned parent cache.
+
+The anonymous publication download still transferred every blob. Once verified,
+APFS clones let the saved recovery export share that downloaded storage before
+import. In run `35100517384`, this recovered about 60 GiB; the lowest observed
+free space during import and cold boot was about 41 GiB. Inline checks also
+covered interrupted replacement, corrupt blobs, wrong digests, and symlinks,
+while preserving the original export after a rejected replacement.
+
+Tahoe passed the same publication path. The pre-import space check removed its
+25.91 GiB parent cache after blob sharing completed. The lowest observed free
+space was 19.91 GiB at the end of the anonymous download, and about 30 GiB
+remained after cold-boot acceptance. Final cleanup restored about 259 GiB free.
+
 ## Publication backport
 
 The new local adapter passed a 16 MiB disk round trip through Tart export, ORAS
@@ -129,8 +193,8 @@ source. An early recovery failure preserved the original verified bundle, and a
 symlinked cache ancestor was rejected. The temporary disk bundles, registry data,
 TLS material, and build trees were removed.
 
-Xcode variants, a second physical download host, and VirtualBuddy import are
-outside the recorded results.
+A second physical download host and VirtualBuddy import are outside the
+recorded results.
 
 ## Cirrus tag conventions
 

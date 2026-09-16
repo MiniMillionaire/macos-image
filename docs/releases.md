@@ -15,7 +15,8 @@ Package names and tags follow
 | Tahoe vanilla | `ghcr.io/minimillionaire/macos-tahoe-vanilla:latest` |
 | Golden Gate vanilla | `ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest` |
 | Tahoe base | `ghcr.io/minimillionaire/macos-tahoe-base:latest` |
-| Sequoia with Xcode 16.4 | `ghcr.io/minimillionaire/macos-sequoia-xcode:16.4` |
+| Sequoia with Xcode 26.3 | `ghcr.io/minimillionaire/macos-sequoia-xcode:26.3` |
+| Tahoe with Xcode 26.6 | `ghcr.io/minimillionaire/macos-tahoe-xcode:26.6` |
 
 Each macOS family has one Xcode package containing its available Xcode tags.
 `xcode_version` is the installed compiler version. `xcode_tag` defaults to that
@@ -30,7 +31,7 @@ commit, input hashes, and build run. Consumers needing a fixed image use
 `ghcr.io/minimillionaire/macos-tahoe-xcode@sha256:...`.
 
 Vanilla and base publications do not create Git tags or GitHub Releases. Xcode
-publications share a GitHub Release named for the Xcode tag, such as `16.4`.
+publications share a GitHub Release named for the Xcode tag, such as `26.3`.
 Its assets distinguish the macOS profile and publication run, so another image
 can be added without replacing earlier evidence. The hosted Release job creates
 an absent Git tag at the verified source revision and never moves an existing
@@ -57,6 +58,8 @@ in the build inputs. This hash records the supplied file; it is not an
 independent Apple checksum. Packer copies the archive into the VM, where
 `xcodes` installs it. Apple login credentials are not needed by the image build.
 Host-side Apple login and automatic Xcode downloads are not configured.
+Xcode builds install the arm64 simulator runtimes with
+`xcodebuild -downloadAllPlatforms`.
 
 The hosted authorization job permits only the configured `TRUSTED_ACTOR`
 (default `cocoa-xu`), including the person requesting a rerun. It validates the
@@ -153,6 +156,13 @@ hashes, and saved VM hashes. It preserves the first successful OCI export:
 Tart's manifest contains an upload timestamp, so re-exporting the same VM would
 change its digest. Recovery uses the saved digest independently of mutable tags.
 It can resume after an upload, boot verification, or partial tag update.
+
+When recovering a Release from an older build, its workflow files may differ
+from `main`. GitHub does not let `GITHUB_TOKEN` create that historical tag.
+Create and push the Xcode tag at the exact `revision` in the accepted result
+using a maintainer account, then run `recover-release`. The workflow uses the
+existing tag without moving it. See GitHub's
+[release API permissions](https://docs.github.com/en/rest/releases/releases#create-a-release).
 
 Each run has its own Tart home and ownership marker. Cleanup stops its VMs,
 checks that their disks are closed, and removes its temporary files. Failed
