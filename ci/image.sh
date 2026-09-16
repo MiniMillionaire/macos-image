@@ -19,6 +19,7 @@ source_vm="$vm_name-source"
 published_vm="$vm_name-published"
 layout="$task_root/publication/layout"
 verified_root="$HOME/.cache/macos-image/verified/minimillionaire-macos-image"
+source ci/parent-cache.sh
 
 export IMAGE_CONFIG="$CONFIG_PATH"
 export IMAGE_CACERT
@@ -189,6 +190,14 @@ check_tools() {
   elif [[ "$VARIANT" == xcode ]]; then
     minimum_kib=$((250 * 1024 * 1024))
   fi
+  parent_cache_init
+  parent_cache_credit_kib=0
+  parent_cache_keep=
+  if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) && "$VARIANT" != vanilla ]]; then
+    prepare_parent_source
+    minimum_kib=$((minimum_kib - parent_cache_credit_kib))
+  fi
+  parent_cache_prune "$minimum_kib" "$parent_cache_keep"
   available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
   [[ "$available" =~ ^[0-9]+$ && "$available" -ge "$minimum_kib" ]] ||
     ci_die "The image runner requires $minimum_kib KiB free; $available KiB is available"
@@ -501,8 +510,6 @@ build_image() {
   local xcode_sha=
   local source_layout="$task_root/parent-image/layout"
   local source_metadata="$task_root/parent-image.json"
-  local source_ref
-  local source_variant
 
   if [[ "$VARIANT" == xcode ]]; then
     local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
@@ -522,18 +529,10 @@ build_image() {
       ./scripts/image build vanilla "" "$vm_name"
       ;;
     base|xcode)
-      if [[ "$VARIANT" == base ]]; then
-        source_variant=vanilla
-      else
-        source_variant=base
-      fi
-      source_ref="$REGISTRY/macos-$MACOS_FAMILY-$source_variant:latest"
       mkdir -p "$task_root/parent-image"
-      ./scripts/registry download "$source_ref" "$source_layout"
-      inspect_layout "$source_layout" "$source_metadata"
-      require_layout "$source_metadata" "$source_variant"
+      restore_parent_source "$source_layout" "$source_metadata"
       source_digest=$(jq -er .manifest_digest "$source_metadata")
-      source="${source_ref%:*}@$source_digest"
+      source=$(jq -er .reference "$task_root/parent-source.json")
       .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
       rm -rf -- "$source_layout"
       if [[ "$VARIANT" == base ]]; then
@@ -739,7 +738,20 @@ complete_publication() {
   temporary="$logs/result.json.tmp"
   jq '.stage = "published"' "$logs/result.json" > "$temporary"
   mv "$temporary" "$logs/result.json"
+  if [[ "$VARIANT" != xcode ]]; then
+    if ! .build/tools/image-artifact run --timeout 300 -- bash ci/image.sh cache-parent; then
+      printf 'Could not retain the published parent image in the local cache\n' >&2
+    fi
+  fi
   remove_verified_bundle
+}
+
+cache_published_parent() {
+  require_task
+  [[ "$VARIANT" == vanilla || "$VARIANT" == base ]] || ci_die "Only vanilla and base images are cached"
+  local digest
+  digest=$(jq -er 'select(.stage == "published") | .manifest_digest' "$logs/result.json")
+  parent_cache_store "$task_root/downloaded/layout" "$digest"
 }
 
 cleanup_task() {
@@ -797,6 +809,9 @@ cleanup_task() {
     fi
   fi
   rm -rf -- "$task_root"
+  if [[ -e "$parent_cache_root" || -L "$parent_cache_root" ]]; then
+    parent_cache_init
+  fi
 }
 
 case ${1:-} in
@@ -809,6 +824,7 @@ case ${1:-} in
   verify) verify_publication ;;
   promote) promote_publication ;;
   complete) complete_publication ;;
+  cache-parent) cache_published_parent ;;
   cleanup) cleanup_task ;;
-  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|cleanup>" ;;
+  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|cache-parent|cleanup>" ;;
 esac

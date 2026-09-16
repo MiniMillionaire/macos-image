@@ -52,7 +52,11 @@ login() {
 }
 
 resolve() {
-  "$helper" run --timeout 60 -- "$oras" resolve --registry-config "$credentials/config.json" --ca-file "$ca" "$1"
+  local digest
+  reference_host "$1" >/dev/null
+  digest=$("$helper" run --timeout 60 -- "$oras" resolve --registry-config "$credentials/config.json" --ca-file "$ca" "$1") || return $?
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid remote manifest digest'
+  printf '%s\n' "$digest"
 }
 
 check() {
@@ -175,6 +179,12 @@ download() {
 command=${1:-}
 shift || true
 case "$command" in
+  resolve)
+    [[ $# == 1 ]] || fail 'Usage: registry resolve REFERENCE'
+    require_tools
+    unset TART_REGISTRY_PASSWORD TART_REGISTRY_USERNAME GH_TOKEN GITHUB_TOKEN
+    resolve "$1"
+    ;;
   prepare)
     [[ $# == 3 ]] || fail 'Usage: registry prepare VM REFERENCE LAYOUT'
     prepare "$@"
@@ -227,5 +237,5 @@ case "$command" in
     "$root_dir/scripts/registry" download "$(reference_repository "$2")@$digest" "$temporary/downloaded"
     promote "$2" "$digest"
     ;;
-  *) fail 'Usage: registry <check|prepare|upload|promote|download|pull|push> ...' ;;
+  *) fail 'Usage: registry <resolve|check|prepare|upload|promote|download|pull|push> ...' ;;
 esac

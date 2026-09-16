@@ -88,6 +88,20 @@ corresponding published vanilla image; Xcode builds consume the published base.
 Their source tags are resolved to digests and checked against the selected
 macOS version/build before use.
 
+The runner caches parent OCI images under
+`~/.cache/macos-image/parents/minimillionaire-macos-image`. Each run resolves the
+parent tag again, then checks every cached blob against that digest before use.
+The task gets a private APFS clone of the cached layout. A cache miss downloads
+the pinned digest; a corrupt entry is discarded and downloaded again. Successful
+vanilla and base publications also retain their verified layout for child builds.
+
+The cache keeps at most two entries and 64 GiB, removing the least recently used
+entries first. Other entries can be removed to meet a build's disk requirement.
+An already cached parent counts toward the workspace allowance because its
+downloaded bytes are already on disk. Cache maintenance uses the workflow's
+serialized image jobs and only removes directories with matching ownership
+markers. Interrupted cache writes are removed by cleanup or the next run.
+
 - `build` constructs the image, verifies a separate cold boot, and saves the
   verified bundle for possible publication.
 - `publish` builds and verifies the image, uploads it by digest, and verifies the
@@ -119,7 +133,8 @@ export overhead, and 2 GiB of remaining workspace for tools and temporary files.
 Restoring and retaining the bundle use APFS clones. If the source run already has a prepared
 export, only the 2 GiB workspace allowance is needed. Other operations still
 require 100 GiB free, or 250 GiB for Xcode images, to allow for builds and
-downloaded image checks.
+downloaded image checks, less the space already occupied by the verified parent
+cache selected for that build.
 
 ## Recovery and cleanup
 
