@@ -535,6 +535,7 @@ build_image() {
       source_digest=$(jq -er .manifest_digest "$source_metadata")
       source="${source_ref%:*}@$source_digest"
       .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
+      rm -rf -- "$source_layout"
       if [[ "$VARIANT" == base ]]; then
         ./scripts/image build base "$source_vm" "$vm_name"
       else
