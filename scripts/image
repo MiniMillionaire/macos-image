@@ -611,7 +611,8 @@ build_xcode() {
   local archive="$xcode_cache/Xcode_$version.xip"
   is_numeric_version "$version" || die "Invalid Xcode version: $version"
   require_compatible_host
-  [[ -f "$archive" ]] || die "Xcode archive not found: $archive"
+  [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
+    die "A readable, nonempty Xcode archive is required: $archive"
   clone_vm "$source" "$target" base
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \

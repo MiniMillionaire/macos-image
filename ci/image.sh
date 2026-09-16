@@ -504,6 +504,13 @@ build_image() {
   local source_ref
   local source_variant
 
+  if [[ "$VARIANT" == xcode ]]; then
+    local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
+    [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
+      ci_die "A readable, nonempty Xcode archive is required: $archive"
+    xcode_sha=$(ci_sha256 "$archive")
+  fi
+
   case "$VARIANT" in
     vanilla)
       source=$IPSW_URL
@@ -527,9 +534,6 @@ build_image() {
       if [[ "$VARIANT" == base ]]; then
         ./scripts/image build base "$source_vm" "$vm_name"
       else
-        local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
-        [[ -f "$archive" && ! -L "$archive" ]] || ci_die "Xcode archive is missing: $archive"
-        xcode_sha=$(ci_sha256 "$archive")
         ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name"
       fi
       ;;

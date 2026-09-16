@@ -42,7 +42,18 @@ prerelease status. Prerelease Xcode tags produce prerelease Releases.
 Use a dedicated Apple silicon Mac with the versions in `config/toolchain.env`,
 the installed Tart Packer plugin, jq, and the PEM bundle configured by
 `IMAGE_CACERT`. The host macOS version must meet the selected profile's minimum.
-Xcode builds require the exact XIP archive in `~/XcodesCache`.
+Xcode builds require the exact XIP archive in `~/XcodesCache`. Download it from
+[Apple Developer Downloads](https://developer.apple.com/download/all/?q=Xcode)
+and name it `Xcode_<xcode_version>.xip`. The filename uses the compiler version,
+not the publication tag: `xcode_version=27.0` and `xcode_tag=27` require
+`Xcode_27.0.xip`. Use `XCODE_CACHE` to select another cache directory.
+
+The archive is reused across macOS builds. CI checks that it is a readable,
+nonempty regular file before downloading the base image, and records its SHA-256
+in the build inputs. This hash records the supplied file; it is not an
+independent Apple checksum. Packer copies the archive into the VM, where
+`xcodes` installs it. Apple login credentials are not needed by the image build.
+Host-side Apple login and automatic Xcode downloads are not configured.
 
 The hosted authorization job permits only the configured `TRUSTED_ACTOR`
 (default `cocoa-xu`), including the person requesting a rerun. It validates the
