@@ -4,7 +4,7 @@ set -euo pipefail
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew update
 brew upgrade
-brew bundle --file=/tmp/Brewfile.xcode
+brew install xcodes
 
 archive="/Users/$GUEST_USERNAME/Downloads/Xcode_$XCODE_VERSION.xip"
 target="/Applications/Xcode_$XCODE_VERSION.app"
@@ -28,3 +28,5 @@ if [[ -n "$XCODE_COMPONENTS" ]]; then
     xcodebuild -downloadComponent "$component"
   done
 fi
+
+brew bundle --file=/tmp/Brewfile.xcode

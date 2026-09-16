@@ -1,4 +1,5 @@
 tap "openai/tools"
+tap "tuist/tuist"
 tap "wix/brew"
 
 brew "carthage"
@@ -13,8 +14,8 @@ brew "mint"
 brew "swiftformat"
 brew "swiftgen"
 brew "swiftlint"
-brew "tuist"
-brew "wix/brew/applesimutils"
+brew "tuist/tuist/tuist", trusted: true
+brew "wix/brew/applesimutils", trusted: true
 brew "xcbeautify"
 brew "xcodes"
 
