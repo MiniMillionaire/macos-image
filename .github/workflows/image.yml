@@ -492,6 +492,11 @@ jobs:
           github-token: ${{ github.token }}
           repository: MiniMillionaire/macos-image
           run-id: ${{ needs.authorize.outputs.publication_run_id }}
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        timeout-minutes: 5
+        with:
+          go-version: ${{ needs.authorize.outputs.go_version }}
+          cache: false
       - name: Build registry helper
         timeout-minutes: 3
         run: make artifact-helper
