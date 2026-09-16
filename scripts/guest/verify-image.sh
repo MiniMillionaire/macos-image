@@ -41,7 +41,9 @@ verify_base() {
   test -d /Users/runner
   test -f "$HOME/.ssh/known_hosts"
   test -x "$HOME/actions-runner/run.sh"
-  command -v brew git gh jq node npm pnpm rbenv tart-guest-agent yarn >/dev/null
+  for tool in brew git gh jq node npm pnpm rbenv tart-guest-agent yarn; do
+    command -v "$tool" >/dev/null
+  done
   csrutil status | grep -Fq disabled
   sudo launchctl print system/dev.macos-image.tart-guest-daemon >/dev/null
   tcc_query="
@@ -68,7 +70,9 @@ case "$IMAGE_PROFILE" in
     verify_base
     test -n "$EXPECTED_XCODE_VERSION"
     test "$(xcode-select -p)" = "/Applications/Xcode_$EXPECTED_XCODE_VERSION.app/Contents/Developer"
-    command -v xcodebuild xcodes flutter sdkmanager tuist >/dev/null
+    for tool in xcodebuild xcodes flutter sdkmanager tuist; do
+      command -v "$tool" >/dev/null
+    done
     xcodebuild -version | grep -Fx "Xcode $EXPECTED_XCODE_VERSION"
     tuist version
     flutter doctor

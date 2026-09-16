@@ -33,7 +33,7 @@ if [[ ! -x "$android_home/cmdline-tools/latest/bin/sdkmanager" ]]; then
   rm -f "$archive"
 fi
 
-yes | sdkmanager --licenses >/dev/null || true
+yes | sdkmanager --licenses >/dev/null || [[ ${PIPESTATUS[1]} == 0 ]]
 sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
 
 if [[ ! -d "$flutter_home/.git" ]]; then
