@@ -83,6 +83,10 @@ manifest digest identifies the built image.
 
 Apple did not publish a UniversalMac restore IPSW for macOS 15.7. A 15.7 image therefore requires a separate, same-major update stage from the 15.6.1 restore image. That stage must select macOS 15 update labels explicitly and verify the resulting build before publication.
 
+The [update procedure](macos-updates.md) covers exact full installers and selection
+of the latest release within the guest's current major. Updating a working clone
+does not change the pinned restore recipe or any published image.
+
 ## Artifacts
 
 Tart exports its native OCI manifest and blobs through a loopback registry into
