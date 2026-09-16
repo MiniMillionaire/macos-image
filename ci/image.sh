@@ -506,6 +506,10 @@ build_image() {
 
   if [[ "$VARIANT" == xcode ]]; then
     local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
+    local silicon_archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_${XCODE_VERSION}_Apple_silicon.xip"
+    if [[ -e "$silicon_archive" || -L "$silicon_archive" ]]; then
+      archive=$silicon_archive
+    fi
     [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
       ci_die "A readable, nonempty Xcode archive is required: $archive"
     xcode_sha=$(ci_sha256 "$archive")

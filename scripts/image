@@ -609,8 +609,12 @@ build_xcode() {
   local source=${2:-$(default_source base)}
   local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
   local archive="$xcode_cache/Xcode_$version.xip"
+  local silicon_archive="$xcode_cache/Xcode_${version}_Apple_silicon.xip"
   is_numeric_version "$version" || die "Invalid Xcode version: $version"
   require_compatible_host
+  if [[ -e "$silicon_archive" || -L "$silicon_archive" ]]; then
+    archive=$silicon_archive
+  fi
   [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
     die "A readable, nonempty Xcode archive is required: $archive"
   clone_vm "$source" "$target" base

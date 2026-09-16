@@ -47,6 +47,9 @@ Xcode builds require the exact XIP archive in `~/XcodesCache`. Download it from
 and name it `Xcode_<xcode_version>.xip`. The filename uses the compiler version,
 not the publication tag: `xcode_version=27.0` and `xcode_tag=27` require
 `Xcode_27.0.xip`. Use `XCODE_CACHE` to select another cache directory.
+Apple Silicon archives can keep Apple's filename,
+`Xcode_<xcode_version>_Apple_silicon.xip`. When both filenames exist, builds use
+the Apple Silicon archive.
 
 The archive is reused across macOS builds. CI checks that it is a readable,
 nonempty regular file before downloading the base image, and records its SHA-256
