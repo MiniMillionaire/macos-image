@@ -81,6 +81,29 @@ were preserved:
 The saved bundles and temporary task directories were removed after publication.
 Golden Gate full anonymous download acceptance remains pending.
 
+## Base images
+
+The Sequoia and Tahoe base variants completed CI builds and publication:
+
+| macOS | Revision | CI run | OCI blob size |
+| --- | --- | --- | --- |
+| 15.6.1 | `2600459` | [35073451718](https://github.com/MiniMillionaire/macos-image/actions/runs/35073451718) | 21.52 GiB |
+| 26.6.2 | `abc2a00` | [35077863586](https://github.com/MiniMillionaire/macos-image/actions/runs/35077863586) | 25.91 GiB |
+
+Each build cloned its published vanilla image by digest, disabled SIP in Recovery,
+and installed the base tools. Provisioning and separate cold-boot checks passed.
+The workflows then uploaded, downloaded anonymously in full, imported, and
+verified another cold boot before publishing `latest`:
+
+- `ghcr.io/minimillionaire/macos-sequoia-base:latest`:
+  `sha256:5c21aab8e4e7445224074ad0a00b775a27735b29f06ff6a746d6f04bb2064193`
+- `ghcr.io/minimillionaire/macos-tahoe-base:latest`:
+  `sha256:953eb700bcddb98ccdedbf4ef39cd0a5e9666ec1ff488acbb0ed8f0dc64ff601`
+
+Anonymous tag checks passed. Both OS versions and Apple builds remained unchanged.
+The temporary VMs, downloaded images, and saved recovery bundles were removed
+after publication.
+
 ## Publication backport
 
 The new local adapter passed a 16 MiB disk round trip through Tart export, ORAS
@@ -106,8 +129,8 @@ source. An early recovery failure preserved the original verified bundle, and a
 symlinked cache ancestor was rejected. The temporary disk bundles, registry data,
 TLS material, and build trees were removed.
 
-Base and Xcode variants, a second physical download host, and VirtualBuddy
-import are outside the recorded results.
+Xcode variants, a second physical download host, and VirtualBuddy import are
+outside the recorded results.
 
 ## Cirrus tag conventions
 

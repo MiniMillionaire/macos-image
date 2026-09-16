@@ -16,7 +16,8 @@ Sequoia and Tahoe also passed full anonymous downloads and cold boots and are
 published as `macos-sequoia-vanilla:latest` and `macos-tahoe-vanilla:latest` under
 `ghcr.io/minimillionaire`. Golden Gate tag publication remains pending.
 See the [validation record](docs/validation.md).
-Base and Xcode variants have not completed the same acceptance process.
+The Sequoia and Tahoe base variants passed the same acceptance process and are
+published with `latest` tags. Xcode acceptance remains pending.
 
 ## Requirements
 
