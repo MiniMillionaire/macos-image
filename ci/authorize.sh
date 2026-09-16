@@ -60,6 +60,23 @@ validate_metadata_file() {
   [[ -f "$path" && ! -L "$path" ]] || ci_die "Missing recovery metadata: $path"
 }
 
+validate_source_run() {
+  local stage=$1
+  local revision=$2
+  local step
+  case "$stage" in
+    built) step="Build and verify image" ;;
+    prepared) step="Prepare image publication" ;;
+    verified) step="Verify image digest" ;;
+    published)
+      validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$revision" "Verify image digest"
+      step="Promote image tags"
+      ;;
+    *) ci_die "Unknown source stage: $stage" ;;
+  esac
+  validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$revision" "$step"
+}
+
 validate_bundle_metadata() {
   local path=$1
   local build_run=$2
@@ -217,21 +234,13 @@ read_source_metadata() {
   local revision
   local build_run
   local source_stage
-  local source_step
   local workflow_revision
   revision=$(jq -er .revision "$result")
   build_run=$(jq -er .build_run "$result")
   source_stage=$(jq -er .stage "$result")
   workflow_revision=$(jq -er .workflow_revision "$inputs")
   [[ $(jq -er .run_id "$result") == "$SOURCE_RUN" ]] || ci_die "Source metadata has the wrong run ID"
-  case "$source_stage" in
-    built) source_step="Build and verify image" ;;
-    prepared) source_step="Prepare image publication" ;;
-    verified) source_step="Verify image digest" ;;
-    published) source_step="Confirm published tags" ;;
-    *) ci_die "Unknown source stage: $source_stage" ;;
-  esac
-  validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$workflow_revision" "$source_step"
+  validate_source_run "$source_stage" "$workflow_revision"
   validate_bundle_metadata "$SOURCE_ARTIFACT_DIR/bundle.json" "$build_run" "$revision"
   validate_prepared_metadata "$SOURCE_ARTIFACT_DIR" "$result"
   git merge-base --is-ancestor "$revision" origin/main || ci_die "Saved revision is not on main"
@@ -278,15 +287,7 @@ authorize_recovery() {
     ci_die "Source VM metadata differs from the original build artifact"
   validate_prepared_metadata "$SOURCE_ARTIFACT_DIR" "$source_result"
 
-  local source_step
-  case "$source_stage" in
-    built) source_step="Build and verify image" ;;
-    prepared) source_step="Prepare image publication" ;;
-    verified) source_step="Verify image digest" ;;
-    published) source_step="Confirm published tags" ;;
-    *) ci_die "Unknown source stage: $source_stage" ;;
-  esac
-  validate_run_json "$SOURCE_RUN_JSON" "$SOURCE_JOBS_JSON" "$SOURCE_RUN" "$source_workflow_revision" "$source_step"
+  validate_source_run "$source_stage" "$source_workflow_revision"
   validate_run_json "$BUILD_RUN_JSON" "$BUILD_JOBS_JSON" "$build_run" "$revision" "Build and verify image"
 
   if [[ "$OPERATION" == upload-only || "$OPERATION" == recover-upload ]]; then

@@ -112,7 +112,9 @@ markers. Interrupted cache writes are removed by cleanup or the next run.
 - `recover-upload` takes a previous run ID and attempt, such as `123456789-1`.
   It validates that run's evidence and restores the verified bundle and export.
 - `recover-release` creates or completes an Xcode GitHub Release from verified
-  publication results. It does not schedule the Mac runner.
+  publication results. It checks successful digest verification and tag promotion,
+  the saved publication record, and the current anonymous registry references.
+  It does not schedule the Mac runner or require local cache cleanup to succeed.
 
 After uploading by digest, the pipeline downloads every blob anonymously,
 verifies its hash and image identity, imports it into an isolated Tart home,
@@ -159,7 +161,8 @@ never touched, and automatic Tart pruning remains disabled.
 
 Verified recovery bundles live under `~/.cache/macos-image/verified`. Failed
 publication retains the verified bundle and any completed export. Successful
-anonymous verification of the promoted tags removes that cache. Small logs and
+anonymous verification of the promoted tags is followed by a separate cleanup
+step with 20 minutes to verify and remove that cache. Small logs and
 result files are uploaded as Actions artifacts even when a stage fails.
 
 See [Validation](validation.md) for completed checks and full workflow acceptance.

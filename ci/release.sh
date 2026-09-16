@@ -140,6 +140,10 @@ jq -e \
 
 unset TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
 [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "Published digest is not anonymously readable"
+[[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "Published tag does not match the verified digest"
+if [[ -n "$LATEST_REF" ]]; then
+  [[ $(./scripts/registry check "$LATEST_REF" "$digest") == present ]] || ci_die "Latest tag does not match the verified digest"
+fi
 
 scratch=$(mktemp -d "$RUNNER_TEMP/macos-image-release.XXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT

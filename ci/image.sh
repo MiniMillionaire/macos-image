@@ -803,11 +803,17 @@ complete_publication() {
   temporary="$logs/result.json.tmp"
   jq '.stage = "published"' "$logs/result.json" > "$temporary"
   mv "$temporary" "$logs/result.json"
+}
+
+prune_published_bundle() {
+  require_task
+  jq -e '.stage == "published"' "$logs/result.json" >/dev/null || ci_die "Image publication has not completed"
   if [[ "$VARIANT" != xcode ]]; then
     if ! .build/tools/image-artifact run --timeout 300 -- bash ci/image.sh cache-parent; then
       printf 'Could not retain the published parent image in the local cache\n' >&2
     fi
   fi
+  printf 'Verifying the saved VM before removing its recovery bundle\n'
   remove_verified_bundle
 }
 
@@ -889,7 +895,8 @@ case ${1:-} in
   verify) verify_publication ;;
   promote) promote_publication ;;
   complete) complete_publication ;;
+  prune-published) prune_published_bundle ;;
   cache-parent) cache_published_parent ;;
   cleanup) cleanup_task ;;
-  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|cache-parent|cleanup>" ;;
+  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|prune-published|cache-parent|cleanup>" ;;
 esac

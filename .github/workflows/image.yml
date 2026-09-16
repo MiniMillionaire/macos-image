@@ -411,6 +411,11 @@ jobs:
         timeout-minutes: 5
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         run: bash ci/image.sh complete 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/complete.log"
+      - name: Remove published recovery bundle
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 20
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh prune-published 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/prune-published.log"
       - name: Upload logs and metadata
         if: always()
         timeout-minutes: 5
