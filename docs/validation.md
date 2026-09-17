@@ -94,12 +94,13 @@ preserving its original export and digest:
 
 ## Base images
 
-The Sequoia and Tahoe base variants completed CI builds and publication:
+All three base variants completed CI builds and publication:
 
 | macOS | Revision | CI run | OCI blob size |
 | --- | --- | --- | --- |
 | 15.6.1 | `2600459` | [35073451718](https://github.com/MiniMillionaire/macos-image/actions/runs/35073451718) | 21.52 GiB |
 | 26.6.2 | `abc2a00` | [35077863586](https://github.com/MiniMillionaire/macos-image/actions/runs/35077863586) | 25.91 GiB |
+| 27.0 | `7248c30` | [35225773768](https://github.com/MiniMillionaire/macos-image/actions/runs/35225773768) | 31.17 GiB |
 
 Each build cloned its published vanilla image by digest, disabled SIP in Recovery,
 and installed the base tools. Provisioning and separate cold-boot checks passed.
@@ -110,10 +111,16 @@ verified another cold boot before publishing `latest`:
   `sha256:5c21aab8e4e7445224074ad0a00b775a27735b29f06ff6a746d6f04bb2064193`
 - `ghcr.io/minimillionaire/macos-tahoe-base:latest`:
   `sha256:953eb700bcddb98ccdedbf4ef39cd0a5e9666ec1ff488acbb0ed8f0dc64ff601`
+- `ghcr.io/minimillionaire/macos-golden-gate-base:latest`:
+  `sha256:f7e98e34e06f800333a01443f06e06c14500e9f4c437ccf3b9b385d1cd162468`
 
-Anonymous tag checks passed. Both OS versions and Apple builds remained unchanged.
+Anonymous tag checks passed. All OS versions and Apple builds remained unchanged.
 The temporary VMs, downloaded images, and saved recovery bundles were removed
 after publication.
+
+Golden Gate uses the current user's `tccd` process to locate its relocated
+[privacy database](macos-27.md#automation-permissions). Its downloaded-image
+cold boot passed with session `B8A09A60-B63F-42B5-B2EC-12D1E245A6A7`.
 
 ## Xcode images
 

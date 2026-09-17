@@ -15,7 +15,7 @@ and independent cold boots in this repository's CI. They are published as
 `macos-sequoia-vanilla:latest`, `macos-tahoe-vanilla:latest`, and
 `macos-golden-gate-vanilla:latest` under `ghcr.io/minimillionaire`.
 See the [validation record](docs/validation.md).
-The Sequoia and Tahoe base variants passed the same acceptance process and are
+All three base variants passed the same acceptance process and are
 published with `latest` tags. Xcode images passed full anonymous download and
 cold-boot acceptance as `macos-sequoia-xcode:26.3` and
 `macos-tahoe-xcode:26.6`.

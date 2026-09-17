@@ -15,6 +15,7 @@ Package names and tags follow
 | Tahoe vanilla | `ghcr.io/minimillionaire/macos-tahoe-vanilla:latest` |
 | Golden Gate vanilla | `ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest` |
 | Tahoe base | `ghcr.io/minimillionaire/macos-tahoe-base:latest` |
+| Golden Gate base | `ghcr.io/minimillionaire/macos-golden-gate-base:latest` |
 | Sequoia with Xcode 26.3 | `ghcr.io/minimillionaire/macos-sequoia-xcode:26.3` |
 | Tahoe with Xcode 26.6 | `ghcr.io/minimillionaire/macos-tahoe-xcode:26.6` |
 
