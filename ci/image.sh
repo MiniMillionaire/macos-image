@@ -689,6 +689,68 @@ require_publication_space() {
     ci_die "Publication requires $minimum_kib KiB free; $available KiB is available"
 }
 
+download_cache_directory() {
+  local directory
+  directory=$(verified_directory "$BUILD_RUN")
+  require_verified_path "$directory"
+  printf '%s/anonymous-download\n' "$directory"
+}
+
+download_manifest() {
+  local directory digest
+  directory=$(verified_directory "$BUILD_RUN")
+  digest=$(jq -er '.manifests[0].digest' "$directory/layout/index.json")
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || ci_die 'Invalid saved manifest digest'
+  printf '%s/layout/blobs/sha256/%s\n' "$directory" "${digest#sha256:}"
+}
+
+download_cache_bytes() {
+  local cache manifest hash size file total=0 count=0 actual
+  cache=$(download_cache_directory)
+  [[ -e "$cache" || -L "$cache" ]] || { printf '0\n'; return; }
+  [[ -d "$cache/blobs/sha256" && ! -L "$cache" && ! -L "$cache/blobs" &&
+     ! -L "$cache/blobs/sha256" && -z $(find "$cache" -type l -print -quit) ]] ||
+    ci_die 'Invalid anonymous download cache'
+  manifest=$(download_manifest)
+  while read -r hash size; do
+    [[ "$hash" =~ ^[0-9a-f]{64}$ && "$size" =~ ^[1-9][0-9]*$ ]] || ci_die 'Invalid saved blob descriptor'
+    file="$cache/blobs/sha256/$hash"
+    [[ -e "$file" || -L "$file" ]] || continue
+    [[ -f "$file" && ! -L "$file" && $(stat -f %z "$file") == "$size" &&
+       $(ci_sha256 "$file") == "$hash" ]] || ci_die "Invalid cached blob: $hash"
+    total=$((total + size))
+    count=$((count + 1))
+  done < <(jq -r '[.config, .layers[]] | unique_by(.digest)[] | "\(.digest | ltrimstr("sha256:")) \(.size)"' "$manifest")
+  actual=$(find "$cache/blobs/sha256" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  [[ "$actual" == "$count" ]] || ci_die 'Anonymous download cache contains unexpected files'
+  printf '%s\n' "$total"
+}
+
+save_download_cache() {
+  local downloaded="$task_root/downloaded/layout/blobs/sha256"
+  local cache manifest hash size source destination temporary
+  [[ -d "$downloaded" && ! -L "$downloaded" ]] || return 0
+  cache=$(download_cache_directory)
+  manifest=$(download_manifest)
+  if [[ -e "$cache" || -L "$cache" ]]; then
+    download_cache_bytes >/dev/null
+  else
+    (umask 077; mkdir -p "$cache/blobs/sha256")
+  fi
+  while read -r hash size; do
+    [[ "$hash" =~ ^[0-9a-f]{64}$ && "$size" =~ ^[1-9][0-9]*$ ]] || ci_die 'Invalid saved blob descriptor'
+    source="$downloaded/$hash"
+    destination="$cache/blobs/sha256/$hash"
+    [[ -f "$source" && ! -L "$source" && $(stat -f %z "$source") == "$size" ]] || continue
+    [[ -e "$destination" || -L "$destination" ]] && continue
+    temporary="$cache/blobs/sha256/.$hash-$run_key"
+    [[ ! -e "$temporary" && ! -L "$temporary" ]] || ci_die 'Anonymous download cache staging file already exists'
+    /bin/cp -c "$source" "$temporary"
+    mv "$temporary" "$destination"
+  done < <(jq -r '[.config, .layers[]] | unique_by(.digest)[] | "\(.digest | ltrimstr("sha256:")) \(.size)"' "$manifest")
+  printf 'Saved completed anonymous download blobs\n'
+}
+
 retain_downloaded_layout() {
   local downloaded=$1 digest=$2 directory hash blob
   local temporary="$task_root/publication/downloaded-blob"
@@ -724,7 +786,7 @@ retain_downloaded_layout() {
 
 verify_publication() {
   require_task
-  local digest
+  local digest cached_bytes remaining_bytes
   local downloaded="$task_root/downloaded/layout"
   local inspect="$task_root/downloaded.json"
   local source
@@ -734,9 +796,18 @@ verify_publication() {
   source=$(jq -er .oci_source "$logs/result.json")
   unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
   [[ $(./scripts/registry check "$digest_ref" "$digest") == present ]] || ci_die "The uploaded digest is not public"
-  require_publication_space "$(jq -er '.blob_bytes / 1024 | ceil' "$logs/result.json")"
+  cached_bytes=$(download_cache_bytes)
+  remaining_bytes=$(jq -er --argjson cached "$cached_bytes" '((if .blob_bytes > $cached then .blob_bytes - $cached else 0 end) / 1024) | ceil' "$logs/result.json")
+  (( remaining_bytes > 0 )) || remaining_bytes=1
+  require_publication_space "$remaining_bytes"
   mkdir -p "$task_root/downloaded"
-  ./scripts/registry download "$digest_ref" "$downloaded"
+  if (( cached_bytes > 0 )); then
+    /bin/cp -cR "$(download_cache_directory)" "$downloaded"
+    printf 'Resuming anonymous download with %s cached bytes\n' "$cached_bytes"
+    ./scripts/registry download "$digest_ref" "$downloaded" --resume
+  else
+    ./scripts/registry download "$digest_ref" "$downloaded"
+  fi
   inspect_layout "$downloaded" "$inspect"
   require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
   [[ $(jq -er .manifest_digest "$inspect") == "$digest" ]] || ci_die "Downloaded manifest digest changed"
@@ -859,6 +930,7 @@ cleanup_task() {
     fi
   fi
   if [[ -n "$cache" && -d "$cache" && ! -L "$cache" ]]; then
+    save_download_cache
     if [[ -f "$logs/result.json" ]]; then
       recovery_digest=$(jq -er '.recovery_expected_digest // ""' "$logs/result.json")
     fi

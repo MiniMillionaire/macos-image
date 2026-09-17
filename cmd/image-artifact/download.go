@@ -38,11 +38,12 @@ type ociDownloader struct {
 	tokenTime  time.Time
 }
 
-func downloadOCI(ctx context.Context, args []string) (err error) {
+func downloadOCI(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("download-oci", flag.ContinueOnError)
 	repository := flags.String("repository", "", "Public GHCR repository")
 	digest := flags.String("digest", "", "Pinned OCI manifest digest")
 	layout := flags.String("layout", "", "New OCI layout directory")
+	resume := flags.Bool("resume", false, "Reuse verified blobs in an existing OCI layout")
 	ca := flags.String("ca-file", "", "PEM certificate authority bundle")
 	seconds := flags.Int("timeout", 4800, "Maximum download duration in seconds")
 	if err := flags.Parse(args); err != nil {
@@ -79,22 +80,31 @@ func downloadOCI(ctx context.Context, args []string) (err error) {
 	}}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(*seconds)*time.Second)
 	defer cancel()
-	if err := os.Mkdir(*layout, 0700); err != nil {
+	if *resume {
+		info, statErr := os.Lstat(*layout)
+		if statErr != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("resume requires an existing layout directory")
+		}
+	} else {
+		if err := os.Mkdir(*layout, 0700); err != nil {
+			return err
+		}
+	}
+	blobDir := filepath.Join(*layout, "blobs", "sha256")
+	if err := os.MkdirAll(blobDir, 0700); err != nil {
 		return err
 	}
-	defer func() {
-		if err != nil {
-			_ = os.RemoveAll(*layout)
+	for _, path := range []string{filepath.Join(*layout, "blobs"), blobDir} {
+		info, err := os.Lstat(path)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("invalid OCI blob directory")
 		}
-	}()
-	if err := os.MkdirAll(filepath.Join(*layout, "blobs", "sha256"), 0700); err != nil {
-		return err
 	}
 	entry, doc, err := d.manifest(ctx, *layout, *digest)
 	if err != nil {
 		return err
 	}
-	if err := d.blobs(ctx, *layout, append([]descriptor{doc.Config}, doc.Layers...)); err != nil {
+	if err := d.blobs(ctx, *layout, append([]descriptor{doc.Config}, doc.Layers...), *resume); err != nil {
 		return err
 	}
 	if err := saveJSON(filepath.Join(*layout, "oci-layout"), map[string]string{"imageLayoutVersion": "1.0.0"}); err != nil {
@@ -198,18 +208,30 @@ func (d *ociDownloader) manifest(ctx context.Context, layout, digest string) (de
 		return descriptor{}, manifest{}, errors.New("empty or invalid OCI manifest")
 	}
 	path, _ := blobPath(layout, digest)
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	file, err := os.CreateTemp(filepath.Dir(path), ".manifest-*")
+	if err != nil {
+		return descriptor{}, manifest{}, err
+	}
+	defer os.Remove(file.Name())
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return descriptor{}, manifest{}, err
+	}
+	if err := file.Close(); err != nil {
 		return descriptor{}, manifest{}, err
 	}
 	entry := descriptor{MediaType: manifestType, Digest: digest, Size: int64(len(data)),
 		Annotations: map[string]string{"org.opencontainers.image.ref.name": "image"}}
-	if err := verifyFile(path, strings.TrimPrefix(digest, "sha256:"), entry.Size); err != nil {
+	if err := verifyFile(file.Name(), strings.TrimPrefix(digest, "sha256:"), entry.Size); err != nil {
+		return descriptor{}, manifest{}, err
+	}
+	if err := os.Rename(file.Name(), path); err != nil {
 		return descriptor{}, manifest{}, err
 	}
 	return entry, doc, nil
 }
 
-func (d *ociDownloader) blobs(ctx context.Context, layout string, entries []descriptor) error {
+func (d *ociDownloader) blobs(ctx context.Context, layout string, entries []descriptor, resume bool) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	jobs := make(chan descriptor)
@@ -221,7 +243,7 @@ func (d *ociDownloader) blobs(ctx context.Context, layout string, entries []desc
 		go func() {
 			defer workers.Done()
 			for entry := range jobs {
-				if err := d.blob(ctx, layout, entry); err != nil {
+				if err := d.blob(ctx, layout, entry, resume); err != nil {
 					once.Do(func() { first = err; cancel() })
 					return
 				}
@@ -257,10 +279,24 @@ send:
 	return ctx.Err()
 }
 
-func (d *ociDownloader) blob(ctx context.Context, layout string, entry descriptor) error {
+func (d *ociDownloader) blob(ctx context.Context, layout string, entry descriptor, resume bool) error {
 	path, err := blobPath(layout, entry.Digest)
 	if err != nil {
 		return err
+	}
+	if resume {
+		if info, err := os.Lstat(path); err == nil {
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("cached blob is not a regular file: %s", entry.Digest)
+			}
+			if err := verifyFile(path, strings.TrimPrefix(entry.Digest, "sha256:"), entry.Size); err != nil {
+				return fmt.Errorf("cached blob %s: %w", entry.Digest, err)
+			}
+			fmt.Fprintf(os.Stderr, "Reused %s (%d bytes)\n", entry.Digest, entry.Size)
+			return nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	file, err := os.CreateTemp(filepath.Dir(path), ".blob-*")
 	if err != nil {

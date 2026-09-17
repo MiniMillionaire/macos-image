@@ -163,17 +163,25 @@ promote() {
 }
 
 download() {
-  local reference=$1 layout=$2 digest actual
+  local reference=$1 layout=$2 resume=${3:-} digest actual
   reference_host "$reference" >/dev/null
-  [[ ! -e "$layout" && ! -L "$layout" ]] || fail "Destination already exists: $layout"
+  if [[ "$resume" == --resume ]]; then
+    [[ -d "$layout" && ! -L "$layout" ]] || fail "Resume layout does not exist: $layout"
+  else
+    [[ -z "$resume" ]] || fail 'Invalid download option'
+    [[ ! -e "$layout" && ! -L "$layout" ]] || fail "Destination already exists: $layout"
+  fi
   digest=$(resolve "$reference")
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid remote manifest digest'
   local repository
   repository=$(reference_repository "$reference")
   if [[ "$repository" == ghcr.io/* ]]; then
+    local options=()
+    [[ "$resume" != --resume ]] || options+=(--resume)
     "$helper" download-oci --repository "$repository" --digest "$digest" --layout "$layout" \
-      --ca-file "$ca" --timeout 4800 >&2
+      --ca-file "$ca" --timeout 4800 "${options[@]}" >&2
   else
+    [[ -z "$resume" ]] || fail 'Resume is supported only for GHCR'
     GODEBUG=http2client=0 "$helper" run --timeout 6900 -- "$oras" cp "$repository@$digest" "$layout:image" \
       --to-oci-layout --from-registry-config "$credentials/config.json" --from-ca-file "$ca" --concurrency 2 --no-tty >&2
   fi
@@ -217,7 +225,7 @@ case "$command" in
     promote "$@"
     ;;
   download)
-    [[ $# == 2 ]] || fail 'Usage: registry download REFERENCE LAYOUT'
+    [[ $# == 2 || ( $# == 3 && "${3:-}" == --resume ) ]] || fail 'Usage: registry download REFERENCE LAYOUT [--resume]'
     require_tools
     unset TART_REGISTRY_PASSWORD TART_REGISTRY_USERNAME GH_TOKEN GITHUB_TOKEN
     download "$@"
