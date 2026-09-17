@@ -30,7 +30,6 @@ INSERT OR REPLACE INTO access (
 SQL
 }
 
-user_tcc="$HOME/Library/Application Support/com.apple.TCC/TCC.db"
-test -f "$user_tcc"
+user_tcc=$(bash /tmp/macos-image-user-tcc-database.sh)
 grant_tcc "/Library/Application Support/com.apple.TCC/TCC.db"
 grant_tcc "$user_tcc"

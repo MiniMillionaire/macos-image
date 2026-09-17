@@ -51,6 +51,11 @@ source "tart-cli" "verify" {
 build {
   sources = ["source.tart-cli.verify"]
 
+  provisioner "file" {
+    source      = "scripts/guest/user-tcc-database.sh"
+    destination = "/tmp/macos-image-user-tcc-database.sh"
+  }
+
   provisioner "shell" {
     timeout = "5m"
     environment_vars = [

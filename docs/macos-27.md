@@ -109,6 +109,14 @@ imported as a plist. OpenStep dictionary literals had stored layout ID 0 as a
 string; HIToolbox later substituted ABC for the invalid enabled source.
 The new plist preserves an integer ID in every U.S. source entry.
 
+## Automation permissions
+
+macOS 27 stores the user TCC database in a UUID-named directory under
+`/private/var/containers/Data/ProtectedSystem`, rather than the user's Library.
+Base provisioning and verification resolve it from the current user's `tccd`
+process, allowing up to 30 seconds for the database to open after login.
+Older systems keep using the existing database in the user's Library.
+
 ## Gatekeeper
 
 `sudo spctl --global-disable` returned a message requiring confirmation in

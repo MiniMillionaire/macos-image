@@ -58,7 +58,8 @@ verify_base() {
       (service = 'kTCCServiceScreenCapture' AND client = '$guest_agent_path')
     );
   "
-  for database in "/Library/Application Support/com.apple.TCC/TCC.db" "$HOME/Library/Application Support/com.apple.TCC/TCC.db"; do
+  user_tcc=$(bash /tmp/macos-image-user-tcc-database.sh)
+  for database in "/Library/Application Support/com.apple.TCC/TCC.db" "$user_tcc"; do
     test "$(sudo sqlite3 "$database" "$tcc_query")" = 2
   done
 }

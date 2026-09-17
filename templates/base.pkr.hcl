@@ -39,6 +39,11 @@ build {
   sources = ["source.tart-cli.base"]
 
   provisioner "file" {
+    source      = "scripts/guest/user-tcc-database.sh"
+    destination = "/tmp/macos-image-user-tcc-database.sh"
+  }
+
+  provisioner "file" {
     source      = "data/Brewfile.base"
     destination = "/tmp/Brewfile.base"
   }
