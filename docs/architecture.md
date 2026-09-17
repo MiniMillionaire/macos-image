@@ -91,8 +91,9 @@ does not change the pinned restore recipe or any published image.
 
 Tart exports its native OCI manifest and blobs through a loopback registry into
 an OCI image layout. ORAS copies that layout to the remote registry without
-changing the manifest or blob contents. Downloads take the reverse path. The
-adapter is part of the existing Go module and has no third-party dependencies.
+changing the manifest or blob contents. Public GHCR downloads use bounded range
+requests and verify each blob before importing the layout. The adapter is part
+of the existing Go module and has no third-party dependencies.
 
 Package names follow Cirrus: `macos-<family>-vanilla`, `macos-<family>-base`, and
 `macos-<family>-xcode`. Vanilla/base use `latest`; Xcode uses its version as the

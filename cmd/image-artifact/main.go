@@ -30,7 +30,7 @@ func main() {
 
 func execute(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: image-artifact <fetch|run|export|import|inspect> [options]")
+		return errors.New("usage: image-artifact <fetch|download-oci|run|export|import|inspect> [options]")
 	}
 	switch args[0] {
 	case "run":
@@ -45,6 +45,8 @@ func execute(ctx context.Context, args []string) error {
 		return run(ctx, time.Duration(*seconds)*time.Second, os.Environ(), flags.Args()...)
 	case "fetch":
 		return fetch(ctx, args[1:])
+	case "download-oci":
+		return downloadOCI(ctx, args[1:])
 	case "export":
 		return exportImage(ctx, args[1:])
 	case "import":
