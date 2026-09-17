@@ -170,7 +170,7 @@ download() {
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'Invalid remote manifest digest'
   local repository
   repository=$(reference_repository "$reference")
-  "$helper" run --timeout 2700 -- "$oras" cp "$repository@$digest" "$layout:image" \
+  GODEBUG=http2client=0 "$helper" run --timeout 2700 -- "$oras" cp "$repository@$digest" "$layout:image" \
     --to-oci-layout --from-registry-config "$credentials/config.json" --from-ca-file "$ca" --concurrency 2 --no-tty >&2
   actual=$("$helper" inspect --layout "$layout" | jq -er .manifest_digest)
   [[ "$actual" == "$digest" ]] || fail 'Downloaded manifest digest does not match'
