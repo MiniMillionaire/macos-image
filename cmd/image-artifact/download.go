@@ -20,8 +20,12 @@ import (
 )
 
 const (
-	downloadChunkSize  = 8 << 20
-	downloadSmallChunk = 1 << 20
+	downloadChunkSize      = 4 << 20
+	downloadSmallChunk     = 1 << 20
+	downloadWorkers        = 4
+	downloadRequestTimeout = 12 * time.Second
+	maxChunkRequests       = 24
+	maxStalledRequests     = 3
 )
 
 var ghcrRepositoryPattern = regexp.MustCompile(`\Aghcr\.io/[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+\z`)
@@ -60,8 +64,7 @@ func downloadOCI(ctx context.Context, args []string) (err error) {
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
-	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
-	transport.ForceAttemptHTTP2 = false
+	transport.ForceAttemptHTTP2 = true
 	transport.ResponseHeaderTimeout = 30 * time.Second
 	defer transport.CloseIdleConnections()
 	d := &ociDownloader{repository: strings.TrimPrefix(*repository, "ghcr.io/"), client: &http.Client{
@@ -147,7 +150,7 @@ func (d *ociDownloader) expireAuthorization() {
 func (d *ociDownloader) request(ctx context.Context, path, rangeHeader string) (*http.Response, error) {
 	token, err := d.authorization(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("anonymous token: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://ghcr.io/v2/"+d.repository+path, nil)
 	if err != nil {
@@ -159,7 +162,14 @@ func (d *ociDownloader) request(ctx context.Context, path, rangeHeader string) (
 	} else {
 		req.Header.Set("Accept", manifestType)
 	}
-	return d.client.Do(req)
+	resp, err := d.client.Do(req)
+	if err != nil {
+		var requestError *url.Error
+		if errors.As(err, &requestError) {
+			return nil, requestError.Err
+		}
+	}
+	return resp, err
 }
 
 func (d *ociDownloader) manifest(ctx context.Context, layout, digest string) (descriptor, manifest, error) {
@@ -206,7 +216,7 @@ func (d *ociDownloader) blobs(ctx context.Context, layout string, entries []desc
 	var workers sync.WaitGroup
 	var once sync.Once
 	var first error
-	for range 6 {
+	for range downloadWorkers {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
@@ -282,54 +292,79 @@ func (d *ociDownloader) blob(ctx context.Context, layout string, entry descripto
 }
 
 func (d *ociDownloader) chunk(ctx context.Context, file *os.File, entry descriptor, start int64, buffer []byte) error {
-	end := start + int64(len(buffer)) - 1
-	wanted := fmt.Sprintf("bytes %d-%d/%d", start, end, entry.Size)
-	var last error
-	for attempt := range 2 {
-		requestCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
-		resp, err := d.request(requestCtx, "/blobs/"+entry.Digest, fmt.Sprintf("bytes=%d-%d", start, end))
+	position := 0
+	fragmented := false
+	stalled := 0
+	for attempt := 0; attempt < maxChunkRequests && position < len(buffer); attempt++ {
+		length := len(buffer) - position
+		if fragmented {
+			length = min(length, downloadSmallChunk)
+		}
+		from := start + int64(position)
+		end := from + int64(length) - 1
+		wanted := fmt.Sprintf("bytes %d-%d/%d", from, end, entry.Size)
+		requestCtx, cancel := context.WithTimeout(ctx, downloadRequestTimeout)
+		resp, err := d.request(requestCtx, "/blobs/"+entry.Digest, fmt.Sprintf("bytes=%d-%d", from, end))
+		readBytes := 0
+		var last error
 		if err == nil {
 			if resp.StatusCode == http.StatusUnauthorized {
 				d.expireAuthorization()
 			}
 			if resp.StatusCode != http.StatusPartialContent || resp.Header.Get("Content-Range") != wanted ||
-				(resp.ContentLength >= 0 && resp.ContentLength != int64(len(buffer))) {
+				(resp.ContentLength >= 0 && resp.ContentLength != int64(length)) {
 				last = fmt.Errorf("unexpected blob response: HTTP %d, range %q, length %d", resp.StatusCode,
 					resp.Header.Get("Content-Range"), resp.ContentLength)
 			} else {
-				_, last = io.ReadFull(resp.Body, buffer)
-				if last == nil {
-					_, last = file.WriteAt(buffer, start)
+				var readErr error
+				readBytes, readErr = io.ReadFull(resp.Body, buffer[position:position+length])
+				if readBytes > 0 {
+					if _, err := file.WriteAt(buffer[position:position+readBytes], from); err != nil {
+						_ = resp.Body.Close()
+						cancel()
+						return fmt.Errorf("write range at byte %d: %w", from, err)
+					}
+					position += readBytes
+				}
+				if readErr != nil {
+					last = fmt.Errorf("read range body after %d/%d bytes: %w", readBytes, length, readErr)
 				}
 			}
 			_ = resp.Body.Close()
 		} else {
-			last = err
+			last = fmt.Errorf("request range: %w", err)
 		}
 		cancel()
 		if last == nil {
-			return nil
+			stalled = 0
+			continue
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		if !fragmented {
+			fmt.Fprintf(os.Stderr, "Resuming %s after byte %d: %v\n", entry.Digest, from+int64(readBytes), last)
+		}
+		fragmented = true
 		d.expireAuthorization()
-		if attempt < 1 {
+		if readBytes == 0 {
+			stalled++
+		} else {
+			stalled = 0
+		}
+		if stalled >= maxStalledRequests {
+			return fmt.Errorf("range stalled at byte %d: %w", from, last)
+		}
+		if readBytes == 0 {
 			select {
-			case <-time.After(time.Duration(attempt+1) * time.Second):
+			case <-time.After(time.Duration(stalled) * time.Second):
 			case <-ctx.Done():
 				return ctx.Err()
 			}
 		}
 	}
-	if len(buffer) > downloadSmallChunk {
-		for offset := 0; offset < len(buffer); offset += downloadSmallChunk {
-			limit := min(offset+downloadSmallChunk, len(buffer))
-			if err := d.chunk(ctx, file, entry, start+int64(offset), buffer[offset:limit]); err != nil {
-				return err
-			}
-		}
-		return nil
+	if position != len(buffer) {
+		return fmt.Errorf("range request limit reached at byte %d", start+int64(position))
 	}
-	return last
+	return nil
 }
