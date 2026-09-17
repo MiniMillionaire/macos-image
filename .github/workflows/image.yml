@@ -10,7 +10,7 @@ on:
         options:
           - sequoia-15.6.1
           - tahoe-26.6.2
-          - macos-27.0-rc
+          - golden-gate-27.0
         default: sequoia-15.6.1
       variant:
         description: Image variant

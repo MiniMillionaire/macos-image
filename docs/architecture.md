@@ -59,8 +59,8 @@ initial language migration to complete in the actual user plist before writing
 typed preferences; a defaults query can return an inherited schema value early.
 A fixed VNC phase requests and confirms the Gatekeeper change in the same boot.
 Both macOS 26 and 27 then use the same SSH-only
-vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned RC and
-the observed native API behavior.
+vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned restore
+image and the observed native API behavior.
 
 Base builds clone a validated vanilla image; Xcode builds clone a validated base
 image. Both use SSH provisioning. Vanilla rebuilds are reserved for macOS

@@ -1,6 +1,6 @@
 # Validation
 
-The macOS 15.6.1, 26.6.2, and 27.0 RC vanilla recipes passed fresh builds from
+The macOS 15.6.1, 26.6.2, and 27.0 vanilla images passed fresh builds from
 pinned Apple IPSWs on an Apple M4 Pro Mac mini running macOS 27.0 (26A5425a).
 The builds used revision `34f3fbe`, Tart 2.36.0, Packer 1.16.0, Go 1.25.0, and
 Tart Packer plugin 1.21.0.
@@ -33,6 +33,10 @@ These vanilla builds passed this repository's workflow:
 | 27.0 RC | 26A428 | `cd97509` | [34879583705](https://github.com/MiniMillionaire/macos-image/actions/runs/34879583705) |
 
 Each restored the pinned IPSW and verified a cold boot of a separate clone.
+The macOS 27 build originally used the RC designation. Its IPSW is identical to
+the September 14 release, as confirmed by a [full-file check](macos-27.md#restore-image)
+on September 17. The original build records and image digest are unchanged.
+
 macOS 15 completed four Setup Assistant sequences and installed Command Line
 Tools 16.4. macOS 26 completed five sequences and installed Command Line Tools
 26.6. macOS 27 used native account provisioning, a fixed Gatekeeper sequence,
@@ -79,7 +83,14 @@ were preserved:
 - Tahoe: `sha256:86777a3e30fcbba7d8fe6aeb43adbab33e9cecbc249c3ccdf26b17511ff0f8ba`
 
 The saved bundles and temporary task directories were removed after publication.
-Golden Gate full anonymous download acceptance remains pending.
+
+Golden Gate completed the same acceptance process on September 17 in
+[35218017615](https://github.com/MiniMillionaire/macos-image/actions/runs/35218017615),
+preserving its original export and digest:
+
+- Reference: `ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest`
+- Digest: `sha256:a2883aa8087c07b452a56a6c441a69e7064384bb662004c610e293c900aa11ce`
+- Downloaded image boot: `87671189-3FF1-427E-BAD5-88B81803CC8F`
 
 ## Base images
 

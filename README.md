@@ -8,13 +8,12 @@ The current image definitions are:
 | --- | --- | --- |
 | `sequoia-15.6.1` | macOS 15.6.1 (24G90) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
-| `macos-27.0-rc` | macOS 27.0 RC (26A428) | macOS 27 or newer |
+| `golden-gate-27.0` | macOS 27.0 (26A428) | macOS 27 or newer |
 
-All three vanilla recipes passed fresh IPSW builds and independent cold boots in
-this repository's CI and are available in public GHCR packages by digest.
-Sequoia and Tahoe also passed full anonymous downloads and cold boots and are
-published as `macos-sequoia-vanilla:latest` and `macos-tahoe-vanilla:latest` under
-`ghcr.io/minimillionaire`. Golden Gate tag publication remains pending.
+All three vanilla images passed fresh IPSW builds, full anonymous downloads,
+and independent cold boots in this repository's CI. They are published as
+`macos-sequoia-vanilla:latest`, `macos-tahoe-vanilla:latest`, and
+`macos-golden-gate-vanilla:latest` under `ghcr.io/minimillionaire`.
 See the [validation record](docs/validation.md).
 The Sequoia and Tahoe base variants passed the same acceptance process and are
 published with `latest` tags. Xcode images passed full anonymous download and

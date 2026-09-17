@@ -131,7 +131,8 @@ artifacts, with additional release assets for Xcode images.
 
 After `upload-only`, the saved result remains at `prepared`. Use that upload run
 as `source_run` for `recover-upload` when ready to complete anonymous acceptance
-and update tags. This preserves the original export and digest.
+and update tags. Recovery requires the retained local VM bundle and OCI layout;
+it preserves the original export and digest.
 
 After the anonymous download passes verification, the saved recovery layout
 shares its blobs with that download through APFS clones. Each replacement is

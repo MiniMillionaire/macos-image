@@ -1,15 +1,17 @@
 # macOS 27
 
-The clean macOS 27.0 RC (26A428) build and independent clone/reboot verification
+The clean macOS 27.0 (26A428) build and independent clone/reboot verification
 passed on September 11, 2026, on the macOS 27.0 (26A5425a) Apple M4 Pro host with
 24 GiB of memory. The build used revision `ac16dfd`, Tart 2.36.0, Packer 1.16.0,
 Go 1.25.0, and Tart Packer plugin 1.21.0.
 
 ## Clean validation
 
+The commands below use the current profile name.
+
 ```sh
-IMAGE_CONFIG=config/macos-27.0-rc.env ./scripts/image build vanilla 90s macos-27.0-26A428-clean-e2e-20260911-04
-IMAGE_CONFIG=config/macos-27.0-rc.env ./scripts/image import vanilla macos-27.0-26A428-clean-e2e-20260911-04 macos-27.0-26A428-verify-20260911-04
+IMAGE_CONFIG=config/golden-gate-27.0.env ./scripts/image build vanilla 90s macos-27.0-26A428-clean-e2e-20260911-04
+IMAGE_CONFIG=config/golden-gate-27.0.env ./scripts/image import vanilla macos-27.0-26A428-clean-e2e-20260911-04 macos-27.0-26A428-verify-20260911-04
 ```
 
 The build completed with exit status 0 in 550 seconds. The independent clone
@@ -47,16 +49,21 @@ provisioning and verification workflows.
 
 ## Restore image
 
-Apple [published the RC](https://developer.apple.com/news/releases/) on
-September 9, 2026. The configuration pins the
+Apple [released macOS 27.0](https://developer.apple.com/news/releases/) on
+September 14, 2026, using the same 26A428 build as the RC. The configuration pins the
 [Apple IPSW](https://updates.cdn-apple.com/2026FallFCS/afcfc88e-bbe6-44bf-a5da-07c56eebc06c/UniversalMac_27.0_26A428_Restore.ipsw).
 
 - Size: 26,626,436,228 bytes
 - SHA-256: `2a5d3c695d501022b7fad9adaffcf2627bcb867d993fb5662dcd41bac99a2836`
 - Restore and build manifests: macOS 27.0, build 26A428, VirtualMac2,1 supported
 
-The full downloaded file matched the digest returned by the Apple CDN. The
-Virtualization framework's latest-supported catalog request failed with
+On September 17, the complete release IPSW was downloaded from the URL listed in
+Apple's [restore catalog](https://mesu.apple.com/assets/macos/com_apple_macOSIPSW/com_apple_macOSIPSW.xml).
+Its size and SHA-256 matched the original RC build inputs; its SHA-1 also
+matched the catalog. The release uses the same IPSW bytes, so the existing image
+does not need rebuilding.
+
+The Virtualization framework's latest-supported catalog request failed with
 `VZErrorDomain` 10001, but the pinned CDN download and VM installation succeeded.
 Builds use the fixed URL and do not query the latest-supported catalog.
 
