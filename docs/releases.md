@@ -18,6 +18,7 @@ Package names and tags follow
 | Golden Gate base | `ghcr.io/minimillionaire/macos-golden-gate-base:latest` |
 | Sequoia with Xcode 26.3 | `ghcr.io/minimillionaire/macos-sequoia-xcode:26.3` |
 | Tahoe with Xcode 26.6 | `ghcr.io/minimillionaire/macos-tahoe-xcode:26.6` |
+| Golden Gate with Xcode 27 | `ghcr.io/minimillionaire/macos-golden-gate-xcode:27` |
 
 Each macOS family has one Xcode package containing its available Xcode tags.
 `xcode_version` is the installed compiler version. `xcode_tag` defaults to that

@@ -167,6 +167,24 @@ and visionOS 26.5 (23O470). The `latest` alias was not updated.
 The same CI run completed cache cleanup and the hosted Release job, including
 verification of uploaded assets. Its temporary VMs and recovery bundle were removed.
 
+Golden Gate 27.0 (26A428) with Xcode 27.0 passed its build and independent cold
+boot in [35236566556](https://github.com/MiniMillionaire/macos-image/actions/runs/35236566556),
+at revision `1576362`. Publication continued from that verified build in
+[35258270949](https://github.com/MiniMillionaire/macos-image/actions/runs/35258270949).
+The complete 63.09 GiB image was downloaded anonymously, checked, imported,
+and cold-boot tested before tag `27` was promoted.
+
+- Reference: `ghcr.io/minimillionaire/macos-golden-gate-xcode:27`
+- Digest: `sha256:4bdf7fd662476fcabea8168377916f345229dd38c3cae50b1a6436ea113153b3`
+- Downloaded image boot: `1890CF34-D836-4178-B36F-C55D81E7F492`
+- Release: [27](https://github.com/MiniMillionaire/macos-image/releases/tag/27)
+
+The Apple Silicon Xcode archive, all four arm64 simulator runtimes, Flutter,
+Android SDK 36, and the development tools passed verification. The macOS
+version/build, account, language, and keyboard settings remained unchanged.
+Chrome is not installed. No `latest` Xcode alias was updated. The temporary VMs
+and saved recovery bundle were removed after publication.
+
 ## Parent cache
 
 Three separate Sequoia Xcode CI builds reused the same verified base image

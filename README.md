@@ -17,8 +17,8 @@ and independent cold boots in this repository's CI. They are published as
 See the [validation record](docs/validation.md).
 All three base variants passed the same acceptance process and are
 published with `latest` tags. Xcode images passed full anonymous download and
-cold-boot acceptance as `macos-sequoia-xcode:26.3` and
-`macos-tahoe-xcode:26.6`.
+cold-boot acceptance as `macos-sequoia-xcode:26.3`,
+`macos-tahoe-xcode:26.6`, and `macos-golden-gate-xcode:27`.
 
 ## Requirements
 
@@ -175,7 +175,9 @@ ghcr.io/minimillionaire/macos-sequoia-vanilla:latest
 ghcr.io/minimillionaire/macos-tahoe-vanilla:latest
 ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest
 ghcr.io/minimillionaire/macos-tahoe-base:latest
-ghcr.io/minimillionaire/macos-sequoia-xcode:16.4
+ghcr.io/minimillionaire/macos-sequoia-xcode:26.3
+ghcr.io/minimillionaire/macos-tahoe-xcode:26.6
+ghcr.io/minimillionaire/macos-golden-gate-xcode:27
 ```
 
 Vanilla and base use `latest`. Xcode versions share one package per macOS family;
@@ -189,7 +191,7 @@ version. `XCODE_TAG` defaults to that version; it can name a prerelease such as
 version automatically:
 
 ```shell
-.build/release/macos-image pull xcode --tag 16.4
+IMAGE_CONFIG=config/golden-gate-27.0.env .build/release/macos-image pull xcode --tag 27
 ```
 
 CI uploads by digest and verifies the anonymous download and cold boot before
