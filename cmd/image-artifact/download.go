@@ -19,7 +19,10 @@ import (
 	"time"
 )
 
-const downloadChunkSize = 8 << 20
+const (
+	downloadChunkSize  = 8 << 20
+	downloadSmallChunk = 1 << 20
+)
 
 var ghcrRepositoryPattern = regexp.MustCompile(`\Aghcr\.io/[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+\z`)
 
@@ -203,7 +206,7 @@ func (d *ociDownloader) blobs(ctx context.Context, layout string, entries []desc
 	var workers sync.WaitGroup
 	var once sync.Once
 	var first error
-	for range 8 {
+	for range 6 {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
@@ -282,8 +285,8 @@ func (d *ociDownloader) chunk(ctx context.Context, file *os.File, entry descript
 	end := start + int64(len(buffer)) - 1
 	wanted := fmt.Sprintf("bytes %d-%d/%d", start, end, entry.Size)
 	var last error
-	for attempt := range 3 {
-		requestCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	for attempt := range 2 {
+		requestCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
 		resp, err := d.request(requestCtx, "/blobs/"+entry.Digest, fmt.Sprintf("bytes=%d-%d", start, end))
 		if err == nil {
 			if resp.StatusCode == http.StatusUnauthorized {
@@ -310,13 +313,23 @@ func (d *ociDownloader) chunk(ctx context.Context, file *os.File, entry descript
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if attempt < 2 {
+		d.expireAuthorization()
+		if attempt < 1 {
 			select {
 			case <-time.After(time.Duration(attempt+1) * time.Second):
 			case <-ctx.Done():
 				return ctx.Err()
 			}
 		}
+	}
+	if len(buffer) > downloadSmallChunk {
+		for offset := 0; offset < len(buffer); offset += downloadSmallChunk {
+			limit := min(offset+downloadSmallChunk, len(buffer))
+			if err := d.chunk(ctx, file, entry, start+int64(offset), buffer[offset:limit]); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return last
 }
