@@ -1,5 +1,31 @@
 # Validation
 
+## Sequoia upgrade builds
+
+Sequoia 15.7.7 (24G720) passed the full build and publication workflow in
+[35326226572](https://github.com/MiniMillionaire/macos-image/actions/runs/35326226572)
+at revision `e5b0f8d`. It upgraded directly from the pinned 15.6.1 vanilla
+image using Apple's full installer, without UI input. The disk grew to 100 GB
+with Recovery preserved. Installer staging was removed after the upgraded
+system booted.
+
+The build passed two cold-boot checks. CI then uploaded the 20.94 GiB OCI image,
+downloaded every blob anonymously, verified its hashes, and cold-booted the
+imported image. The downloaded boot session was
+`B1E215B6-490A-457B-9D8F-7DD7277DD3C3`. Checks covered the exact OS/build,
+admin account, locale, keyboard, automatic login, CLT, and disabled FileVault.
+
+The published image is `ghcr.io/minimillionaire/macos-sequoia-vanilla:15.7.7`:
+
+```text
+sha256:46ed1ff2f17460c427cef8e19d189b5b1ea6f180f3735cfbc092a8838123208e
+```
+
+Anonymous tag checks passed. `latest` remains at 15.6.1. CI removed its task VMs
+and recovery bundle after publication and retained the verified parent cache.
+
+## IPSW builds
+
 The macOS 15.6.1, 26.6.2, and 27.0 vanilla images passed fresh builds from
 pinned Apple IPSWs on an Apple M4 Pro Mac mini running macOS 27.0 (26A5425a).
 The builds used revision `34f3fbe`, Tart 2.36.0, Packer 1.16.0, Go 1.25.0, and
