@@ -24,11 +24,16 @@ source ci/parent-cache.sh
 export IMAGE_CONFIG="$CONFIG_PATH"
 export IMAGE_CACERT
 export IMAGE_VARIANT="$VARIANT"
-export IPSW_PATH="$task_root/restore.ipsw"
+if [[ -z "$VANILLA_SOURCE_PROFILE" ]]; then
+  export IPSW_PATH="$task_root/restore.ipsw"
+else
+  unset IPSW_PATH
+fi
 export PACKER_CONFIG="$root_dir/config/packer.json"
 export REGISTRY
 export TART_HOME="$tart_home"
 export TART_NO_AUTO_PRUNE=1
+export INSTALLER_CACHE_DIR="${INSTALLER_CACHE_DIR:-$HOME/.cache/macos-image/installers}"
 export XCODE_VERSION="${XCODE_VERSION:-}"
 export XCODE_TAG
 
@@ -80,8 +85,16 @@ write_inputs() {
     --arg macos_build "$MACOS_BUILD" \
     --argjson prerelease "$IMAGE_PRERELEASE" \
     --arg ipsw_url "$IPSW_URL" \
-    --argjson ipsw_size "$IPSW_SIZE" \
+    --argjson ipsw_size "${IPSW_SIZE:-null}" \
     --arg ipsw_sha "$IPSW_SHA256" \
+    --arg source_profile "$VANILLA_SOURCE_PROFILE" \
+    --arg source_config_sha "$VANILLA_SOURCE_CONFIG_SHA256" \
+    --arg source_version "$VANILLA_SOURCE_VERSION" \
+    --arg source_build "$VANILLA_SOURCE_BUILD" \
+    --arg source_image_digest "$VANILLA_SOURCE_DIGEST" \
+    --arg installer_url "$INSTALLER_URL" \
+    --argjson installer_size "${INSTALLER_SIZE:-null}" \
+    --arg installer_sha "$INSTALLER_SHA256" \
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
@@ -109,7 +122,6 @@ write_inputs() {
         toolchain_sha256: $tools_sha,
         macos: {family: $macos_family, version: $macos_version, build: $macos_build},
         prerelease: $prerelease,
-        ipsw: {url: $ipsw_url, size: $ipsw_size, sha256: $ipsw_sha},
         variant: $variant,
         variant_id: $variant_id,
         xcode_version: $xcode,
@@ -128,6 +140,19 @@ write_inputs() {
         source_digest: "",
         xcode_archive_sha256: ""
       }
+      | if $source_profile == "" then
+          .ipsw = {url: $ipsw_url, size: $ipsw_size, sha256: $ipsw_sha}
+        elif $variant == "vanilla" then
+          .upgrade = {
+            source_profile: $source_profile,
+            source_config_sha256: $source_config_sha,
+            source_macos: {version: $source_version, build: $source_build},
+            source_digest: $source_image_digest,
+            installer: {url: $installer_url, size: $installer_size, sha256: $installer_sha}
+          }
+        else
+          .
+        end
     ' > "$logs/inputs.json"
 }
 
@@ -212,9 +237,14 @@ check_tools() {
   parent_cache_init
   parent_cache_credit_kib=0
   parent_cache_keep=
-  if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) && "$VARIANT" != vanilla ]]; then
+  if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
+        ( "$VARIANT" != vanilla || -n "$VANILLA_SOURCE_PROFILE" ) ]]; then
     prepare_parent_source
     minimum_kib=$((minimum_kib - parent_cache_credit_kib))
+  fi
+  if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
+        "$VARIANT" == vanilla && -n "$VANILLA_SOURCE_PROFILE" ]]; then
+    minimum_kib=$((minimum_kib + (INSTALLER_SIZE + 1023) / 1024))
   fi
   parent_cache_prune "$minimum_kib" "$parent_cache_keep"
   available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
@@ -242,10 +272,12 @@ require_layout() {
   local expected_xcode=${3:-}
   local expected_revision=${4:-}
   local expected_source=${5:-}
+  local expected_version=${6:-$MACOS_VERSION}
+  local expected_build=${7:-$MACOS_BUILD}
   jq -e \
     --arg revision "$expected_revision" \
-    --arg macos_version "$MACOS_VERSION" \
-    --arg macos_build "$MACOS_BUILD" \
+    --arg macos_version "$expected_version" \
+    --arg macos_build "$expected_build" \
     --arg variant "$expected_variant" \
     --arg xcode "$expected_xcode" \
     --arg source "$expected_source" '
@@ -541,26 +573,23 @@ build_image() {
     xcode_sha=$(ci_sha256 "$archive")
   fi
 
-  case "$VARIANT" in
-    vanilla)
-      source=$IPSW_URL
-      source_digest="sha256:$IPSW_SHA256"
-      ./scripts/image build vanilla "" "$vm_name"
-      ;;
-    base|xcode)
-      mkdir -p "$task_root/parent-image"
-      restore_parent_source "$source_layout" "$source_metadata"
-      source_digest=$(jq -er .manifest_digest "$source_metadata")
-      source=$(jq -er .reference "$task_root/parent-source.json")
-      .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
-      rm -rf -- "$source_layout"
-      if [[ "$VARIANT" == base ]]; then
-        ./scripts/image build base "$source_vm" "$vm_name"
-      else
-        ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name"
-      fi
-      ;;
-  esac
+  if [[ "$VARIANT" == vanilla && -z "$VANILLA_SOURCE_PROFILE" ]]; then
+    source=$IPSW_URL
+    source_digest="sha256:$IPSW_SHA256"
+    ./scripts/image build vanilla "" "$vm_name"
+  else
+    mkdir -p "$task_root/parent-image"
+    restore_parent_source "$source_layout" "$source_metadata"
+    source_digest=$(jq -er .manifest_digest "$source_metadata")
+    source=$(jq -er .reference "$task_root/parent-source.json")
+    .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
+    rm -rf -- "$source_layout"
+    case "$VARIANT" in
+      vanilla) VANILLA_SOURCE_VM="$source_vm" ./scripts/image build vanilla "" "$vm_name" ;;
+      base) ./scripts/image build base "$source_vm" "$vm_name" ;;
+      xcode) ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name" ;;
+    esac
+  fi
   ./scripts/image test "$vm_name" "$VARIANT"
   set_input_sources "$source" "$source_digest" "$xcode_sha"
   save_verified_bundle "$run_key"

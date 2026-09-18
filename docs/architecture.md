@@ -81,11 +81,17 @@ The download is verified before Tart starts. A build fails if the installed
 version or build differs. The source commit identifies the recipe; the OCI
 manifest digest identifies the built image.
 
-Apple did not publish a UniversalMac restore IPSW for macOS 15.7. A 15.7 image therefore requires a separate, same-major update stage from the 15.6.1 restore image. That stage must select macOS 15 update labels explicitly and verify the resulting build before publication.
+An upgrade target starts from the nearest preceding official IPSW in the same
+macOS major version. Its verified vanilla image is pinned by digest. Each
+target upgrades directly from that image until a newer official IPSW provides
+the next starting point; patch images are not chained together. Sequoia 15.7.7
+through 15.8 therefore start from the 15.6.1 vanilla image. Installer versions,
+builds, sizes, and checksums are pinned separately from the source image.
 
-The [update procedure](macos-updates.md) covers exact full installers and selection
-of the latest release within the guest's current major. Updating a working clone
-does not change the pinned restore recipe or any published image.
+The [update procedure](macos-updates.md) covers the build policy, exact full
+installers, and selection of the latest release within the guest's current
+major. CI builds and verifies each target before publication. Local clones are
+used to investigate failures and do not replace the CI acceptance path.
 
 ## Artifacts
 

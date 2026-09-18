@@ -3,6 +3,39 @@
 An IPSW creates the initial VM. Later macOS releases can be installed inside
 that VM without another IPSW. The macOS 15 starting image remains 15.6.1 / 24G90.
 
+## Build policy
+
+Each official IPSW starts a new set of upgrade builds within its macOS major
+version. Build and verify its vanilla image first. Until the next official
+IPSW, upgrade each target directly from that vanilla image, pinned by digest.
+Do not chain one patch image into the next.
+
+For Sequoia, 15.7.7, 15.7.8, 15.7.9, and 15.8 all start from the 15.6.1 vanilla
+image. When a newer official IPSW becomes available, build a new vanilla from
+it and use that image for subsequent targets. Existing target configurations
+retain their original source digest and installer checksum.
+
+CI builds and publishes targets in order. After one target passes, try the next
+through CI; use local clones to investigate failures. A successful local
+experiment establishes the recipe, but does not replace the CI build or its
+independent cold-boot and anonymous-download acceptance checks.
+
+Each upgrade pins its source version and build, source image digest, target
+version and build, and installer URL, size, and SHA-256. A missing exact target
+is a failed build, not a reason to install a different release or macOS major.
+Base and Xcode images are derived from the matching accepted vanilla version.
+Each Xcode combination starts from vanilla and installs its own development
+tools; it does not reuse an earlier Xcode image.
+
+After the target boots, remove its installer and temporary files created by
+the build before the independent cold boot. Cleanup and post-upgrade Setup
+Assistant handling must be verified for the target macOS version. Do not assume
+that paths or first-login behavior are shared by every major or patch release.
+Keep installer backups outside the guest. Move `latest` only after confirming
+that the accepted target is the current release within its macOS major.
+
+## Local investigation
+
 Run the commands below inside a disposable clone. Keep the source image stopped.
 On Apple silicon, the account authorizing an update must be a volume owner.
 The published Sequoia vanilla image's `admin` account has a secure token and

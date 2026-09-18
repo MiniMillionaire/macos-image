@@ -4,13 +4,14 @@ This repository builds macOS virtual machine images for Tart. It supports local 
 
 The current image definitions are:
 
-| Configuration | Restore image | Local build host |
+| Configuration | macOS source | Local build host |
 | --- | --- | --- |
 | `sequoia-15.6.1` | macOS 15.6.1 (24G90) | macOS 15 or newer |
+| `sequoia-15.7.7` | Upgrade 15.6.1 vanilla to 15.7.7 (24G720) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 | `golden-gate-27.0` | macOS 27.0 (26A428) | macOS 27 or newer |
 
-All three vanilla images passed fresh IPSW builds, full anonymous downloads,
+The three IPSW-based vanilla images passed fresh builds, full anonymous downloads,
 and independent cold boots in this repository's CI. They are published as
 `macos-sequoia-vanilla:latest`, `macos-tahoe-vanilla:latest`, and
 `macos-golden-gate-vanilla:latest` under `ghcr.io/minimillionaire`.
@@ -107,6 +108,22 @@ CREATE_GRACE_TIME=60s SETUP_ASSISTANT_INITIAL_WAIT=120s SETUP_ASSISTANT_RESUME_W
 ```
 
 Use a shorter wait only after validating it on the build host.
+
+Versions without an IPSW upgrade directly from the nearest preceding official
+IPSW's vanilla image within the same macOS major. Each target pins that source
+by digest; patch releases are not chained together. A newer official IPSW starts
+the next set of upgrade builds. See the [upgrade policy](docs/macos-updates.md#build-policy).
+
+To build an upgrade image:
+
+```shell
+REGISTRY=ghcr.io/minimillionaire .build/release/macos-image build vanilla --config config/sequoia-15.7.7.env
+```
+
+The installer is cached by SHA-256 in `~/.cache/macos-image/installers` and
+verified before each use. `INSTALLER_CACHE_DIR` overrides that directory.
+Upgrade profiles set their own disk capacity; the existing vanilla image and
+the default capacity of IPSW builds are unchanged.
 
 Tahoe has an additional user setup phase after the system terms and first login.
 Its initial wait defaults to 90 seconds and can be set with

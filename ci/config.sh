@@ -38,7 +38,7 @@ ci_read_value() {
 
 ci_load_profile() {
   case ${PROFILE:-} in
-    sequoia-15.6.1|tahoe-26.6.2|golden-gate-27.0) ;;
+    sequoia-15.6.1|sequoia-15.7.7|tahoe-26.6.2|golden-gate-27.0) ;;
     *) ci_die "Unknown image profile: ${PROFILE:-}" ;;
   esac
   case ${VARIANT:-} in
@@ -54,9 +54,45 @@ ci_load_profile() {
   MACOS_VERSION=$(ci_read_value "$CONFIG_PATH" MACOS_VERSION)
   MACOS_BUILD=$(ci_read_value "$CONFIG_PATH" MACOS_BUILD)
   IMAGE_PRERELEASE=$(ci_read_value "$CONFIG_PATH" IMAGE_PRERELEASE)
-  IPSW_URL=$(ci_read_value "$CONFIG_PATH" IPSW_URL)
-  IPSW_SIZE=$(ci_read_value "$CONFIG_PATH" IPSW_SIZE)
-  IPSW_SHA256=$(ci_read_value "$CONFIG_PATH" IPSW_SHA256)
+  IPSW_URL=
+  IPSW_SIZE=
+  IPSW_SHA256=
+  INSTALLER_URL=
+  INSTALLER_SIZE=
+  INSTALLER_SHA256=
+  VANILLA_SOURCE_PROFILE=
+  VANILLA_SOURCE_DIGEST=
+  VANILLA_SOURCE_VERSION=
+  VANILLA_SOURCE_BUILD=
+  VANILLA_SOURCE_CONFIG_SHA256=
+  if grep -q '^VANILLA_SOURCE_PROFILE=' "$CONFIG_PATH"; then
+    local source_config
+    VANILLA_SOURCE_PROFILE=$(ci_read_value "$CONFIG_PATH" VANILLA_SOURCE_PROFILE)
+    [[ "$VANILLA_SOURCE_PROFILE" =~ ^[a-z0-9][a-z0-9.-]*$ && "$VANILLA_SOURCE_PROFILE" != "$PROFILE" ]] ||
+      ci_die "Invalid vanilla source profile"
+    source_config="config/$VANILLA_SOURCE_PROFILE.env"
+    [[ -f "$source_config" && ! -L "$source_config" ]] || ci_die "Invalid vanilla source configuration"
+    [[ $(ci_read_value "$source_config" IMAGE_PRERELEASE) == false ]] ||
+      ci_die "Vanilla source must be an official release"
+    [[ $(ci_read_value "$source_config" IPSW_SHA256) =~ ^[0-9a-f]{64}$ ]] ||
+      ci_die "Vanilla source must be built from a pinned IPSW"
+    [[ $(ci_read_value "$source_config" MACOS_FAMILY) == "$MACOS_FAMILY" ]] ||
+      ci_die "Vanilla source must use the same macOS family"
+    VANILLA_SOURCE_VERSION=$(ci_read_value "$source_config" MACOS_VERSION)
+    VANILLA_SOURCE_BUILD=$(ci_read_value "$source_config" MACOS_BUILD)
+    [[ ${VANILLA_SOURCE_VERSION%%.*} == "${MACOS_VERSION%%.*}" ]] ||
+      ci_die "Vanilla source must use the same macOS major"
+    VANILLA_SOURCE_CONFIG_SHA256=$(ci_sha256 "$source_config")
+    VANILLA_SOURCE_DIGEST=$(ci_read_value "$CONFIG_PATH" VANILLA_SOURCE_DIGEST)
+    INSTALLER_URL=$(ci_read_value "$CONFIG_PATH" INSTALLER_URL)
+    INSTALLER_SIZE=$(ci_read_value "$CONFIG_PATH" INSTALLER_SIZE)
+    INSTALLER_SHA256=$(ci_read_value "$CONFIG_PATH" INSTALLER_SHA256)
+    grep -Eq '^IPSW_(URL|SIZE|SHA256)=' "$CONFIG_PATH" && ci_die "Upgrade profile must not specify an IPSW"
+  else
+    IPSW_URL=$(ci_read_value "$CONFIG_PATH" IPSW_URL)
+    IPSW_SIZE=$(ci_read_value "$CONFIG_PATH" IPSW_SIZE)
+    IPSW_SHA256=$(ci_read_value "$CONFIG_PATH" IPSW_SHA256)
+  fi
   MINIMUM_HOST_MAJOR=$(ci_read_value "$CONFIG_PATH" MINIMUM_HOST_MAJOR)
 
   TART_VERSION=$(ci_read_value config/toolchain.env TART_VERSION)
@@ -69,9 +105,18 @@ ci_load_profile() {
   [[ "$MACOS_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid macOS version"
   [[ "$MACOS_BUILD" =~ ^[0-9A-Z]+$ ]] || ci_die "Invalid macOS build"
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] || ci_die "Invalid prerelease value"
-  [[ "$IPSW_URL" == https://updates.cdn-apple.com/* ]] || ci_die "Invalid IPSW URL"
-  [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid IPSW size"
-  [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || ci_die "Invalid IPSW SHA-256"
+  if [[ -n "$VANILLA_SOURCE_PROFILE" ]]; then
+    [[ "$VANILLA_SOURCE_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ && "$VANILLA_SOURCE_BUILD" =~ ^[0-9A-Z]+$ ]] ||
+      ci_die "Invalid vanilla source version or build"
+    [[ "$VANILLA_SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || ci_die "Invalid vanilla source digest"
+    [[ "$INSTALLER_URL" == https://swcdn.apple.com/content/downloads/* ]] || ci_die "Invalid installer URL"
+    [[ "$INSTALLER_SIZE" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid installer size"
+    [[ "$INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || ci_die "Invalid installer SHA-256"
+  else
+    [[ "$IPSW_URL" == https://updates.cdn-apple.com/* ]] || ci_die "Invalid IPSW URL"
+    [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid IPSW size"
+    [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || ci_die "Invalid IPSW SHA-256"
+  fi
   [[ "$MINIMUM_HOST_MAJOR" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid host version"
   for version in "$TART_VERSION" "$PACKER_VERSION" "$GO_VERSION" "$PACKER_TART_PLUGIN_VERSION" "$SWIFT_VERSION"; do
     [[ "$version" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid tool version: $version"

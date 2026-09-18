@@ -6,6 +6,8 @@ test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
 test "$(uname -m)" = arm64
 
 verify_vanilla() {
+  filevault_status=$(sudo -n fdesetup status)
+  [[ "$filevault_status" == 'FileVault is Off.' ]] || { echo "Unexpected FileVault status: $filevault_status" >&2; exit 1; }
   [[ -e /var/db/.AppleSetupDone ]] || { echo 'Setup Assistant is incomplete' >&2; exit 1; }
   ! pgrep -x 'Setup Assistant' >/dev/null || { echo 'Setup Assistant is still running' >&2; exit 1; }
   id "$GUEST_USERNAME" >/dev/null

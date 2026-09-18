@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - sequoia-15.6.1
+          - sequoia-15.7.7
           - tahoe-26.6.2
           - golden-gate-27.0
         default: sequoia-15.6.1

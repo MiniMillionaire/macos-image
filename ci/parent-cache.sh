@@ -120,10 +120,17 @@ parent_cache_store() {
 
 prepare_parent_source() {
   local variant reference digest entry metadata="$task_root/parent-image.json"
+  local source_version=$MACOS_VERSION source_build=$MACOS_BUILD
   variant=vanilla
   [[ "$VARIANT" != xcode ]] || variant=base
   reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
-  digest=$(./scripts/registry resolve "$reference:$MACOS_VERSION")
+  if [[ "$VARIANT" == vanilla && -n "$VANILLA_SOURCE_PROFILE" ]]; then
+    digest=$VANILLA_SOURCE_DIGEST
+    source_version=$VANILLA_SOURCE_VERSION
+    source_build=$VANILLA_SOURCE_BUILD
+  else
+    digest=$(./scripts/registry resolve "$reference:$MACOS_VERSION")
+  fi
   entry=$(parent_cache_entry "$digest")
   parent_cache_credit_kib=0
   parent_cache_keep=
@@ -131,7 +138,7 @@ prepare_parent_source() {
     parent_cache_require_entry "$entry"
     if inspect_layout "$entry/layout" "$metadata" &&
        [[ $(jq -er .manifest_digest "$metadata") == "$digest" ]]; then
-      require_layout "$metadata" "$variant"
+      require_layout "$metadata" "$variant" "" "" "" "$source_version" "$source_build"
       parent_cache_credit_kib=$(du -sk "$entry" | awk '{print $1}')
       parent_cache_keep=$entry
       touch "$entry"
@@ -142,14 +149,18 @@ prepare_parent_source() {
     fi
   fi
   jq -n --arg reference "$reference@$digest" --arg digest "$digest" --arg variant "$variant" \
-    '{reference: $reference, digest: $digest, variant: $variant}' > "$task_root/parent-source.json"
+    --arg macos_version "$source_version" --arg macos_build "$source_build" \
+    '{reference: $reference, digest: $digest, variant: $variant,
+      macos_version: $macos_version, macos_build: $macos_build}' > "$task_root/parent-source.json"
 }
 
 restore_parent_source() {
-  local destination=$1 metadata=$2 reference digest variant entry
+  local destination=$1 metadata=$2 reference digest variant source_version source_build entry
   reference=$(jq -er .reference "$task_root/parent-source.json")
   digest=$(jq -er .digest "$task_root/parent-source.json")
   variant=$(jq -er .variant "$task_root/parent-source.json")
+  source_version=$(jq -er .macos_version "$task_root/parent-source.json")
+  source_build=$(jq -er .macos_build "$task_root/parent-source.json")
   entry=$(parent_cache_entry "$digest")
   [[ ! -e "$destination" && ! -L "$destination" ]] || ci_die "Parent destination already exists"
   if [[ -e "$entry" || -L "$entry" ]]; then
@@ -160,7 +171,7 @@ restore_parent_source() {
     ./scripts/registry download "$reference" "$destination"
   fi
   inspect_layout "$destination" "$metadata"
-  require_layout "$metadata" "$variant"
+  require_layout "$metadata" "$variant" "" "" "" "$source_version" "$source_build"
   [[ $(jq -er .manifest_digest "$metadata") == "$digest" ]] || ci_die "Parent manifest digest changed"
   if [[ ! -d "$entry" ]]; then
     parent_cache_store "$destination" "$digest"

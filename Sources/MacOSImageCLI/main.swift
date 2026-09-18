@@ -87,7 +87,7 @@ struct BuildCommand: AsyncParsableCommand {
 struct BuildVanillaCommand: ImageSubcommand {
   static let configuration = CommandConfiguration(
     commandName: "vanilla",
-    abstract: "Build a vanilla image from the pinned restore image."
+    abstract: "Build a vanilla image from a pinned restore image or macOS installer."
   )
 
   @OptionGroup var common: CommonOptions

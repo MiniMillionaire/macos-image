@@ -23,9 +23,16 @@ source "$config_path"
 : "${MACOS_VERSION:?}"
 : "${MACOS_BUILD:?}"
 : "${IMAGE_PRERELEASE:?}"
-: "${IPSW_URL:?}"
-: "${IPSW_SIZE:?}"
-: "${IPSW_SHA256:?}"
+if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+  : "${VANILLA_SOURCE_DIGEST:?}"
+  : "${INSTALLER_URL:?}"
+  : "${INSTALLER_SIZE:?}"
+  : "${INSTALLER_SHA256:?}"
+else
+  : "${IPSW_URL:?}"
+  : "${IPSW_SIZE:?}"
+  : "${IPSW_SHA256:?}"
+fi
 : "${VANILLA_TEMPLATE:?}"
 : "${DISABLE_SIP_TEMPLATE:?}"
 : "${LOCAL_VANILLA_SOURCE:?}"
@@ -46,6 +53,7 @@ registry_helper=${REGISTRY_HELPER:-$root_dir/scripts/registry}
 image_cacert=${IMAGE_CACERT:-/opt/homebrew/etc/openssl@3/cert.pem}
 ipsw_cache_dir=${IPSW_CACHE_DIR:-${TART_HOME:-$HOME/.tart}/cache/macos-image/ipsw}
 ipsw_path_override=${IPSW_PATH:-}
+installer_cache_dir=${INSTALLER_CACHE_DIR:-$HOME/.cache/macos-image/installers}
 packer_check_timeout_seconds=${PACKER_CHECK_TIMEOUT_SECONDS:-600}
 packer_build_timeout_seconds=${PACKER_BUILD_TIMEOUT_SECONDS:-14400}
 ipsw_fetch_timeout_seconds=${IPSW_FETCH_TIMEOUT_SECONDS:-14400}
@@ -133,8 +141,16 @@ versions_match() {
 validate_configuration() {
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] ||
     die "Invalid prerelease value: $IMAGE_PRERELEASE"
-  [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
-  [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "Invalid IPSW SHA-256: $IPSW_SHA256"
+  if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+    [[ "$VANILLA_SOURCE_PROFILE" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || die 'Invalid source profile'
+    [[ "$VANILLA_SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || die 'Invalid source digest'
+    [[ "$INSTALLER_URL" == https://swcdn.apple.com/* ]] || die 'Invalid installer URL'
+    [[ "$INSTALLER_SIZE" =~ ^[1-9][0-9]*$ ]] || die 'Invalid installer size'
+    [[ "$INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || die 'Invalid installer SHA-256'
+  else
+    [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
+    [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "Invalid IPSW SHA-256: $IPSW_SHA256"
+  fi
 }
 
 need() {
@@ -501,6 +517,11 @@ build_vanilla() {
   local fetched_ipsw_path
   require_compatible_host
   require_new_vm "$target"
+  if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+    [[ -z ${1:-} ]] || die 'Initial Setup Assistant wait does not apply to an upgrade'
+    build_upgraded_vanilla "$target"
+    return
+  fi
   if [[ -n ${SETUP_ASSISTANT_SEQUENCE:-} || -n ${GUEST_PROVISIONING_TEMPLATE:-} ]]; then
     need go
     need plutil
@@ -567,6 +588,56 @@ build_vanilla() {
       -var "guest_username=$guest_username" \
       -var "guest_password=$guest_password"
   fi
+}
+
+build_upgraded_vanilla() {
+  local target=$1
+  local source_config="$root_dir/config/$VANILLA_SOURCE_PROFILE.env"
+  local source_version source_build source_family installer_app
+  local installer_path=${INSTALLER_PATH:-$installer_cache_dir/$INSTALLER_SHA256.pkg}
+  [[ -f "$source_config" && ! -L "$source_config" ]] || die 'Source profile is missing'
+  (source "$source_config" && test "$IMAGE_PRERELEASE" = false && test -n "${IPSW_SHA256:-}") ||
+    die 'The source must be an official IPSW profile'
+  source_version=$(source "$source_config"; printf '%s' "$MACOS_VERSION")
+  source_build=$(source "$source_config"; printf '%s' "$MACOS_BUILD")
+  source_family=$(source "$source_config"; printf '%s' "$MACOS_FAMILY")
+  [[ "$source_family" == "$MACOS_FAMILY" && ${source_version%%.*} == "${MACOS_VERSION%%.*}" ]] ||
+    die 'An upgrade must stay within its source macOS major'
+  [[ "$source_version" != "$MACOS_VERSION" ]] && version_is_at_least "$MACOS_VERSION" "$source_version" ||
+    die 'The target must be newer than its source'
+  case "$MACOS_FAMILY" in
+    sequoia) installer_app='/Applications/Install macOS Sequoia.app' ;;
+    *) die "No verified upgrade procedure for $MACOS_FAMILY" ;;
+  esac
+
+  mkdir -p "$(dirname "$installer_path")"
+  require_ca_file
+  ensure_artifact_helper
+  run_bounded "$ipsw_fetch_timeout_seconds" "$artifact_helper" fetch \
+    --timeout "$ipsw_fetch_timeout_seconds" \
+    --url "$INSTALLER_URL" --output "$installer_path" \
+    --sha256 "$INSTALLER_SHA256" --size "$INSTALLER_SIZE" --ca-file "$image_cacert"
+
+  if [[ -n ${VANILLA_SOURCE_VM:-} ]]; then
+    clone_vm "$VANILLA_SOURCE_VM" "$target" vanilla
+  else
+    [[ -n "$registry" ]] || die 'REGISTRY is required to download the pinned source image'
+    MACOS_VERSION="$source_version" MACOS_BUILD="$source_build" config_path="$source_config" \
+      registry_pull vanilla "$registry/macos-$MACOS_FAMILY-vanilla@$VANILLA_SOURCE_DIGEST" "$target"
+  fi
+  clear_stale_control_socket "$target"
+  packer_build "$VANILLA_TEMPLATE" \
+    -var "vm_name=$target" \
+    -var "source_version=$source_version" \
+    -var "source_build=$source_build" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "expected_build=$MACOS_BUILD" \
+    -var "installer_archive=$installer_path" \
+    -var "installer_app=$installer_app" \
+    -var "disk_size_gb=$DISK_SIZE_GB" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+  verify_existing "$target" vanilla
 }
 
 build_base() {
