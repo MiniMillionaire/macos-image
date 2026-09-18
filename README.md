@@ -14,15 +14,15 @@ The current image definitions are:
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 | `golden-gate-27.0` | macOS 27.0 (26A428) | macOS 27 or newer |
 
-The three IPSW-based vanilla images passed fresh builds, full anonymous downloads,
-and independent cold boots in this repository's CI. They are published as
-`macos-sequoia-vanilla:latest`, `macos-tahoe-vanilla:latest`, and
-`macos-golden-gate-vanilla:latest` under `ghcr.io/minimillionaire`.
-See the [validation record](docs/validation.md).
-All three base variants passed the same acceptance process and are
-published with `latest` tags. Xcode images passed full anonymous download and
-cold-boot acceptance as `macos-sequoia-xcode:26.3`,
-`macos-tahoe-xcode:26.6`, and `macos-golden-gate-xcode:27`.
+The three IPSW-based vanilla images and the Sequoia upgrade images through 15.8
+passed CI builds, full anonymous downloads, and independent cold boots. Vanilla
+`latest` tags point to Sequoia 15.8, Tahoe 26.6.2, and Golden Gate 27.0 under
+`ghcr.io/minimillionaire`. Earlier versions remain available by numbered tag.
+
+Base and Xcode images passed the same acceptance process for macOS 15.6.1,
+26.6.2, and 27.0. Their Xcode versions are 26.3, 26.6, and 27 respectively.
+See the [validation record](docs/validation.md) for published combinations,
+digests, and CI runs.
 
 ## Requirements
 
@@ -196,14 +196,18 @@ Package names and tags follow
 ```text
 ghcr.io/minimillionaire/macos-sequoia-vanilla:latest
 ghcr.io/minimillionaire/macos-sequoia-vanilla:15.6.1
+ghcr.io/minimillionaire/macos-sequoia-vanilla:15.8
 ghcr.io/minimillionaire/macos-tahoe-vanilla:latest
 ghcr.io/minimillionaire/macos-tahoe-vanilla:26.6.2
 ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest
 ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0
 ghcr.io/minimillionaire/macos-tahoe-base:latest
 ghcr.io/minimillionaire/macos-tahoe-base:26.6.2
+ghcr.io/minimillionaire/macos-sequoia-xcode:15.6.1-xcode26.3
 ghcr.io/minimillionaire/macos-sequoia-xcode:26.3
+ghcr.io/minimillionaire/macos-tahoe-xcode:26.6.2-xcode26.6
 ghcr.io/minimillionaire/macos-tahoe-xcode:26.6
+ghcr.io/minimillionaire/macos-golden-gate-xcode:27.0-xcode27
 ghcr.io/minimillionaire/macos-golden-gate-xcode:27
 ```
 

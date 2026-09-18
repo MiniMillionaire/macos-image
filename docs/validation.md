@@ -2,27 +2,44 @@
 
 ## Sequoia upgrade builds
 
-Sequoia 15.7.7 (24G720) passed the full build and publication workflow in
-[35326226572](https://github.com/MiniMillionaire/macos-image/actions/runs/35326226572)
-at revision `e5b0f8d`. It upgraded directly from the pinned 15.6.1 vanilla
-image using Apple's full installer, without UI input. The disk grew to 100 GB
-with Recovery preserved. Installer staging was removed after the upgraded
-system booted.
+These vanilla images passed the full build and publication workflow:
 
-The build passed two cold-boot checks. CI then uploaded the 20.94 GiB OCI image,
+| macOS | Apple build | Revision | CI run | OCI blob size |
+| --- | --- | --- | --- | --- |
+| 15.7.7 | 24G720 | `e5b0f8d` | [35326226572](https://github.com/MiniMillionaire/macos-image/actions/runs/35326226572) | 20.94 GiB |
+| 15.7.8 | 24G824 | `54e3c3d` | [35332435323](https://github.com/MiniMillionaire/macos-image/actions/runs/35332435323) | 30.25 GiB |
+| 15.7.9 | 24G830 | `5600562` | [35337700996](https://github.com/MiniMillionaire/macos-image/actions/runs/35337700996) | 20.94 GiB |
+| 15.8 | 24H23 | `033a89b` | [35342286728](https://github.com/MiniMillionaire/macos-image/actions/runs/35342286728) | 20.95 GiB |
+
+Each upgraded directly from the pinned 15.6.1 vanilla image using Apple's full
+installer, without UI input. The disk grew to 100 GB with Recovery preserved.
+Installer staging was removed after the upgraded system booted.
+
+Each build passed two cold-boot checks. CI then uploaded the OCI image,
 downloaded every blob anonymously, verified its hashes, and cold-booted the
-imported image. The downloaded boot session was
-`B1E215B6-490A-457B-9D8F-7DD7277DD3C3`. Checks covered the exact OS/build,
-admin account, locale, keyboard, automatic login, CLT, and disabled FileVault.
+imported image. Checks covered the exact OS/build, admin account, locale,
+keyboard, automatic login, CLT, and disabled FileVault.
 
-The published image is `ghcr.io/minimillionaire/macos-sequoia-vanilla:15.7.7`:
+The published tags under `ghcr.io/minimillionaire/macos-sequoia-vanilla` are:
 
-```text
-sha256:46ed1ff2f17460c427cef8e19d189b5b1ea6f180f3735cfbc092a8838123208e
-```
+| Tag | Manifest digest |
+| --- | --- |
+| `15.7.7` | `sha256:46ed1ff2f17460c427cef8e19d189b5b1ea6f180f3735cfbc092a8838123208e` |
+| `15.7.8` | `sha256:86af8df1b7c2c61e269b0d337b2240b5217ecd2ef6f727c125cabefb4d5e998e` |
+| `15.7.9` | `sha256:9d5d0ae58217d25952e200cb55975fb5c9c4c484f23138e991048f5f37381cfc` |
+| `15.8` | `sha256:9ac90c7e911560359246efb7c431754763448fb156ee64df9bc46476074c3515` |
 
-Anonymous tag checks passed. `latest` remains at 15.6.1. CI removed its task VMs
-and recovery bundle after publication and retained the verified parent cache.
+Anonymous tag checks passed. Apple's [Sequoia update page](https://support.apple.com/en-us/120283)
+listed 15.8 as the current release on September 18, so `latest` was promoted to the same digest as
+`15.8` after acceptance. Its downloaded-image boot session was
+`9CE849F3-6687-44BF-9682-91CD32C36A2C`. CI removed its task VMs and recovery
+bundles after publication.
+
+The upgrade's original boot-session marker did not survive the 15.7.7 and
+15.7.8 restarts, and its comparison did not reject the missing file. Those
+comparisons are not valid evidence; the exact version and separate cold-boot
+checks passed. The marker now lives in the guest's home directory, and missing
+or unchanged values fail the build. The corrected check passed on 15.7.9 and 15.8.
 
 ## IPSW builds
 
@@ -144,9 +161,9 @@ Anonymous tag checks passed. All OS versions and Apple builds remained unchanged
 The temporary VMs, downloaded images, and saved recovery bundles were removed
 after publication.
 
-The published vanilla and base `latest` tags also have macOS version aliases:
+The original vanilla and base `latest` tags received macOS version aliases:
 `15.6.1` for Sequoia, `26.6.2` for Tahoe, and `27.0` for Golden Gate. Each alias
-resolves to the same manifest digest as its corresponding `latest` tag. The
+resolved to the same manifest digest as its corresponding `latest` tag. The
 [tagging run](https://github.com/MiniMillionaire/macos-image/actions/runs/35304562468)
 completed successfully, and all six pairs were checked anonymously.
 
@@ -216,6 +233,12 @@ Android SDK 36, and the development tools passed verification. The macOS
 version/build, account, language, and keyboard settings remained unchanged.
 Chrome is not installed. No `latest` Xcode alias was updated. The temporary VMs
 and saved recovery bundle were removed after publication.
+
+The three original Xcode images also have combined macOS-Xcode tags:
+`15.6.1-xcode26.3`, `26.6.2-xcode26.6`, and `27.0-xcode27`. The
+[tagging run](https://github.com/MiniMillionaire/macos-image/actions/runs/35341725448)
+preserved their manifest digests and existing numeric aliases. Anonymous checks
+confirmed all six references. The original GitHub Releases are unchanged.
 
 ## Parent cache
 
