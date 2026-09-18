@@ -75,7 +75,8 @@ independent Apple checksum. Packer copies the archive into the VM, where
 `xcodes` installs it. Apple login credentials are not needed by the image build.
 Host-side Apple login and automatic Xcode downloads are not configured.
 Xcode builds install the arm64 simulator runtimes with
-`xcodebuild -downloadAllPlatforms`.
+`xcodebuild -downloadAllPlatforms -exportPath`, import each package with
+`xcodebuild -importPlatform`, then remove the downloaded packages.
 
 The hosted authorization job permits only the configured `TRUSTED_ACTOR`
 (default `cocoa-xu`), including the person requesting a rerun. It validates the

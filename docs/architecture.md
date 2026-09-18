@@ -69,7 +69,8 @@ an earlier Xcode installation. Both use SSH provisioning.
 
 Before verification, base and Xcode builds remove Homebrew, npm, and Ruby
 download caches and their staged provisioning files. Xcode's XIP is removed
-after installation. Installed SDKs, simulator runtimes, and Flutter artifacts
+after installation. Simulator packages are downloaded into a temporary directory,
+imported with `xcodebuild`, and removed. Installed SDKs, simulator runtimes, and Flutter artifacts
 remain available for development.
 
 Guest scripts run with Apple's Bash 3.2. A failing standalone `[[ ... ]]`

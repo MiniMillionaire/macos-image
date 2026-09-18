@@ -28,7 +28,15 @@ grep -Fqx 'export PATH="$HOME/.local/share/mise/shims:$PATH"' "$HOME/.zprofile" 
 export PATH="$HOME/.local/share/mise/shims:$PATH"
 tuist version
 
-xcodebuild -downloadAllPlatforms
+runtime_directory=$(mktemp -d "$HOME/Downloads/macos-image-runtimes.XXXXXX")
+xcodebuild -downloadAllPlatforms -exportPath "$runtime_directory"
+runtime_count=0
+while IFS= read -r -d '' runtime; do
+  xcodebuild -importPlatform "$runtime"
+  runtime_count=$((runtime_count + 1))
+done < <(find "$runtime_directory" -type f -name '*.dmg' -print0)
+test "$runtime_count" -gt 0
+rm -rf "$runtime_directory"
 
 if [[ -n "$XCODE_COMPONENTS" ]]; then
   IFS=',' read -ra components <<< "$XCODE_COMPONENTS"
