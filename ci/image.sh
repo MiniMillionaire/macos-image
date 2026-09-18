@@ -920,7 +920,7 @@ complete_publication() {
 prune_published_bundle() {
   require_task
   jq -e '.stage == "published"' "$logs/result.json" >/dev/null || ci_die "Image publication has not completed"
-  if [[ "$VARIANT" != xcode ]]; then
+  if [[ "$VARIANT" == vanilla ]]; then
     if ! .build/tools/image-artifact run --timeout 300 -- bash ci/image.sh cache-parent; then
       printf 'Could not retain the published parent image in the local cache\n' >&2
     fi
@@ -931,7 +931,7 @@ prune_published_bundle() {
 
 cache_published_parent() {
   require_task
-  [[ "$VARIANT" == vanilla || "$VARIANT" == base ]] || ci_die "Only vanilla and base images are cached"
+  [[ "$VARIANT" == vanilla ]] || ci_die "Only vanilla images are cached as parents"
   local digest
   digest=$(jq -er 'select(.stage == "published") | .manifest_digest' "$logs/result.json")
   parent_cache_store "$task_root/downloaded/layout" "$digest"

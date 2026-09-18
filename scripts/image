@@ -55,6 +55,7 @@ ipsw_path_override=${IPSW_PATH:-}
 installer_cache_dir=${INSTALLER_CACHE_DIR:-$HOME/.cache/macos-image/installers}
 build_disk_size_gb=256
 published_free_bytes=$((8 * 1024 * 1024 * 1024))
+published_disk_step_gb=10
 packer_check_timeout_seconds=${PACKER_CHECK_TIMEOUT_SECONDS:-600}
 packer_build_timeout_seconds=${PACKER_BUILD_TIMEOUT_SECONDS:-14400}
 ipsw_fetch_timeout_seconds=${IPSW_FETCH_TIMEOUT_SECONDS:-14400}
@@ -335,7 +336,13 @@ require_compatible_host() {
   local host_major
   host_major=$(sw_vers -productVersion | cut -d. -f1)
   (( host_major >= MINIMUM_HOST_MAJOR )) || die "macOS $MINIMUM_HOST_MAJOR or newer is required for this image"
-  diskutil image resize --help >/dev/null 2>&1 || die 'This host does not provide diskutil image resize'
+}
+
+require_build_host() {
+  require_compatible_host
+  need jq
+  need plutil
+  capture_bounded 30 diskutil image resize --help || die 'This host does not provide diskutil image resize'
 }
 
 require_duration() {
@@ -530,7 +537,7 @@ build_vanilla() {
   local initial_wait=${1:-$setup_assistant_initial_wait}
   local target=${2:-$VANILLA_VM}
   local fetched_ipsw_path
-  require_compatible_host
+  require_build_host
   require_new_vm "$target"
   if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
     [[ -z ${1:-} ]] || die 'Initial Setup Assistant wait does not apply to an upgrade'
@@ -667,7 +674,7 @@ build_base() {
 prepare_base() {
   local source=$1
   local target=$2
-  require_compatible_host
+  require_build_host
   clone_vm "$source" "$target" vanilla
   disable_sip "$target"
   provision_base "$target"
@@ -690,7 +697,7 @@ disable_sip() {
 
 provision_base() {
   local target=$1
-  require_compatible_host
+  require_build_host
   vm_exists "$target" || die "VM not found: $target"
   clear_stale_control_socket "$target"
   packer_build templates/base.pkr.hcl \
@@ -708,7 +715,7 @@ build_xcode() {
   local archive="$xcode_cache/Xcode_$version.xip"
   local silicon_archive="$xcode_cache/Xcode_${version}_Apple_silicon.xip"
   is_numeric_version "$version" || die "Invalid Xcode version: $version"
-  require_compatible_host
+  require_build_host
   if [[ -e "$silicon_archive" || -L "$silicon_archive" ]]; then
     archive=$silicon_archive
   fi
@@ -725,22 +732,27 @@ build_xcode() {
   shrink_vm "$target"
 }
 
-# Builds use a sparse disk of build_disk_size_gb. Before publication, diskutil
-# shrinks APFS, moves Recovery to the new end and truncates disk.img. The
-# result is the smallest multiple of 10 GB that leaves at least 8 GiB free.
 shrink_vm() {
   local vm=$1
   local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
   local minimum_bytes
   local size_gb
-  clear_stale_control_socket "$vm"
+  local disk_bytes
+  local step_bytes=$((published_disk_step_gb * 1000000000))
+  [[ "$vm" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]*$ ]] || die "Invalid VM name: $vm"
+  [[ -f "$disk" && ! -L "$disk" ]] || die "Raw VM disk not found: $vm"
+  capture_bounded 30 tart get "$vm" --format json || die "VM not found: $vm"
+  jq -e '.OS == "darwin" and .State == "stopped" and .DiskFormat == "raw"' <<<"$bounded_output" >/dev/null ||
+    die "VM must be stopped and use a raw macOS disk: $vm"
   wait_for_disk_close "$vm"
   capture_bounded 60 diskutil image resize --plist "$disk" ||
     die "Could not read the disk resize limits: $vm"$'\n'"$bounded_output"
   minimum_bytes=$(plutil -extract min raw - <<<"$bounded_output") ||
     die "Could not read the minimum disk size: $vm"
   [[ "$minimum_bytes" =~ ^[1-9][0-9]*$ ]] || die "Invalid minimum disk size: $minimum_bytes"
-  size_gb=$(( (minimum_bytes + published_free_bytes + 9999999999) / 10000000000 * 10 ))
+  size_gb=$(( (minimum_bytes + published_free_bytes + step_bytes - 1) / step_bytes * published_disk_step_gb ))
+  disk_bytes=$(stat -f %z "$disk")
+  (( size_gb * 1000000000 <= disk_bytes )) || die "Disk is too small for the required free-space reserve: $vm"
   run_bounded "$tart_operation_timeout_seconds" diskutil image resize --size "${size_gb}g" "$disk"
   printf 'Shrank %s to %s GB; minimum was %s bytes\n' "$vm" "$size_gb" "$minimum_bytes"
 }
@@ -853,8 +865,15 @@ wait_for_disk_close() {
   local vm=$1
   local deadline=$((SECONDS + tart_operation_timeout_seconds))
   local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
+  local status
   [[ -x /usr/sbin/lsof ]] || die 'Missing required command: /usr/sbin/lsof'
-  while /usr/sbin/lsof -t -- "$disk" >/dev/null 2>&1; do
+  while true; do
+    status=0
+    capture_bounded 20 /usr/sbin/lsof -t -- "$disk" || status=$?
+    if [[ "$status" == 1 && -z "$bounded_output" ]]; then
+      return 0
+    fi
+    [[ "$status" == 0 ]] || die "Could not confirm that the VM disk is closed: $vm"$'\n'"$bounded_output"
     (( SECONDS < deadline )) || die "VM disk remained open: $vm"
     sleep 1
   done

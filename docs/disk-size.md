@@ -5,10 +5,12 @@
 Every build runs on a sparse 256 GB raw disk. IPSW builds create it with
 `tart create --disk-size 256`. Upgrade, base and Xcode builds start from a
 published image. Packer grows that clone to 256 GB and moves Recovery to the
-new end. The file only allocates host space for written blocks.
+new end. The source image is unchanged. The file only allocates host space
+for written blocks.
 
-When provisioning ends, `scripts/image` stops the VM and reads the minimum
-size from `diskutil image resize --plist disk.img`. It adds 8 GiB and rounds
+After provisioning shuts down the VM, `scripts/image` confirms that the disk
+is closed and reads the minimum size from `diskutil image resize --plist disk.img`.
+It adds 8 GiB and rounds
 up to a multiple of 10 GB, then runs `diskutil image resize --size <N>g`.
 This shrinks APFS offline, moves Recovery to the new end, rewrites the GPT
 and truncates `disk.img`. Verification then boots the shrunk image. Tart has
@@ -23,6 +25,9 @@ Growing a disk with `diskutil image resize` is limited to the current size
 plus the host's free space. For that reason, builds grow with Tart and use
 diskutil only to shrink. See the
 [shrink validation record](disk-shrink-validation.md) for measurements.
+
+Existing publications retain their original capacity until a shrunk clone
+passes verification and is published under a new digest.
 
 ## Expanding a downloaded image
 
