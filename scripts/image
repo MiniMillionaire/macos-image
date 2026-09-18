@@ -533,6 +533,17 @@ run_setup_phase() {
       --key-interval "$setup_assistant_key_interval"
 }
 
+clean_desktop() {
+  local vm=$1
+  local packer_build_timeout_seconds=900
+  clear_stale_control_socket "$vm"
+  printf 'Cleaning desktop: %s\n' "$vm"
+  packer_build templates/clean-desktop.pkr.hcl \
+    -var "vm_name=$vm" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+}
+
 build_vanilla() {
   local initial_wait=${1:-$setup_assistant_initial_wait}
   local target=${2:-$VANILLA_VM}
@@ -610,6 +621,7 @@ build_vanilla() {
       -var "guest_username=$guest_username" \
       -var "guest_password=$guest_password"
   fi
+  clean_desktop "$target"
   shrink_vm "$target"
 }
 
@@ -660,6 +672,7 @@ build_upgraded_vanilla() {
     -var "disk_size_gb=$build_disk_size_gb" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  clean_desktop "$target"
   shrink_vm "$target"
   verify_existing "$target" vanilla
 }
@@ -668,6 +681,7 @@ build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
   prepare_base "$source" "$target"
+  clean_desktop "$target"
   shrink_vm "$target"
 }
 
@@ -729,6 +743,7 @@ build_xcode() {
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  clean_desktop "$target"
   shrink_vm "$target"
 }
 
@@ -1022,6 +1037,7 @@ case ${1:-} in
     case ${2:-} in
       base)
         provision_base "${3:?VM name is required}"
+        clean_desktop "$3"
         shrink_vm "$3"
         ;;
       disable-sip) disable_sip "${3:?VM name is required}" ;;

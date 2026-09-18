@@ -43,9 +43,11 @@ fresh clone so that persistence is checked independently of the provisioning
 session.
 
 All image variants close build applications and clear session restoration before
-shutdown. Cold-boot verification waits for the desktop to settle, then checks
-that the account is logged in and unlocked, with no application windows or
-Setup Assistant. These checks use native session and window metadata.
+shutdown. A final Packer phase closes Finder windows with standard keyboard
+shortcuts and shuts down macOS over SSH. Cold-boot verification waits for the
+desktop to settle, then checks that the account is logged in and unlocked, with
+no application windows or Setup Assistant. These checks use native session and
+window metadata.
 
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 

@@ -22,11 +22,11 @@ for (var index = 0; index < running.count; index++) {
         application.terminate;
     }
 }
-delay(5);
+$.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(5));
 applications.forEach(function(application) {
     if (!Number(application.terminated)) application.forceTerminate;
 });
-delay(1);
+$.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(1));
 applications.forEach(function(application) {
     if (!Number(application.terminated)) {
         throw new Error("Could not quit " + ObjC.unwrap(application.localizedName));
@@ -34,7 +34,6 @@ applications.forEach(function(application) {
 });
 JAVASCRIPT
 
-pkill -u "$(id -u)" -x Finder || test "$?" = 1
 defaults -currentHost write com.apple.loginwindow TALAppsToRelaunchAtLogin -array
 defaults -currentHost write com.apple.loginwindow TALLogoutSavesState -bool false
 saved_state="$HOME/Library/Saved Application State"
