@@ -26,11 +26,6 @@ variable "xcode_components" {
   default = []
 }
 
-variable "disk_size_gb" {
-  type    = number
-  default = 180
-}
-
 variable "guest_username" {
   type = string
 }
@@ -43,8 +38,7 @@ variable "guest_password" {
 source "tart-cli" "xcode" {
   vm_name            = var.vm_name
   headless           = true
-  disk_size_gb       = var.disk_size_gb
-  recovery_partition = "relocate"
+  recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"

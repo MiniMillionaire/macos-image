@@ -40,7 +40,6 @@ fi
 : "${BASE_VM:?}"
 : "${CPU_COUNT:?}"
 : "${MEMORY_GB:?}"
-: "${DISK_SIZE_GB:?}"
 : "${MINIMUM_HOST_MAJOR:?}"
 
 registry=${REGISTRY:-}
@@ -54,6 +53,8 @@ image_cacert=${IMAGE_CACERT:-/opt/homebrew/etc/openssl@3/cert.pem}
 ipsw_cache_dir=${IPSW_CACHE_DIR:-${TART_HOME:-$HOME/.tart}/cache/macos-image/ipsw}
 ipsw_path_override=${IPSW_PATH:-}
 installer_cache_dir=${INSTALLER_CACHE_DIR:-$HOME/.cache/macos-image/installers}
+build_disk_size_gb=256
+published_free_bytes=$((8 * 1024 * 1024 * 1024))
 packer_check_timeout_seconds=${PACKER_CHECK_TIMEOUT_SECONDS:-600}
 packer_build_timeout_seconds=${PACKER_BUILD_TIMEOUT_SECONDS:-14400}
 ipsw_fetch_timeout_seconds=${IPSW_FETCH_TIMEOUT_SECONDS:-14400}
@@ -334,6 +335,7 @@ require_compatible_host() {
   local host_major
   host_major=$(sw_vers -productVersion | cut -d. -f1)
   (( host_major >= MINIMUM_HOST_MAJOR )) || die "macOS $MINIMUM_HOST_MAJOR or newer is required for this image"
+  diskutil image resize --help >/dev/null 2>&1 || die 'This host does not provide diskutil image resize'
 }
 
 require_duration() {
@@ -560,7 +562,7 @@ build_vanilla() {
     local tart_home=${TART_HOME:-$HOME/.tart}
     run_bounded "$tart_create_timeout_seconds" env \
       CFFIXED_USER_HOME="$temporary_locale_home" TART_HOME="$tart_home" \
-      tart create "$target" --from-ipsw "$fetched_ipsw_path" --disk-size "$DISK_SIZE_GB"
+      tart create "$target" --from-ipsw "$fetched_ipsw_path" --disk-size "$build_disk_size_gb"
     printf 'Waiting %s for installation finalization\n' "$create_grace_time"
     sleep "$create_grace_time"
     run_bounded "$tart_operation_timeout_seconds" tart set "$target" \
@@ -597,10 +599,11 @@ build_vanilla() {
       -var "expected_build=$MACOS_BUILD" \
       -var "cpu_count=$CPU_COUNT" \
       -var "memory_gb=$MEMORY_GB" \
-      -var "disk_size_gb=$DISK_SIZE_GB" \
+      -var "disk_size_gb=$build_disk_size_gb" \
       -var "guest_username=$guest_username" \
       -var "guest_password=$guest_password"
   fi
+  shrink_vm "$target"
 }
 
 build_upgraded_vanilla() {
@@ -647,15 +650,23 @@ build_upgraded_vanilla() {
     -var "expected_build=$MACOS_BUILD" \
     -var "installer_archive=$installer_path" \
     -var "installer_app=$installer_app" \
-    -var "disk_size_gb=$DISK_SIZE_GB" \
+    -var "disk_size_gb=$build_disk_size_gb" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  shrink_vm "$target"
   verify_existing "$target" vanilla
 }
 
 build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
+  prepare_base "$source" "$target"
+  shrink_vm "$target"
+}
+
+prepare_base() {
+  local source=$1
+  local target=$2
   require_compatible_host
   clone_vm "$source" "$target" vanilla
   disable_sip "$target"
@@ -685,6 +696,7 @@ provision_base() {
   packer_build templates/base.pkr.hcl \
     -var "vm_name=$target" \
     -var "expected_version=$MACOS_VERSION" \
+    -var "disk_size_gb=$build_disk_size_gb" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
 }
@@ -702,15 +714,35 @@ build_xcode() {
   fi
   [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
     die "A readable, nonempty Xcode archive is required: $archive"
-  build_base "$source" "$target"
+  prepare_base "$source" "$target"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
-    -var "disk_size_gb=${XCODE_DISK_SIZE_GB:-180}" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  shrink_vm "$target"
+}
+
+# Builds use a sparse disk of build_disk_size_gb. Before publication, diskutil
+# shrinks APFS, moves Recovery to the new end and truncates disk.img. The
+# result is the smallest multiple of 10 GB that leaves at least 8 GiB free.
+shrink_vm() {
+  local vm=$1
+  local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
+  local minimum_bytes
+  local size_gb
+  clear_stale_control_socket "$vm"
+  wait_for_disk_close "$vm"
+  capture_bounded 60 diskutil image resize --plist "$disk" ||
+    die "Could not read the disk resize limits: $vm"$'\n'"$bounded_output"
+  minimum_bytes=$(plutil -extract min raw - <<<"$bounded_output") ||
+    die "Could not read the minimum disk size: $vm"
+  [[ "$minimum_bytes" =~ ^[1-9][0-9]*$ ]] || die "Invalid minimum disk size: $minimum_bytes"
+  size_gb=$(( (minimum_bytes + published_free_bytes + 9999999999) / 10000000000 * 10 ))
+  run_bounded "$tart_operation_timeout_seconds" diskutil image resize --size "${size_gb}g" "$disk"
+  printf 'Shrank %s to %s GB; minimum was %s bytes\n' "$vm" "$size_gb" "$minimum_bytes"
 }
 
 pull_image() {
@@ -969,7 +1001,10 @@ case ${1:-} in
     ;;
   provision)
     case ${2:-} in
-      base) provision_base "${3:?VM name is required}" ;;
+      base)
+        provision_base "${3:?VM name is required}"
+        shrink_vm "$3"
+        ;;
       disable-sip) disable_sip "${3:?VM name is required}" ;;
       *) usage; exit 1 ;;
     esac

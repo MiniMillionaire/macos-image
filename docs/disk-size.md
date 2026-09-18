@@ -1,4 +1,30 @@
-# Expanding a downloaded image
+# Disk size
+
+## Build and published sizes
+
+Every build runs on a sparse 256 GB raw disk. IPSW builds create it with
+`tart create --disk-size 256`. Upgrade, base and Xcode builds start from a
+published image. Packer grows that clone to 256 GB and moves Recovery to the
+new end. The file only allocates host space for written blocks.
+
+When provisioning ends, `scripts/image` stops the VM and reads the minimum
+size from `diskutil image resize --plist disk.img`. It adds 8 GiB and rounds
+up to a multiple of 10 GB, then runs `diskutil image resize --size <N>g`.
+This shrinks APFS offline, moves Recovery to the new end, rewrites the GPT
+and truncates `disk.img`. Verification then boots the shrunk image. Tart has
+no disk size in `config.json`; it reads a raw disk's size from the file
+length.
+
+diskutil rounds the file up to 4 KiB. For example, 50 GB becomes
+50,000,003,072 bytes. The shrink changes `disk.img`, so the image digests
+differ from those of an unshrunk build.
+
+Growing a disk with `diskutil image resize` is limited to the current size
+plus the host's free space. For that reason, builds grow with Tart and use
+diskutil only to shrink. See the
+[shrink validation record](disk-shrink-validation.md) for measurements.
+
+## Expanding a downloaded image
 
 For a stopped local image, prepare a larger clone before using it:
 
@@ -18,6 +44,10 @@ Use `--config` when the source uses another image definition. Verification
 requires the source's macOS version and build to match that configuration.
 The current command supports raw disks with the image's iBoot, system APFS and
 Recovery partition layout. It does not support ASIF disks or shrinking.
+
+On a macOS 27 host, `diskutil image resize --size 160g <vm>/disk.img` on a
+stopped VM also moves Recovery and grows APFS, within the free-space limit
+above.
 
 Sizes are decimal GB, as in Tart. A 160 GB disk is about 149 GiB. Recovery,
 iBoot and filesystem overhead consume part of that capacity.

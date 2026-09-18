@@ -17,6 +17,10 @@ variable "expected_version" {
   type = string
 }
 
+variable "disk_size_gb" {
+  type = number
+}
+
 variable "guest_username" {
   type = string
 }
@@ -29,7 +33,8 @@ variable "guest_password" {
 source "tart-cli" "base" {
   vm_name            = var.vm_name
   headless           = true
-  recovery_partition = "keep"
+  disk_size_gb       = var.disk_size_gb
+  recovery_partition = "relocate"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"

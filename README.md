@@ -27,6 +27,7 @@ cold-boot acceptance as `macos-sequoia-xcode:26.3`,
 ## Requirements
 
 - Apple silicon
+- A host with `diskutil image resize` (verified on macOS 27)
 - Tart 2.36 or newer
 - Packer 1.14 or newer
 - Go 1.25 or newer
@@ -125,8 +126,9 @@ REGISTRY=ghcr.io/minimillionaire .build/release/macos-image build vanilla --conf
 
 The installer is cached by SHA-256 in `~/.cache/macos-image/installers` and
 verified before each use. `INSTALLER_CACHE_DIR` overrides that directory.
-Upgrade profiles set their own disk capacity; the existing vanilla image and
-the default capacity of IPSW builds are unchanged.
+Every build runs on a sparse 256 GB disk. When a build finishes, the disk is
+shrunk to the smallest multiple of 10 GB that leaves at least 8 GiB free, and
+Recovery is kept. See [Disk size](docs/disk-size.md#build-and-published-sizes).
 
 Tahoe has an additional user setup phase after the system terms and first login.
 Its initial wait defaults to 90 seconds and can be set with
