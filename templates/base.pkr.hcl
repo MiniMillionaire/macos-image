@@ -91,6 +91,10 @@ build {
   }
 
   provisioner "shell" {
-    script = "scripts/guest/verify-base.sh"
+    environment_vars = ["GUEST_USERNAME=${var.guest_username}"]
+    scripts = [
+      "scripts/guest/cleanup-build.sh",
+      "scripts/guest/verify-base.sh",
+    ]
   }
 }

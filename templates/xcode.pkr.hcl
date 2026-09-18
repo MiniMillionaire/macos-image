@@ -72,6 +72,7 @@ build {
     scripts = [
       "scripts/guest/install-xcode.sh",
       "scripts/guest/install-mobile-tools.sh",
+      "scripts/guest/cleanup-build.sh",
       "scripts/guest/verify-xcode.sh",
     ]
   }

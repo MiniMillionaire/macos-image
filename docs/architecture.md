@@ -67,6 +67,11 @@ Base and Xcode builds clone the matching validated vanilla image. Each Xcode
 build provisions the base tools before installing Xcode; it does not inherit
 an earlier Xcode installation. Both use SSH provisioning.
 
+Before verification, base and Xcode builds remove Homebrew, npm, and Ruby
+download caches and their staged provisioning files. Xcode's XIP is removed
+after installation. Installed SDKs, simulator runtimes, and Flutter artifacts
+remain available for development.
+
 Guest scripts run with Apple's Bash 3.2. A failing standalone `[[ ... ]]`
 condition does not trigger `set -e` in that shell. Assertions use `test` or an
 explicit failure branch so that wrong versions and missing prerequisites stop
