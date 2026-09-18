@@ -93,7 +93,8 @@ of changes to workflows and runner configuration.
 
 Choose the profile, variant, and operation in Actions. For Xcode, provide its
 exact compiler version and, optionally, a separate tag. Base builds consume the
-corresponding published vanilla image; Xcode builds consume the published base.
+corresponding published vanilla image. Xcode builds use that same vanilla and
+install the base tools before Xcode.
 Their source tags are resolved to digests and checked against the selected
 macOS version/build before use.
 

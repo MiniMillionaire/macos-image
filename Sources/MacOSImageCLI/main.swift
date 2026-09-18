@@ -125,7 +125,7 @@ struct BuildBaseCommand: ImageSubcommand {
 struct BuildXcodeCommand: ImageSubcommand {
   static let configuration = CommandConfiguration(
     commandName: "xcode",
-    abstract: "Build an Xcode image from a base image."
+    abstract: "Build an Xcode image from a vanilla image."
   )
 
   @OptionGroup var common: CommonOptions
@@ -133,7 +133,7 @@ struct BuildXcodeCommand: ImageSubcommand {
   @Argument(help: "Xcode version matching the cached XIP archive.")
   var version: String
 
-  @Option(help: "Source base VM or OCI reference.")
+  @Option(help: "Source vanilla VM or OCI reference.")
   var source: String?
 
   @Option(help: "Name for the new local VM.")

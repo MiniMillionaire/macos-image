@@ -63,9 +63,9 @@ Both macOS 26 and 27 then use the same SSH-only
 vanilla provisioning template. See [macOS 27](macos-27.md) for the pinned restore
 image and the observed native API behavior.
 
-Base builds clone a validated vanilla image; Xcode builds clone a validated base
-image. Both use SSH provisioning. Vanilla rebuilds are reserved for macOS
-restore-image changes.
+Base and Xcode builds clone the matching validated vanilla image. Each Xcode
+build provisions the base tools before installing Xcode; it does not inherit
+an earlier Xcode installation. Both use SSH provisioning.
 
 Guest scripts run with Apple's Bash 3.2. A failing standalone `[[ ... ]]`
 condition does not trigger `set -e` in that shell. Assertions use `test` or an

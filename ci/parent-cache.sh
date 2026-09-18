@@ -122,7 +122,6 @@ prepare_parent_source() {
   local variant reference digest entry metadata="$task_root/parent-image.json"
   local source_version=$MACOS_VERSION source_build=$MACOS_BUILD
   variant=vanilla
-  [[ "$VARIANT" != xcode ]] || variant=base
   reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
   if [[ "$VARIANT" == vanilla && -n "$VANILLA_SOURCE_PROFILE" ]]; then
     digest=$VANILLA_SOURCE_DIGEST

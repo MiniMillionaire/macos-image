@@ -145,6 +145,9 @@ Place Xcode at `~/XcodesCache/Xcode_<version>.xip`, then run:
 .build/release/macos-image build xcode 26.3
 ```
 
+Each Xcode build starts from the matching macOS vanilla image and installs the
+base tools before Xcode. Existing base or Xcode images are not required.
+
 Select another image definition with `IMAGE_CONFIG`:
 
 ```shell

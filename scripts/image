@@ -443,7 +443,7 @@ default_source() {
   local variant=$1
   if [[ "$variant" == vanilla ]] && vm_exists "$VANILLA_VM"; then
     printf '%s\n' "$VANILLA_VM"
-  elif [[ "$variant" == vanilla ]] && vm_exists "$LOCAL_VANILLA_SOURCE"; then
+  elif [[ "$variant" == vanilla && -z ${VANILLA_SOURCE_PROFILE:-} ]] && vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf '%s\n' "$LOCAL_VANILLA_SOURCE"
   elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
     printf '%s\n' "$BASE_VM"
@@ -678,7 +678,7 @@ provision_base() {
 
 build_xcode() {
   local version=${1:?Xcode version is required}
-  local source=${2:-$(default_source base)}
+  local source=${2:-$(default_source vanilla)}
   local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
   local archive="$xcode_cache/Xcode_$version.xip"
   local silicon_archive="$xcode_cache/Xcode_${version}_Apple_silicon.xip"
@@ -689,7 +689,7 @@ build_xcode() {
   fi
   [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
     die "A readable, nonempty Xcode archive is required: $archive"
-  clone_vm "$source" "$target" base
+  build_base "$source" "$target"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
