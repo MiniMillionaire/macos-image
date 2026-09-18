@@ -33,18 +33,21 @@ jobs:
           trap 'rm -f "$config"' EXIT
           printf '{}\n' > "$config"
           printf '%s' "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin --registry-config "$config"
-          while read -r repository version digest; do
+          while read -r repository source version digest; do
             reference="ghcr.io/minimillionaire/$repository"
-            test "$(oras resolve "$reference:latest" --registry-config "$config")" = "$digest"
+            test "$(oras resolve "$reference:$source" --registry-config "$config")" = "$digest"
             oras tag "$reference@$digest" "$version" --registry-config "$config"
             test "$(oras resolve "$reference:$version" --registry-config "$config")" = "$digest"
-            test "$(oras resolve "$reference:latest" --registry-config "$config")" = "$digest"
+            test "$(oras resolve "$reference:$source" --registry-config "$config")" = "$digest"
             echo "$reference:$version $digest"
           done <<'IMAGES'
-          macos-sequoia-vanilla 15.6.1 sha256:37db3b09d4877a2522adc80aa944f91cc3f9f659cde65af8c4d405e43e4e15f3
-          macos-sequoia-base 15.6.1 sha256:5c21aab8e4e7445224074ad0a00b775a27735b29f06ff6a746d6f04bb2064193
-          macos-tahoe-vanilla 26.6.2 sha256:86777a3e30fcbba7d8fe6aeb43adbab33e9cecbc249c3ccdf26b17511ff0f8ba
-          macos-tahoe-base 26.6.2 sha256:953eb700bcddb98ccdedbf4ef39cd0a5e9666ec1ff488acbb0ed8f0dc64ff601
-          macos-golden-gate-vanilla 27.0 sha256:a2883aa8087c07b452a56a6c441a69e7064384bb662004c610e293c900aa11ce
-          macos-golden-gate-base 27.0 sha256:f7e98e34e06f800333a01443f06e06c14500e9f4c437ccf3b9b385d1cd162468
+          macos-sequoia-vanilla latest 15.6.1 sha256:37db3b09d4877a2522adc80aa944f91cc3f9f659cde65af8c4d405e43e4e15f3
+          macos-sequoia-base latest 15.6.1 sha256:5c21aab8e4e7445224074ad0a00b775a27735b29f06ff6a746d6f04bb2064193
+          macos-tahoe-vanilla latest 26.6.2 sha256:86777a3e30fcbba7d8fe6aeb43adbab33e9cecbc249c3ccdf26b17511ff0f8ba
+          macos-tahoe-base latest 26.6.2 sha256:953eb700bcddb98ccdedbf4ef39cd0a5e9666ec1ff488acbb0ed8f0dc64ff601
+          macos-golden-gate-vanilla latest 27.0 sha256:a2883aa8087c07b452a56a6c441a69e7064384bb662004c610e293c900aa11ce
+          macos-golden-gate-base latest 27.0 sha256:f7e98e34e06f800333a01443f06e06c14500e9f4c437ccf3b9b385d1cd162468
+          macos-sequoia-xcode 26.3 15.6.1-xcode26.3 sha256:c7bdd6d7fdd7722a0b9eb8978558df9bd08678eff58d9b0234ae9701c32bf6c1
+          macos-tahoe-xcode 26.6 26.6.2-xcode26.6 sha256:d1257eec6bb3c52e37bc77dbf974e38c4862e7dbd8cb9bc30c5417079b38bd25
+          macos-golden-gate-xcode 27 27.0-xcode27 sha256:4bdf7fd662476fcabea8168377916f345229dd38c3cae50b1a6436ea113153b3
           IMAGES
