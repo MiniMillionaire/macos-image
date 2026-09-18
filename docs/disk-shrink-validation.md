@@ -1,8 +1,8 @@
 # Disk shrink validation
 
 These experiments ran on September 18, 2026 on an Apple silicon host with
-macOS 27.0 and Tart 2.32.1. Each one used a disposable clone of a published
-image. They check the policy in [Disk size](disk-size.md#build-and-published-sizes):
+macOS 27.0. Tart 2.32.1 was used unless Tart 2.36.0 is noted. Each experiment
+used a disposable clone of a published image. They check the policy in [Disk size](disk-size.md#build-and-published-sizes):
 build on a sparse 256 GB disk, then shrink with `diskutil image resize` to the
 smallest multiple of 10 GB that leaves at least 8 GiB free, keeping Recovery.
 
