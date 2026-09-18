@@ -38,7 +38,7 @@ ci_read_value() {
 
 ci_load_profile() {
   case ${PROFILE:-} in
-    sequoia-15.6.1|sequoia-15.7.7|tahoe-26.6.2|golden-gate-27.0) ;;
+    sequoia-15.6.1|sequoia-15.7.7|sequoia-15.7.8|sequoia-15.7.9|sequoia-15.8|tahoe-26.6.2|golden-gate-27.0) ;;
     *) ci_die "Unknown image profile: ${PROFILE:-}" ;;
   esac
   case ${VARIANT:-} in

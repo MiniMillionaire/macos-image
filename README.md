@@ -8,6 +8,9 @@ The current image definitions are:
 | --- | --- | --- |
 | `sequoia-15.6.1` | macOS 15.6.1 (24G90) | macOS 15 or newer |
 | `sequoia-15.7.7` | Upgrade 15.6.1 vanilla to 15.7.7 (24G720) | macOS 15 or newer |
+| `sequoia-15.7.8` | Upgrade 15.6.1 vanilla to 15.7.8 (24G824) | macOS 15 or newer |
+| `sequoia-15.7.9` | Upgrade 15.6.1 vanilla to 15.7.9 (24G830) | macOS 15 or newer |
+| `sequoia-15.8` | Upgrade 15.6.1 vanilla to 15.8 (24H23) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
 | `golden-gate-27.0` | macOS 27.0 (26A428) | macOS 27 or newer |
 

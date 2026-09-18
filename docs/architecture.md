@@ -20,7 +20,8 @@ Tart creates the VM from a pinned Apple restore image. A small VNC controller co
 
 Provisioning uses small shell scripts instead of Ansible. This keeps local setup light, makes each stage directly runnable, and leaves failed VMs available for inspection.
 
-Checks run against disposable clones. Templates retain the recovery partition, except Xcode builds, which relocate it while expanding the disk.
+Checks run against disposable clones. Templates retain the Recovery partition
+and relocate it when expanding the disk.
 
 ## Setup Assistant
 
