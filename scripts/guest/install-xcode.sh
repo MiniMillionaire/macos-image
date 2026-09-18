@@ -33,6 +33,7 @@ xcodebuild -downloadAllPlatforms -exportPath "$runtime_directory"
 runtime_count=0
 while IFS= read -r -d '' runtime; do
   xcodebuild -importPlatform "$runtime"
+  rm -f "$runtime"
   runtime_count=$((runtime_count + 1))
 done < <(find "$runtime_directory" -type f -name '*.dmg' -print0)
 test "$runtime_count" -gt 0
