@@ -114,7 +114,7 @@ The runner caches parent OCI images under
 parent tag again, then checks every cached blob against that digest before use.
 The task gets a private APFS clone of the cached layout. A cache miss downloads
 the pinned digest; a corrupt entry is discarded and downloaded again. Successful
-vanilla and base publications also retain their verified layout for child builds.
+vanilla publications retain their verified layout for base and Xcode builds.
 
 The cache keeps at most two entries and 64 GiB, removing the least recently used
 entries first. Other entries can be removed to meet a build's disk requirement.
