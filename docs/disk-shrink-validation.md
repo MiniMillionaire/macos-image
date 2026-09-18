@@ -145,15 +145,20 @@ Golden Gate, Web Browser and Disk Utility.
 ## Disabling SIP after the shrink
 
 On both shrunk vanilla images, `tart run --recovery` reached the startup
-options picker. The picker is shown by the Recovery boot. The `csrutil disable`
-keystrokes from `templates/disable-sip.pkr.hcl` were then replayed through
-Tart 2.32.1's experimental VNC server. The picker ignored keyboard and pointer
-input in three boots, and the VNC server exited once on reconnect. This step
-was not completed locally.
+options picker, which the Recovery boot displays. The `csrutil disable`
+keystrokes from `templates/disable-sip.pkr.hcl` were then replayed with the
+repository's VNC controller, using an added arrow-key mapping. The picker
+ignored the input with Tart 2.32.1 and with Tart 2.36.0, at key intervals of
+200 ms and 300 ms. Reconnecting to Tart's experimental VNC server made Tart
+exit with status 133.
 
-The same input did work on the Golden Gate Xcode clone, which reached the
-Recovery window. The first base or Xcode build from a shrunk vanilla runs this
-step in CI with Tart 2.36.0 and Packer.
+As a control, the unshrunk published Tahoe vanilla ran the same sequence with
+Tart 2.36.0 and showed the same result. The failure is therefore in this local
+input path, not in the shrunk disk. The controller did select Options on the
+Golden Gate Xcode clone once, and that clone reached the Recovery window.
+
+CI disables SIP through Packer's `boot_command`. The first base or Xcode build
+from a shrunk vanilla runs that step against a moved Recovery partition.
 
 ## Online shrink and manual GPT move
 
