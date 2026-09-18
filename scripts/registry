@@ -180,10 +180,9 @@ download() {
   local repository
   repository=$(reference_repository "$reference")
   if [[ "$repository" == ghcr.io/* ]]; then
-    local options=()
+    local options=(--repository "$repository" --digest "$digest" --layout "$layout" --ca-file "$ca" --timeout 4800)
     [[ "$resume" != --resume ]] || options+=(--resume)
-    "$helper" download-oci --repository "$repository" --digest "$digest" --layout "$layout" \
-      --ca-file "$ca" --timeout 4800 "${options[@]}" >&2
+    "$helper" download-oci "${options[@]}" >&2
   else
     [[ -z "$resume" ]] || fail 'Resume is supported only for GHCR'
     GODEBUG=http2client=0 "$helper" run --timeout 6900 -- "$oras" cp "$repository@$digest" "$layout:image" \
