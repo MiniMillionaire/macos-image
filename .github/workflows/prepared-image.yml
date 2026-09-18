@@ -32,6 +32,10 @@ on:
       verification_sha256:
         type: string
         description: SHA-256 of the local verification record, required for promotion
+      update_latest:
+        type: boolean
+        default: false
+        description: Also replace the latest digest named in the verification record
 
 permissions:
   contents: read
@@ -69,6 +73,7 @@ jobs:
           DIGEST: ${{ inputs.digest }}
           OPERATION: ${{ inputs.operation }}
           VERIFICATION_SHA256: ${{ inputs.verification_sha256 }}
+          UPDATE_LATEST: ${{ inputs.update_latest }}
           REGISTRY: ghcr.io/minimillionaire
         run: |
           set -euo pipefail
@@ -103,6 +108,7 @@ jobs:
       XCODE_TAG: ${{ inputs.xcode_tag }}
       DIGEST: ${{ inputs.digest }}
       VERIFICATION_SHA256: ${{ inputs.verification_sha256 }}
+      UPDATE_LATEST: ${{ inputs.update_latest }}
       REGISTRY: ghcr.io/minimillionaire
       IMAGE_CACERT: /opt/homebrew/etc/openssl@3/cert.pem
       GOPROXY: 'off'
@@ -145,6 +151,7 @@ jobs:
             printf 'IMAGE_CONFIG=%s\n' "$CONFIG_PATH"
             printf 'IMAGE_VARIANT=%s\n' "$VARIANT"
             printf 'PACKAGE_REF=%s\n' "$PACKAGE_REF"
+            printf 'LATEST_REF=%s\n' "$LATEST_REF"
             printf 'XCODE_TAG=%s\n' "$XCODE_TAG"
             printf 'IMAGE_PRERELEASE=%s\n' "$IMAGE_PRERELEASE"
             printf 'XCODE_PRERELEASE=%s\n' "$XCODE_PRERELEASE"
@@ -175,6 +182,11 @@ jobs:
           ' "$record" >/dev/null
           cp "$record" "$RUNNER_TEMP/prepared-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/verification.json"
           test "$(scripts/registry resolve "${PACKAGE_REF%:*}@$DIGEST")" = "$DIGEST"
+          if [[ -n "$LATEST_REF" ]]; then
+            previous=$(jq -er '.previous_digest | select(test("^sha256:[0-9a-f]{64}$"))' "$record")
+            current=$(scripts/registry resolve "$LATEST_REF")
+            [[ "$current" == "$previous" || "$current" == "$DIGEST" ]]
+          fi
       - name: Promote verified tags
         if: inputs.operation == 'promote'
         working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
@@ -188,12 +200,18 @@ jobs:
           if [[ "$VARIANT" == xcode && "$IMAGE_PRERELEASE" == false && "$XCODE_PRERELEASE" == false ]]; then
             scripts/registry promote-xcode-alias "${PACKAGE_REF%:*}:$XCODE_TAG" "$DIGEST" > ../xcode-alias.json
           fi
+          if [[ -n "$LATEST_REF" ]]; then
+            scripts/registry promote "$LATEST_REF" "$DIGEST"
+          fi
       - name: Confirm public tags
         if: inputs.operation == 'promote'
         working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         run: |
           set -euo pipefail
           test "$(scripts/registry resolve "$PACKAGE_REF")" = "$DIGEST"
+          if [[ -n "$LATEST_REF" ]]; then
+            test "$(scripts/registry resolve "$LATEST_REF")" = "$DIGEST"
+          fi
           if [[ -f ../xcode-alias.json ]]; then
             reference=$(jq -er .reference ../xcode-alias.json)
             digest=$(jq -er .digest ../xcode-alias.json)

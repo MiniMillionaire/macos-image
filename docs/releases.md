@@ -183,7 +183,10 @@ primary tag in `reference`, `anonymous_download: "passed"`, `cold_boot: "passed"
 and the guest's `boot_session`. Dispatch `promote` with the same inputs and that
 file's SHA-256. This maintainer-supplied record is saved with the workflow's
 artifacts. Promotion updates the primary tag and eligible Xcode alias, then
-confirms their public digests. It does not change `latest` or create a Release.
+confirms their public digests. To replace an existing `latest` alias, also record
+its current digest as `previous_digest` and select `update_latest`. Promotion
+refuses to move `latest` if it has changed to a different image in the meantime.
+This workflow does not create a Release.
 Keep the export until publication succeeds; remove it manually afterward.
 
 Recovery verifies the original authorized run, source revision, configuration
