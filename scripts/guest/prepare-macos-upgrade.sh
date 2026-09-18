@@ -2,7 +2,8 @@
 set -euo pipefail
 
 archive=/tmp/macos-image-InstallAssistant.pkg
-boot_marker=/var/tmp/macos-image-upgrade-boot-session
+boot_marker="$HOME/.macos-image-upgrade-boot-session"
+test ! -e "$boot_marker"
 test ! -e "$boot_marker"
 test "$(sudo -n fdesetup status)" = 'FileVault is Off.'
 signature=$(pkgutil --check-signature "$archive")

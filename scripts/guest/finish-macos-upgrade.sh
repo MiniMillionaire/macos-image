@@ -4,8 +4,11 @@ set -euo pipefail
 test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
 test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
 test "$(sudo -n fdesetup status)" = 'FileVault is Off.'
-boot_marker=/var/tmp/macos-image-upgrade-boot-session
-test "$(cat "$boot_marker")" != "$(sysctl -n kern.bootsessionuuid)"
+boot_marker="$HOME/.macos-image-upgrade-boot-session"
+previous_boot=$(cat "$boot_marker")
+current_boot=$(sysctl -n kern.bootsessionuuid)
+test -n "$previous_boot"
+test "$previous_boot" != "$current_boot"
 case "$INSTALLER_APP" in
   '/Applications/Install macOS Sequoia.app') ;;
   *) echo "Unsupported installer cleanup path: $INSTALLER_APP" >&2; exit 1 ;;
