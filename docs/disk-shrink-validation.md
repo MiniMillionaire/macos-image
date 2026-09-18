@@ -15,15 +15,20 @@ build may report a slightly different minimum.
 | --- | --- | --- | --- | --- | --- |
 | `macos-golden-gate-xcode:27` | 220 GB | 87.3 GB | 100 GB | 15 GiB | `verify-image.sh` xcode passed |
 | `macos-golden-gate-vanilla:27.0` | 80 GB | 40.9 GB | 50 GB | 9.2 GiB | `verify-image.sh` vanilla passed |
+| `macos-tahoe-xcode:26.6` | 220 GB | 92.2 GB | 110 GB | 18 GiB | `verify-image.sh` xcode passed |
+| `macos-tahoe-vanilla:26.6.2` | 80 GB | 33.8 GB | 50 GB | 16 GiB | `verify-image.sh` vanilla passed |
 
 Digests:
 
 - Golden Gate Xcode 27: `sha256:4bdf7fd662476fcabea8168377916f345229dd38c3cae50b1a6436ea113153b3`
 - Golden Gate vanilla 27.0: `sha256:a2883aa8087c07b452a56a6c441a69e7064384bb662004c610e293c900aa11ce`
+- Tahoe Xcode 26.6: `sha256:d1257eec6bb3c52e37bc77dbf974e38c4862e7dbd8cb9bc30c5417079b38bd25`
+- Tahoe vanilla 26.6.2: `sha256:86777a3e30fcbba7d8fe6aeb43adbab33e9cecbc249c3ccdf26b17511ff0f8ba`
 
-The vanilla run used the `shrink_vm` function from `scripts/image`. It was
-extracted with its helpers, with `run_bounded` calling the command directly.
-The Xcode run executed the same `diskutil` commands by hand.
+The vanilla and Tahoe Xcode runs used the `shrink_vm` function from
+`scripts/image`. It was extracted with its helpers, and `run_bounded` called
+each command directly. The Golden Gate Xcode run executed the same `diskutil`
+commands by hand. The Tahoe Xcode run used Tart 2.36.0.
 
 ## Golden Gate Xcode 27
 
@@ -104,11 +109,51 @@ Golden Gate, Web Browser and Disk Utility.
 | Recovery container | `diskutil verifyVolume` passed |
 | SIP | Enabled, as expected for vanilla |
 
-The `csrutil disable` keystrokes were replayed in recoveryOS through VNC. On
-Tart 2.32.1 the startup picker ignored VNC keyboard and pointer input in two
-boots, and Tart's experimental VNC server exited once on reconnect. That step
-was not completed locally. The first base or Xcode build from a shrunk
-vanilla runs it in CI.
+## Tahoe Xcode 26.6
+
+`shrink_vm` read a minimum of 92,178,219,008 bytes and shrank the disk from
+220 GB to 110 GB in 8 seconds:
+
+| Check | Result |
+| --- | --- |
+| File length | 110,000,001,024 bytes |
+| Host allocation | 85.6 GB before, 89.7 GB after |
+| Normal boot | macOS 26.6.2 (25G83), session `0F95DD72-292B-479A-A669-D2A89A35BBB2` |
+| `verify-image.sh` (xcode) | Passed: Xcode 26.6, Flutter and Android SDK 36; Chrome missing, as expected |
+| APFS container | 104.1 GB |
+| Data | 97 GiB size, 59 GiB used, 18 GiB available |
+| Recovery container | `diskutil verifyVolume` passed |
+| SIP | Disabled, unchanged |
+| Simulator runtimes | 4 images, 21.8 GB |
+
+## Tahoe vanilla 26.6.2
+
+`shrink_vm` read a minimum of 33,793,507,328 bytes and shrank the disk to
+50 GB in 5 seconds:
+
+| Check | Result |
+| --- | --- |
+| File length | 50,000,003,072 bytes |
+| Host allocation | 28.3 GB before, 32.4 GB after |
+| Normal boot | macOS 26.6.2 (25G83), session `59248942-85FB-437F-ADBD-A3971D1108B8` |
+| `verify-image.sh` (vanilla) | Passed |
+| APFS container | 44.1 GB |
+| Data | 41 GiB size, 5.4 GiB used, 16 GiB available |
+| Recovery container | `diskutil verifyVolume` passed |
+| SIP | Enabled, as expected for vanilla |
+
+## Disabling SIP after the shrink
+
+On both shrunk vanilla images, `tart run --recovery` reached the startup
+options picker. The picker is shown by the Recovery boot. The `csrutil disable`
+keystrokes from `templates/disable-sip.pkr.hcl` were then replayed through
+Tart 2.32.1's experimental VNC server. The picker ignored keyboard and pointer
+input in three boots, and the VNC server exited once on reconnect. This step
+was not completed locally.
+
+The same input did work on the Golden Gate Xcode clone, which reached the
+Recovery window. The first base or Xcode build from a shrunk vanilla runs this
+step in CI with Tart 2.36.0 and Packer.
 
 ## Online shrink and manual GPT move
 
