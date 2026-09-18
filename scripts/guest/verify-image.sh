@@ -46,9 +46,17 @@ function run(arguments) {
     }
     var options = $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements;
     var windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(options, $.kCGNullWindowID)));
-    var normalWindowLevel = Number($.CGWindowLevelForKey($.kCGNormalWindowLevelKey));
+    var menuLevel = Number($.CGWindowLevelForKey($.kCGMainMenuWindowLevelKey));
+    var dockLevel = Number($.CGWindowLevelForKey($.kCGDockWindowLevelKey));
+    var statusLevel = Number($.CGWindowLevelForKey($.kCGStatusWindowLevelKey));
+    var statusOwners = ["Control Center", "Spotlight", "SystemUIServer", "TextInputMenuAgent"];
     var visible = windows.filter(function(window) {
-        return window.kCGWindowLayer === normalWindowLevel && window.kCGWindowAlpha > 0;
+        if (window.kCGWindowAlpha <= 0) return false;
+        var owner = window.kCGWindowOwnerName;
+        var level = window.kCGWindowLayer;
+        if (owner === "Window Server" && level === menuLevel) return false;
+        if (owner === "Dock" && level === dockLevel) return false;
+        return level !== statusLevel || statusOwners.indexOf(owner) === -1;
     });
     if (visible.length) {
         throw new Error("Unexpected desktop windows: " + visible.map(function(window) {
