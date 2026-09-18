@@ -170,6 +170,22 @@ cache selected for that build.
 
 ## Recovery and cleanup
 
+For a locally modified, accepted image, `Publish prepared macOS image` uploads an
+existing OCI export without rebuilding it. Put the export at
+`~/.cache/macos-image/prepared/<manifest-sha256>/layout` on the runner, where
+`<manifest-sha256>` omits the `sha256:` prefix. Dispatch `upload` with the complete
+digest and image configuration. The workflow verifies the export and uploads by
+digest without changing tags.
+
+Download that digest anonymously, verify all blobs, import it, and verify a cold
+boot. Save `verification.json` beside the layout with `manifest_digest`, the
+primary tag in `reference`, `anonymous_download: "passed"`, `cold_boot: "passed"`,
+and the guest's `boot_session`. Dispatch `promote` with the same inputs and that
+file's SHA-256. This maintainer-supplied record is saved with the workflow's
+artifacts. Promotion updates the primary tag and eligible Xcode alias, then
+confirms their public digests. It does not change `latest` or create a Release.
+Keep the export until publication succeeds; remove it manually afterward.
+
 Recovery verifies the original authorized run, source revision, configuration
 hashes, and saved VM hashes. It preserves the first successful OCI export:
 Tart's manifest contains an upload timestamp, so re-exporting the same VM would

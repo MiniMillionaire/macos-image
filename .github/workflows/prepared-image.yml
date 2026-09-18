@@ -1,0 +1,217 @@
+name: Publish prepared macOS image
+run-name: ${{ inputs.operation }} prepared ${{ inputs.profile }} ${{ inputs.variant }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [upload, promote]
+        default: upload
+        description: Upload a local export or promote its verified digest
+      profile:
+        type: choice
+        options: [sequoia-15.6.1, sequoia-15.7.7, sequoia-15.7.8, sequoia-15.7.9, sequoia-15.8, tahoe-26.6.2, golden-gate-27.0]
+        required: true
+        description: Image configuration
+      variant:
+        type: choice
+        options: [vanilla, base, xcode]
+        required: true
+        description: Image variant
+      xcode_version:
+        type: string
+        description: Installed Xcode version
+      xcode_tag:
+        type: string
+        description: Xcode version alias
+      digest:
+        type: string
+        required: true
+        description: Prepared manifest SHA-256, including sha256 prefix
+      verification_sha256:
+        type: string
+        description: SHA-256 of the local verification record, required for promotion
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-image-publication
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  authorize:
+    if: >-
+      github.repository == 'MiniMillionaire/macos-image' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
+      github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      source_sha256: ${{ steps.source.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check request and package source
+        id: source
+        env:
+          PROFILE: ${{ inputs.profile }}
+          VARIANT: ${{ inputs.variant }}
+          XCODE_VERSION: ${{ inputs.xcode_version }}
+          XCODE_TAG: ${{ inputs.xcode_tag }}
+          DIGEST: ${{ inputs.digest }}
+          OPERATION: ${{ inputs.operation }}
+          VERIFICATION_SHA256: ${{ inputs.verification_sha256 }}
+          REGISTRY: ghcr.io/minimillionaire
+        run: |
+          set -euo pipefail
+          source ci/config.sh
+          ci_load_profile
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          case "$OPERATION" in
+            upload) test -z "$VERIFICATION_SHA256" ;;
+            promote) [[ "$VERIFICATION_SHA256" =~ ^[0-9a-f]{64}$ ]] ;;
+            *) exit 1 ;;
+          esac
+          git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+          printf 'sha256=%s\n' "$(ci_sha256 "$RUNNER_TEMP/source.tar.gz")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: prepared-image-source
+          path: ${{ runner.temp }}/source.tar.gz
+          retention-days: 1
+
+  publish:
+    needs: authorize
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PATH: /opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+      PROFILE: ${{ inputs.profile }}
+      VARIANT: ${{ inputs.variant }}
+      XCODE_VERSION: ${{ inputs.xcode_version }}
+      XCODE_TAG: ${{ inputs.xcode_tag }}
+      DIGEST: ${{ inputs.digest }}
+      VERIFICATION_SHA256: ${{ inputs.verification_sha256 }}
+      REGISTRY: ghcr.io/minimillionaire
+      IMAGE_CACERT: /opt/homebrew/etc/openssl@3/cert.pem
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: local
+      TART_NO_AUTO_PRUNE: '1'
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: prepared-image-source
+          path: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/input
+      - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6
+        with:
+          version: 1.3.0
+      - name: Read prepared image
+        env:
+          SOURCE_SHA256: ${{ needs.authorize.outputs.source_sha256 }}
+        run: |
+          set -euo pipefail
+          task="$RUNNER_TEMP/prepared-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test "$(shasum -a 256 "$task/input/source.tar.gz" | awk '{print $1}')" = "$SOURCE_SHA256"
+          mkdir "$task/source"
+          tar -xzf "$task/input/source.tar.gz" -C "$task/source"
+          cd "$task/source"
+          source ci/config.sh
+          ci_load_profile
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          directory="$HOME/.cache/macos-image/prepared/${DIGEST#sha256:}"
+          test -d "$directory" && test ! -L "$directory"
+          test -d "$directory/layout" && test ! -L "$directory/layout"
+          test -z "$(find "$directory/layout" -type l -print -quit)"
+          make artifact-helper
+          .build/tools/image-artifact inspect --layout "$directory/layout" > "$task/image.json"
+          jq -e --arg digest "$DIGEST" --arg version "$MACOS_VERSION" --arg build "$MACOS_BUILD" \
+            --arg variant "$VARIANT" --arg xcode "$XCODE_VERSION" '
+            .manifest_digest == $digest and .macos_version == $version and
+            .macos_build == $build and .variant == $variant and .xcode_version == $xcode
+          ' "$task/image.json" >/dev/null
+          {
+            printf 'IMAGE_CONFIG=%s\n' "$CONFIG_PATH"
+            printf 'IMAGE_VARIANT=%s\n' "$VARIANT"
+            printf 'PACKAGE_REF=%s\n' "$PACKAGE_REF"
+            printf 'XCODE_TAG=%s\n' "$XCODE_TAG"
+            printf 'IMAGE_PRERELEASE=%s\n' "$IMAGE_PRERELEASE"
+            printf 'XCODE_PRERELEASE=%s\n' "$XCODE_PRERELEASE"
+            printf 'PREPARED_DIRECTORY=%s\n' "$directory"
+          } >> "$GITHUB_ENV"
+      - name: Upload digest
+        if: inputs.operation == 'upload'
+        working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(scripts/registry upload "$PREPARED_DIRECTORY/layout" "$PACKAGE_REF")" = "$DIGEST"
+      - name: Check local acceptance record
+        if: inputs.operation == 'promote'
+        working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: |
+          set -euo pipefail
+          record="$PREPARED_DIRECTORY/verification.json"
+          test -f "$record" && test ! -L "$record"
+          test "$(shasum -a 256 "$record" | awk '{print $1}')" = "$VERIFICATION_SHA256"
+          jq -e --arg digest "$DIGEST" --arg reference "$PACKAGE_REF" '
+            .manifest_digest == $digest and .reference == $reference and
+            .anonymous_download == "passed" and .cold_boot == "passed" and
+            (.boot_session | test("^[0-9A-Fa-f-]{36}$"))
+          ' "$record" >/dev/null
+          cp "$record" "$RUNNER_TEMP/prepared-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/verification.json"
+          test "$(scripts/registry resolve "${PACKAGE_REF%:*}@$DIGEST")" = "$DIGEST"
+      - name: Promote verified tags
+        if: inputs.operation == 'promote'
+        working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          scripts/registry promote "$PACKAGE_REF" "$DIGEST"
+          if [[ "$VARIANT" == xcode && "$IMAGE_PRERELEASE" == false && "$XCODE_PRERELEASE" == false ]]; then
+            scripts/registry promote-xcode-alias "${PACKAGE_REF%:*}:$XCODE_TAG" "$DIGEST" > ../xcode-alias.json
+          fi
+      - name: Confirm public tags
+        if: inputs.operation == 'promote'
+        working-directory: ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: |
+          set -euo pipefail
+          test "$(scripts/registry resolve "$PACKAGE_REF")" = "$DIGEST"
+          if [[ -f ../xcode-alias.json ]]; then
+            reference=$(jq -er .reference ../xcode-alias.json)
+            digest=$(jq -er .digest ../xcode-alias.json)
+            test "$(scripts/registry resolve "$reference")" = "$digest"
+          fi
+          printf '%s@%s\n' "${PACKAGE_REF%:*}" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: prepared-image-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/image.json
+            ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/verification.json
+            ${{ runner.temp }}/prepared-image-${{ github.run_id }}-${{ github.run_attempt }}/xcode-alias.json
+      - name: Remove task files
+        if: always()
+        run: |
+          set -euo pipefail
+          task="$RUNNER_TEMP/prepared-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test -d "$task" && test ! -L "$task"
+          rm -rf -- "$task"

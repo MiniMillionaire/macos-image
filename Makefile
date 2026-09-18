@@ -24,7 +24,7 @@ doctor: cli
 
 validate: cli
 	IMAGE_CONFIG=$(IMAGE_CONFIG) $(CLI) validate
-	actionlint .github/workflows/image.yml
+	actionlint .github/workflows/*.yml
 	shellcheck -x -S warning -e SC1090,SC1091 ci/authorize.sh ci/image.sh ci/release.sh scripts/image scripts/registry
 
 vanilla: cli
