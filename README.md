@@ -172,18 +172,24 @@ Package names and tags follow
 
 ```text
 ghcr.io/minimillionaire/macos-sequoia-vanilla:latest
+ghcr.io/minimillionaire/macos-sequoia-vanilla:15.6.1
 ghcr.io/minimillionaire/macos-tahoe-vanilla:latest
+ghcr.io/minimillionaire/macos-tahoe-vanilla:26.6.2
 ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest
+ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0
 ghcr.io/minimillionaire/macos-tahoe-base:latest
+ghcr.io/minimillionaire/macos-tahoe-base:26.6.2
 ghcr.io/minimillionaire/macos-sequoia-xcode:26.3
 ghcr.io/minimillionaire/macos-tahoe-xcode:26.6
 ghcr.io/minimillionaire/macos-golden-gate-xcode:27
 ```
 
-Vanilla and base use `latest`. Xcode versions share one package per macOS family;
-the Xcode version is the tag. Tags can change after a rebuild. Pin a manifest
-digest with `@sha256:...` when consuming exact image bytes. The image records its
-macOS version, Apple build, Xcode version, and source commit in OCI metadata.
+Vanilla and base use their macOS version as the primary tag. Their `latest` alias
+is updated after a release is verified as current for that macOS major version.
+Xcode versions share one package per macOS family; the Xcode version is the tag.
+Tags can change after a rebuild. Pin a manifest digest with `@sha256:...` when
+consuming exact image bytes. OCI metadata records the macOS version, Apple
+build, Xcode version, and source commit.
 
 For Xcode registry operations, set `XCODE_VERSION` to the installed compiler
 version. `XCODE_TAG` defaults to that version; it can name a prerelease such as
@@ -195,8 +201,8 @@ IMAGE_CONFIG=config/golden-gate-27.0.env .build/release/macos-image pull xcode -
 ```
 
 CI uploads by digest and verifies the anonymous download and cold boot before
-updating tags. Xcode's optional `latest` alias is updated only when explicitly
-requested for a stable Xcode tag.
+updating tags. Updating `latest` requires an explicit release choice. Xcode's
+optional `latest` alias also requires a stable Xcode tag.
 
 See [Releases](docs/releases.md) for CI authorization, verification, and recovery.
 

@@ -349,7 +349,8 @@ remote_ref() {
   [[ -n "$registry" ]] || die "REGISTRY is required for registry operations"
   case "$variant" in
     vanilla|base)
-      [[ "$tag" == latest ]] || die "$variant images use the latest registry tag"
+      [[ "$tag" == latest || "$tag" == "$MACOS_VERSION" ]] ||
+        die "$variant images use the configured macOS version or latest"
       ;;
     xcode)
       [[ "$tag" == latest ]] || is_xcode_tag "$tag" || die "Invalid Xcode tag: $tag"
@@ -431,7 +432,7 @@ default_source() {
   elif [[ "$variant" == base ]] && vm_exists "$BASE_VM"; then
     printf '%s\n' "$BASE_VM"
   else
-    remote_ref "$variant" latest
+    remote_ref "$variant" "$MACOS_VERSION"
   fi
 }
 
@@ -651,11 +652,13 @@ push_image() {
   local revision
   case "$variant" in
     vanilla)
-      tag=${tag:-latest}
+      tag=${tag:-$MACOS_VERSION}
+      [[ "$tag" == "$MACOS_VERSION" ]] || die 'Vanilla pushes require the configured macOS version tag'
       vm=${vm:-$VANILLA_VM}
       ;;
     base)
-      tag=${tag:-latest}
+      tag=${tag:-$MACOS_VERSION}
+      [[ "$tag" == "$MACOS_VERSION" ]] || die 'Base pushes require the configured macOS version tag'
       vm=${vm:-$BASE_VM}
       ;;
     xcode)
@@ -828,7 +831,7 @@ doctor() {
   if vm_exists "$LOCAL_VANILLA_SOURCE"; then
     printf 'Local vanilla source: %s\n' "$LOCAL_VANILLA_SOURCE"
   elif [[ -n "$registry" ]]; then
-    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla latest)"
+    printf 'Remote vanilla source: %s\n' "$(remote_ref vanilla "$MACOS_VERSION")"
   else
     printf 'No local vanilla source found; build one with macos-image build vanilla\n'
   fi
@@ -850,7 +853,8 @@ Usage:
   scripts/image resize <source> <target> <disk-size-gb>
   scripts/image test <vm> [vanilla|sip|base|xcode]
 
-Vanilla and base images use the latest registry tag.
+Vanilla and base pushes default to the configured macOS version tag.
+Vanilla and base pulls default to latest and also accept that version tag.
 Xcode tags default to XCODE_TAG or XCODE_VERSION; pushes require a versioned tag.
 Xcode pulls accept latest with XCODE_VERSION.
 Set XCODE_VERSION for prerelease Xcode tags.

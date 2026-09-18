@@ -79,6 +79,8 @@ ci_load_profile() {
 
   UPDATE_LATEST=${UPDATE_LATEST:-false}
   [[ "$UPDATE_LATEST" == true || "$UPDATE_LATEST" == false ]] || ci_die "Invalid update-latest value"
+  [[ "$UPDATE_LATEST" == false || "$IMAGE_PRERELEASE" == false ]] ||
+    ci_die "Prerelease macOS images cannot update latest"
   if [[ "$VARIANT" == xcode ]]; then
     [[ ${XCODE_VERSION:-} =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)([.](0|[1-9][0-9]*))?$ ]] || ci_die "Xcode images require an exact Xcode version"
     XCODE_TAG=${XCODE_TAG:-$XCODE_VERSION}
@@ -97,21 +99,20 @@ ci_load_profile() {
   else
     [[ -z ${XCODE_VERSION:-} ]] || ci_die "Xcode version applies only to Xcode images"
     [[ -z ${XCODE_TAG:-} ]] || ci_die "Xcode tag applies only to Xcode images"
-    [[ "$UPDATE_LATEST" == false ]] || ci_die "Only Xcode images can update the latest alias"
     XCODE_TAG=
     XCODE_PRERELEASE=false
     VARIANT_ID=$VARIANT
   fi
 
   [[ ${REGISTRY:-} == ghcr.io/minimillionaire ]] || ci_die "Unexpected registry: ${REGISTRY:-}"
-  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:latest"
+  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:$MACOS_VERSION"
   LATEST_REF=
   RELEASE_TAG=
   if [[ "$VARIANT" == xcode ]]; then
     PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:$XCODE_TAG"
-    [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:latest"
     RELEASE_TAG=$XCODE_TAG
   fi
+  [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:latest"
   PROFILE_CONFIG_SHA256=$(ci_sha256 "$CONFIG_PATH")
   TOOLCHAIN_CONFIG_SHA256=$(ci_sha256 config/toolchain.env)
 }

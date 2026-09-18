@@ -123,7 +123,7 @@ prepare_parent_source() {
   variant=vanilla
   [[ "$VARIANT" != xcode ]] || variant=base
   reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
-  digest=$(./scripts/registry resolve "$reference:latest")
+  digest=$(./scripts/registry resolve "$reference:$MACOS_VERSION")
   entry=$(parent_cache_entry "$digest")
   parent_cache_credit_kib=0
   parent_cache_keep=

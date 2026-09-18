@@ -11,20 +11,24 @@ Package names and tags follow
 
 | Image | GHCR reference |
 | --- | --- |
-| Sequoia vanilla | `ghcr.io/minimillionaire/macos-sequoia-vanilla:latest` |
-| Tahoe vanilla | `ghcr.io/minimillionaire/macos-tahoe-vanilla:latest` |
-| Golden Gate vanilla | `ghcr.io/minimillionaire/macos-golden-gate-vanilla:latest` |
-| Tahoe base | `ghcr.io/minimillionaire/macos-tahoe-base:latest` |
-| Golden Gate base | `ghcr.io/minimillionaire/macos-golden-gate-base:latest` |
+| Sequoia vanilla | `ghcr.io/minimillionaire/macos-sequoia-vanilla:15.6.1` |
+| Tahoe vanilla | `ghcr.io/minimillionaire/macos-tahoe-vanilla:26.6.2` |
+| Golden Gate vanilla | `ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0` |
+| Tahoe base | `ghcr.io/minimillionaire/macos-tahoe-base:26.6.2` |
+| Golden Gate base | `ghcr.io/minimillionaire/macos-golden-gate-base:27.0` |
 | Sequoia with Xcode 26.3 | `ghcr.io/minimillionaire/macos-sequoia-xcode:26.3` |
 | Tahoe with Xcode 26.6 | `ghcr.io/minimillionaire/macos-tahoe-xcode:26.6` |
 | Golden Gate with Xcode 27 | `ghcr.io/minimillionaire/macos-golden-gate-xcode:27` |
 
+Vanilla and base use the macOS version as their primary tag. Set `update_latest`
+only after confirming the release is current within its macOS major version;
+the alias is promoted after the downloaded image passes its cold boot.
+
 Each macOS family has one Xcode package containing its available Xcode tags.
 `xcode_version` is the installed compiler version. `xcode_tag` defaults to that
 version; a prerelease can use `xcode_version=27.0` and `xcode_tag=27-beta-6`.
-Their numeric versions must agree. Setting `update_latest` also updates the
-Xcode package's `latest` alias. This is optional and only accepts stable Xcode tags.
+Their numeric versions must agree. For Xcode, `update_latest` is optional and
+only accepts stable Xcode tags.
 
 Tags can change after a rebuild. There is no project-version suffix or CI attempt
 suffix. The manifest digest identifies exact image bytes; the OCI metadata and

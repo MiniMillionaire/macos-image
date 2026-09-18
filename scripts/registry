@@ -76,9 +76,13 @@ check() {
 
 require_image_reference() {
   local reference=$1 variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
-  local tag=latest
+  local tag=$MACOS_VERSION
   case "$variant" in
-    vanilla|base) ;;
+    vanilla|base)
+      if [[ ${2:-false} == true && "$reference" == *:latest ]]; then
+        tag=latest
+      fi
+      ;;
     xcode)
       [[ ${XCODE_VERSION:-} =~ ^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){0,2}$ ]] || fail 'Invalid Xcode version'
       tag=${XCODE_TAG:-${XCODE_VERSION:?XCODE_VERSION is required}}

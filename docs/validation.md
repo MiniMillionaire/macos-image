@@ -118,6 +118,12 @@ Anonymous tag checks passed. All OS versions and Apple builds remained unchanged
 The temporary VMs, downloaded images, and saved recovery bundles were removed
 after publication.
 
+The published vanilla and base `latest` tags also have macOS version aliases:
+`15.6.1` for Sequoia, `26.6.2` for Tahoe, and `27.0` for Golden Gate. Each alias
+resolves to the same manifest digest as its corresponding `latest` tag. The
+[tagging run](https://github.com/MiniMillionaire/macos-image/actions/runs/35304562468)
+completed successfully, and all six pairs were checked anonymously.
+
 Golden Gate uses the current user's `tccd` process to locate its relocated
 [privacy database](macos-27.md#automation-permissions). Its downloaded-image
 cold boot passed with session `B8A09A60-B63F-42B5-B2EC-12D1E245A6A7`.

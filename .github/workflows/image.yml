@@ -29,7 +29,7 @@ on:
         type: string
         default: ''
       update_latest:
-        description: Also update the stable Xcode latest alias
+        description: Also update latest after confirming this is the current release
         type: boolean
         default: false
       operation:

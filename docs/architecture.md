@@ -98,10 +98,12 @@ are retained with the verified build after an interrupted download, so a
 recovery run can verify and reuse them.
 
 Package names follow Cirrus: `macos-<family>-vanilla`, `macos-<family>-base`, and
-`macos-<family>-xcode`. Vanilla/base use `latest`; Xcode uses its version as the
-tag. Labels record the source commit, repository, macOS version/build, and
-variant. Xcode images also record their installed Xcode version. Tags can be
-updated after a rebuild; consumers pin a digest for exact bytes.
+`macos-<family>-xcode`. Vanilla/base use their macOS version as the primary tag;
+`latest` points to the verified current release within each major version. Xcode
+uses its version as the tag. Labels record the source commit, repository, macOS
+version/build, and variant. Xcode images also record their installed Xcode
+version. Tags can be updated after a rebuild; consumers pin a digest for exact
+bytes.
 
 The release workflow verifies a fresh clone before uploading by digest, then
 downloads the full image anonymously, imports it, and checks another cold boot.
