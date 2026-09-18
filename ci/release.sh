@@ -149,7 +149,7 @@ scratch=$(mktemp -d "$RUNNER_TEMP/macos-image-release.XXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
 notes="$scratch/notes.md"
 cat > "$notes" <<EOF
-Verified arm64 Xcode $XCODE_TAG images.
+Verified arm64 macOS $MACOS_VERSION image with Xcode $XCODE_TAG.
 
 Each asset set records the source and OCI digest for one macOS profile. Published images were downloaded by digest, imported into Tart, and cold-boot tested before their tags were promoted.
 EOF
@@ -161,8 +161,8 @@ if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
   git merge-base --is-ancestor "$tag_revision" origin/main || ci_die "Existing Xcode tag is not on main"
 fi
 if ! gh release view "$RELEASE_TAG" --repo "$repository" --json tagName,isDraft,isPrerelease > "$release_json" 2> "$scratch/release-view.log"; then
-  options=("$RELEASE_TAG" --repo "$repository" --title "Xcode $XCODE_TAG images" --notes-file "$notes")
-  if [[ "$XCODE_PRERELEASE" == true ]]; then
+  options=("$RELEASE_TAG" --repo "$repository" --title "macOS $MACOS_VERSION with Xcode $XCODE_TAG" --notes-file "$notes")
+  if [[ "$XCODE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == true ]]; then
     options+=(--prerelease --latest=false)
   fi
   if [[ -n "$tag_revision" ]]; then
@@ -177,8 +177,8 @@ elif [[ -z "$tag_revision" ]]; then
   ci_die "Existing Xcode release tag is missing from the checkout"
 fi
 
-jq -e --arg tag "$RELEASE_TAG" --argjson prerelease "$XCODE_PRERELEASE" '
-  .tagName == $tag and .isDraft == false and .isPrerelease == $prerelease
+jq -e --arg tag "$RELEASE_TAG" --argjson prerelease "$XCODE_PRERELEASE" --argjson macos_prerelease "$IMAGE_PRERELEASE" '
+  .tagName == $tag and .isDraft == false and .isPrerelease == ($prerelease or $macos_prerelease)
 ' "$release_json" >/dev/null || ci_die "Existing Xcode release has incompatible settings"
 
 assets_json="$scratch/assets.json"

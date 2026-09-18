@@ -154,8 +154,9 @@ ci_load_profile() {
   LATEST_REF=
   RELEASE_TAG=
   if [[ "$VARIANT" == xcode ]]; then
-    PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:$XCODE_TAG"
-    RELEASE_TAG=$XCODE_TAG
+    PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:$MACOS_VERSION-xcode$XCODE_TAG"
+    RELEASE_TAG="$MACOS_VERSION-xcode$XCODE_TAG"
+    [[ ${#RELEASE_TAG} -le 128 ]] || ci_die "Combined macOS and Xcode tag is too long"
   fi
   [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:latest"
   PROFILE_CONFIG_SHA256=$(ci_sha256 "$CONFIG_PATH")

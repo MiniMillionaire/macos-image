@@ -878,6 +878,9 @@ promote_publication() {
   local digest
   digest=$(jq -er 'select(.stage == "verified") | .manifest_digest' "$logs/result.json")
   ./scripts/registry promote "$PACKAGE_REF" "$digest"
+  if [[ "$VARIANT" == xcode && "$IMAGE_PRERELEASE" == false && "$XCODE_PRERELEASE" == false ]]; then
+    ./scripts/registry promote-xcode-alias "${PACKAGE_REF%:*}:$XCODE_TAG" "$digest" > "$logs/xcode-alias.json"
+  fi
   if [[ -n "$LATEST_REF" ]]; then
     ./scripts/registry promote "$LATEST_REF" "$digest"
   fi
@@ -887,17 +890,26 @@ complete_publication() {
   require_task
   local digest
   local latest_status=skipped
+  local xcode_alias=null
   local temporary
   digest=$(jq -er 'select(.stage == "verified") | .manifest_digest' "$logs/result.json")
   unset GH_TOKEN TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
   [[ $(./scripts/registry check "$PACKAGE_REF" "$digest") == present ]] || ci_die "Published tag does not match the verified digest"
+  if [[ "$VARIANT" == xcode && "$IMAGE_PRERELEASE" == false && "$XCODE_PRERELEASE" == false ]]; then
+    xcode_alias=$(jq -ce --arg reference "${PACKAGE_REF%:*}:$XCODE_TAG" --arg digest "$digest" '
+      select(.reference == $reference and (.digest | test("^sha256:[0-9a-f]{64}$")) and
+        ((.status == "passed" and .digest == $digest) or .status == "retained"))
+    ' "$logs/xcode-alias.json") || ci_die "Invalid Xcode alias result"
+    [[ $(./scripts/registry check "${PACKAGE_REF%:*}:$XCODE_TAG" "$(jq -er .digest <<< "$xcode_alias")") == present ]] ||
+      ci_die "Xcode alias does not match its publication result"
+  fi
   if [[ -n "$LATEST_REF" ]]; then
     [[ $(./scripts/registry check "$LATEST_REF" "$digest") == present ]] || ci_die "Latest tag does not match the verified digest"
     latest_status=passed
   fi
   temporary="$logs/publication.json.tmp"
-  jq --arg latest_status "$latest_status" \
-    '.tag_promotion = "passed" | .latest_promotion = $latest_status' \
+  jq --arg latest_status "$latest_status" --argjson xcode_alias "$xcode_alias" \
+    '.tag_promotion = "passed" | .latest_promotion = $latest_status | .xcode_alias = $xcode_alias' \
     "$logs/publication.json" > "$temporary"
   mv "$temporary" "$logs/publication.json"
   temporary="$logs/result.json.tmp"

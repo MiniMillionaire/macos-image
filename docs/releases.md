@@ -24,11 +24,20 @@ Vanilla and base use the macOS version as their primary tag. Set `update_latest`
 only after confirming the release is current within its macOS major version;
 the alias is promoted after the downloaded image passes its cold boot.
 
-Each macOS family has one Xcode package containing its available Xcode tags.
+Each macOS family has one Xcode package. The primary tag includes both versions,
+such as `26.7-xcode26.6` or `26.7-xcode27`. These identify separate combinations
+in the macOS and Xcode matrix.
+
 `xcode_version` is the installed compiler version. `xcode_tag` defaults to that
-version; a prerelease can use `xcode_version=27.0` and `xcode_tag=27-beta-6`.
-Their numeric versions must agree. For Xcode, `update_latest` is optional and
-only accepts stable Xcode tags.
+version and supplies the Xcode part of the combined tag. A prerelease can use
+`xcode_version=27.0` and `xcode_tag=27-beta-6`. Their numeric versions must agree.
+
+After acceptance, a stable publication also updates the Xcode version alias,
+such as `26.6` or `27`, unless that alias already names a newer macOS version.
+The existing alias's metadata must match the macOS family and Xcode version.
+Older combinations remain available by their combined tag or digest. This is
+independent of the optional `update_latest` choice, which updates the package's
+`latest` alias and only accepts stable macOS and Xcode versions.
 
 Tags can change after a rebuild. There is no project-version suffix or CI attempt
 suffix. The manifest digest identifies exact image bytes; the OCI metadata and
@@ -37,12 +46,13 @@ commit, input hashes, and build run. Consumers needing a fixed image use
 `ghcr.io/minimillionaire/macos-tahoe-xcode@sha256:...`.
 
 Vanilla and base publications do not create Git tags or GitHub Releases. Xcode
-publications share a GitHub Release named for the Xcode tag, such as `26.3`.
-Its assets distinguish the macOS profile and publication run, so another image
-can be added without replacing earlier evidence. The hosted Release job creates
+publications use a GitHub Release named for the combined tag, such as
+`26.7-xcode26.6`. Its assets distinguish the macOS profile and publication run,
+so a rebuild can be recorded without replacing earlier evidence. The hosted Release job creates
 an absent Git tag at the verified source revision and never moves an existing
 tag. Individual image records identify their own build revisions and macOS
-prerelease status. Prerelease Xcode tags produce prerelease Releases.
+prerelease status. Prerelease macOS or Xcode versions produce prerelease Releases.
+Existing Releases named only for Xcode retain their original tags and assets.
 
 ## Runner
 
@@ -59,7 +69,7 @@ Apple Silicon archives can keep Apple's filename,
 the Apple Silicon archive.
 
 The archive is reused across macOS builds. CI checks that it is a readable,
-nonempty regular file before downloading the base image, and records its SHA-256
+nonempty regular file before downloading the vanilla image, and records its SHA-256
 in the build inputs. This hash records the supplied file; it is not an
 independent Apple checksum. Packer copies the archive into the VM, where
 `xcodes` installs it. Apple login credentials are not needed by the image build.

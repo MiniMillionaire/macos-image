@@ -29,7 +29,7 @@ on:
         type: string
         default: ''
       xcode_tag:
-        description: Xcode tag; blank uses the exact Xcode version
+        description: Xcode version label in the combined tag; blank uses the exact version
         type: string
         default: ''
       update_latest:

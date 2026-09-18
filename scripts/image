@@ -369,7 +369,12 @@ remote_ref() {
         die "$variant images use the configured macOS version or latest"
       ;;
     xcode)
-      [[ "$tag" == latest ]] || is_xcode_tag "$tag" || die "Invalid Xcode tag: $tag"
+      if [[ "$tag" == *-xcode* ]]; then
+        [[ "$tag" == "$MACOS_VERSION"-xcode* ]] || die 'Xcode tag does not match the configured macOS version'
+        is_xcode_tag "${tag#*-xcode}" || die "Invalid Xcode tag: $tag"
+      else
+        [[ "$tag" == latest ]] || is_xcode_tag "$tag" || die "Invalid Xcode tag: $tag"
+      fi
       ;;
     *) die "Unknown image variant: $variant" ;;
   esac
@@ -383,6 +388,11 @@ select_xcode_tag() {
   local numeric_prefix
   selected_xcode_tag=${requested:-${XCODE_TAG:-${XCODE_VERSION:-}}}
   [[ -n "$selected_xcode_tag" ]] || die 'XCODE_VERSION or XCODE_TAG is required for Xcode registry operations'
+  selected_image_tag=$selected_xcode_tag
+  if [[ "$selected_xcode_tag" == *-xcode* ]]; then
+    [[ "$selected_xcode_tag" == "$MACOS_VERSION"-xcode* ]] || die 'Xcode tag does not match the configured macOS version'
+    selected_xcode_tag=${selected_xcode_tag#*-xcode}
+  fi
   if [[ "$selected_xcode_tag" == latest ]]; then
     [[ "$allow_latest" == true ]] || die 'Xcode pushes require a versioned tag'
     require_xcode_version
@@ -400,6 +410,9 @@ select_xcode_tag() {
   numeric_prefix=${selected_xcode_tag%%-*}
   versions_match "$numeric_prefix" "$XCODE_VERSION" ||
     die 'The Xcode tag version must match XCODE_VERSION'
+  if [[ -z "$requested" || "$allow_latest" == false ]]; then
+    selected_image_tag="$MACOS_VERSION-xcode$selected_xcode_tag"
+  fi
 }
 
 local_vm_for_variant() {
@@ -707,7 +720,7 @@ pull_image() {
   local target
   if [[ "$variant" == xcode ]]; then
     select_xcode_tag "$tag" true true
-    tag=$selected_xcode_tag
+    tag=$selected_image_tag
   else
     tag=${tag:-latest}
   fi
@@ -734,7 +747,7 @@ push_image() {
       ;;
     xcode)
       select_xcode_tag "$tag" false false
-      tag=$selected_xcode_tag
+      tag=$selected_image_tag
       [[ -n "$vm" ]] || die "A local VM name is required for Xcode images"
       ;;
     *) die "Unknown image variant: $variant" ;;
@@ -926,8 +939,8 @@ Usage:
 
 Vanilla and base pushes default to the configured macOS version tag.
 Vanilla and base pulls default to latest and also accept that version tag.
-Xcode tags default to XCODE_TAG or XCODE_VERSION; pushes require a versioned tag.
-Xcode pulls accept latest with XCODE_VERSION.
+Xcode pushes use MACOS_VERSION-xcodeXCODE_TAG; XCODE_TAG defaults to XCODE_VERSION.
+Xcode pulls also accept an Xcode version alias, or latest with XCODE_VERSION.
 Set XCODE_VERSION for prerelease Xcode tags.
 EOF
 }

@@ -95,10 +95,16 @@ require_image_reference() {
       if [[ ${2:-false} == true && "$reference" == *:latest ]]; then
         [[ "$tag" =~ ^[0-9]+([.][0-9]+)*$ ]] || fail 'Prerelease Xcode images cannot update latest'
         tag=latest
+      elif [[ ${2:-false} == true && "$reference" == *":$tag" ]]; then
+        [[ "$IMAGE_PRERELEASE" == false && "$tag" =~ ^[0-9]+([.][0-9]+)*$ ]] ||
+          fail 'Only stable images can update an Xcode version alias'
+      else
+        tag="$MACOS_VERSION-xcode$tag"
       fi
       ;;
     *) fail "Unknown image variant: $variant" ;;
   esac
+  (( ${#tag} <= 128 )) || fail 'Image tag exceeds 128 characters'
   local suffix="/macos-$MACOS_FAMILY-$variant:$tag"
   [[ "$reference" == *"$suffix" ]] || fail 'Reference does not match the configured image identity'
 }
@@ -166,6 +172,47 @@ promote() {
   [[ $(resolve "$reference") == "$digest" ]] || fail 'Promoted tag does not match the verified digest'
 }
 
+promote_xcode_alias() {
+  local reference=$1 digest=$2 repository current config_digest version status=passed
+  [[ ${IMAGE_VARIANT:-} == xcode && "$IMAGE_PRERELEASE" == false ]] || fail 'An Xcode alias requires a stable macOS image'
+  [[ "$reference" == *":${XCODE_TAG:-$XCODE_VERSION}" ]] || fail 'Expected an Xcode version alias'
+  require_image_reference "$reference" true
+  repository=$(reference_repository "$reference")
+  if [[ $(check "$reference") == present ]]; then
+    current=$(resolve "$reference")
+    "$helper" run --timeout 60 -- "$oras" manifest fetch "$repository@$current" \
+      --output "$credentials/manifest.json" --registry-config "$credentials/config.json" --ca-file "$ca" >&2
+    [[ "sha256:$(shasum -a 256 "$credentials/manifest.json" | awk '{print $1}')" == "$current" ]] ||
+      fail 'Xcode alias manifest digest changed'
+    config_digest=$(jq -er '.config.digest | select(test("^sha256:[0-9a-f]{64}$"))' "$credentials/manifest.json")
+    "$helper" run --timeout 60 -- "$oras" blob fetch "$repository@$config_digest" \
+      --output "$credentials/image-config.json" --registry-config "$credentials/config.json" --ca-file "$ca" >&2
+    [[ "sha256:$(shasum -a 256 "$credentials/image-config.json" | awk '{print $1}')" == "$config_digest" ]] ||
+      fail 'Xcode alias configuration digest changed'
+    version=$(jq -er --arg major "${MACOS_VERSION%%.*}" --arg xcode "$XCODE_VERSION" '
+      def version: split(".") | map(tonumber) | . + [0, 0] | .[0:3];
+      select(.os == "darwin" and .architecture == "arm64") | .config.Labels |
+      select(.["dev.macos-image.variant"] == "xcode" and
+        (.["dev.macos-image.xcode-version"] | version) == ($xcode | version)) |
+      .["dev.macos-image.version"] |
+      select(test("^[0-9]+([.][0-9]+){1,2}$") and split(".")[0] == $major)
+    ' "$credentials/image-config.json") || fail 'Existing Xcode alias has incompatible metadata'
+    if ! awk -v target="$MACOS_VERSION" -v current="$version" 'BEGIN {
+      split(target, t, "."); split(current, c, ".")
+      for (i = 1; i <= 3; i++) {
+        if (t[i] + 0 > c[i] + 0) exit 0
+        if (t[i] + 0 < c[i] + 0) exit 1
+      }
+    }'; then
+      digest=$current
+      status=retained
+    fi
+  fi
+  [[ "$status" == retained ]] || promote "$reference" "$digest"
+  jq -n --arg reference "$reference" --arg digest "$digest" --arg status "$status" \
+    '{reference: $reference, digest: $digest, status: $status}'
+}
+
 download() {
   local reference=$1 layout=$2 resume=${3:-} digest actual
   reference_host "$reference" >/dev/null
@@ -227,6 +274,12 @@ case "$command" in
     login "$1"
     promote "$@"
     ;;
+  promote-xcode-alias)
+    [[ $# == 2 ]] || fail 'Usage: registry promote-xcode-alias REFERENCE DIGEST'
+    require_tools
+    login "$1"
+    promote_xcode_alias "$@"
+    ;;
   download)
     [[ $# == 2 || ( $# == 3 && "${3:-}" == --resume ) ]] || fail 'Usage: registry download REFERENCE LAYOUT [--resume]'
     require_tools
@@ -253,5 +306,5 @@ case "$command" in
     "$root_dir/scripts/registry" download "$(reference_repository "$2")@$digest" "$temporary/downloaded"
     promote "$2" "$digest"
     ;;
-  *) fail 'Usage: registry <resolve|check|prepare|upload|promote|download|pull|push> ...' ;;
+  *) fail 'Usage: registry <resolve|check|prepare|upload|promote|promote-xcode-alias|download|pull|push> ...' ;;
 esac

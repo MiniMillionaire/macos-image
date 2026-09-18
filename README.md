@@ -209,15 +209,19 @@ ghcr.io/minimillionaire/macos-golden-gate-xcode:27
 
 Vanilla and base use their macOS version as the primary tag. Their `latest` alias
 is updated after a release is verified as current for that macOS major version.
-Xcode versions share one package per macOS family; the Xcode version is the tag.
+Xcode versions share one package per macOS family. Their primary tag includes
+both versions, such as `26.7-xcode26.6`. A numeric Xcode tag such as `26.6`
+points to the newest published macOS version with that Xcode version in the
+same family. Publishing an older combination preserves that alias.
 Tags can change after a rebuild. Pin a manifest digest with `@sha256:...` when
 consuming exact image bytes. OCI metadata records the macOS version, Apple
 build, Xcode version, and source commit.
 
 For Xcode registry operations, set `XCODE_VERSION` to the installed compiler
-version. `XCODE_TAG` defaults to that version; it can name a prerelease such as
-`27-beta-6` while `XCODE_VERSION` is `27.0`. A numeric pull tag supplies the compiler
-version automatically:
+version. `XCODE_TAG` supplies the Xcode part of the combined tag and defaults to
+that version; it can name a prerelease such as `27-beta-6` while `XCODE_VERSION`
+is `27.0`. Numeric and combined pull tags supply the compiler version
+automatically:
 
 ```shell
 IMAGE_CONFIG=config/golden-gate-27.0.env .build/release/macos-image pull xcode --tag 27
