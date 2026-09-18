@@ -240,6 +240,24 @@ The three original Xcode images also have combined macOS-Xcode tags:
 preserved their manifest digests and existing numeric aliases. Anonymous checks
 confirmed all six references. The original GitHub Releases are unchanged.
 
+On September 19, the Golden Gate Xcode image was shrunk locally from 220 GB to
+100 GB using revision `7b58292`, without reinstalling macOS or Xcode. Recovery's
+SHA-256 and all partition UUIDs were preserved. The guest retained 16.15 GiB free;
+Recovery and Data filesystem checks and all four simulator runtimes passed.
+
+[35360602842](https://github.com/MiniMillionaire/macos-image/actions/runs/35360602842)
+uploaded the prepared export. Its complete 61.55 GiB was downloaded anonymously,
+hashed, imported, and cold-boot verified before
+[35363080410](https://github.com/MiniMillionaire/macos-image/actions/runs/35363080410)
+updated `27.0-xcode27` and `27`. Both tags were checked anonymously afterward.
+
+- Digest: `sha256:527766113698fbbcce12eb01c5bf3a8c6914dfa88875025bf7ce8cd5d22870e5`
+- Disk size: 100,000,002,048 bytes
+- Downloaded image boot: `52B8675B-02E5-495B-AB1A-D76CF1F4EA34`
+
+The previous digest remains available. The local 100 GB image was kept stopped;
+temporary downloads, exports, and verification VMs were removed.
+
 ## Parent cache
 
 Three separate Sequoia Xcode CI builds reused the same verified base image

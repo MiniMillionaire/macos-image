@@ -6,19 +6,19 @@ used a disposable clone of a published image. They check the policy in [Disk siz
 build on a sparse 256 GB disk, then shrink with `diskutil image resize` to the
 smallest multiple of 10 GB that leaves at least 8 GiB free, keeping Recovery.
 
-The published images were built with the earlier fixed sizes. A fresh 256 GB
+The source images below were built with the earlier fixed sizes. A fresh 256 GB
 build may report a slightly different minimum.
 
 ## Results
 
-| Image | Published disk | diskutil minimum | Policy size | Free after boot | Verification |
+| Image | Source disk | diskutil minimum | Policy size | Free after boot | Verification |
 | --- | --- | --- | --- | --- | --- |
 | `macos-golden-gate-xcode:27` | 220 GB | 87.3 GB | 100 GB | 15 GiB | `verify-image.sh` xcode passed |
 | `macos-golden-gate-vanilla:27.0` | 80 GB | 40.9 GB | 50 GB | 9.2 GiB | `verify-image.sh` vanilla passed |
 | `macos-tahoe-xcode:26.6` | 220 GB | 92.2 GB | 110 GB | 18 GiB | `verify-image.sh` xcode passed |
 | `macos-tahoe-vanilla:26.6.2` | 80 GB | 33.8 GB | 50 GB | 16 GiB | `verify-image.sh` vanilla passed |
 
-Digests:
+Source digests:
 
 - Golden Gate Xcode 27: `sha256:4bdf7fd662476fcabea8168377916f345229dd38c3cae50b1a6436ea113153b3`
 - Golden Gate vanilla 27.0: `sha256:a2883aa8087c07b452a56a6c441a69e7064384bb662004c610e293c900aa11ce`
