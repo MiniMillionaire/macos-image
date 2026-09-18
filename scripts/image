@@ -707,7 +707,7 @@ build_xcode() {
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
-    -var "disk_size_gb=${XCODE_DISK_SIZE_GB:-180}" \
+    -var "disk_size_gb=${XCODE_DISK_SIZE_GB:-140}" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"

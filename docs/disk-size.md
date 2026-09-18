@@ -1,4 +1,23 @@
-# Expanding a downloaded image
+# Disk size
+
+## Build capacity
+
+The build baseline is 50 GB for vanilla and base, and 140 GB for a single-Xcode
+image, matching the [upstream templates](https://github.com/cirruslabs/macos-image-templates/tree/106c086ffa78a0701dd3301646d9a9be71fe7baf/templates).
+Apply it to each profile through a clean build and acceptance run. Existing
+publications retain their original capacity until replaced by a verified build.
+
+Increase a target version's capacity only when its installation or upgrade
+requires more space. Use the smallest sufficient 10 GB increment, including
+installation staging and working space. Resize the stopped build clone before
+installation; keep the source image unchanged. Base inherits that version's
+vanilla capacity. Xcode uses 140 GB unless its own build needs more space.
+
+For example, an upgrade needing an 85 GB disk uses a 90 GB clone. That target's
+vanilla and base images remain 90 GB, while its source keeps its original size.
+Do not shrink an existing image to change its published capacity; rebuild it.
+
+## Expanding a downloaded image
 
 For a stopped local image, prepare a larger clone before using it:
 

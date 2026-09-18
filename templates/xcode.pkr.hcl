@@ -28,7 +28,7 @@ variable "xcode_components" {
 
 variable "disk_size_gb" {
   type    = number
-  default = 180
+  default = 140
 }
 
 variable "guest_username" {

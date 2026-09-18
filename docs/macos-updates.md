@@ -27,6 +27,11 @@ Base and Xcode images are derived from the matching accepted vanilla version.
 Each Xcode combination starts from vanilla and installs its own development
 tools; it does not reuse an earlier Xcode image.
 
+Keep the source image's disk size unchanged. Start each target at the standard
+capacity and grow only its build clone if the upgrade needs more room. Record
+the verified capacity in that target's configuration; its base image inherits
+the same size. See the [disk capacity policy](disk-size.md#build-capacity).
+
 After the target boots, remove its installer and temporary files created by
 the build before the independent cold boot. Cleanup and post-upgrade Setup
 Assistant handling must be verified for the target macOS version. Do not assume
