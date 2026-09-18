@@ -100,6 +100,7 @@ build {
     scripts = [
       "scripts/guest/cleanup-build.sh",
       "scripts/guest/verify-base.sh",
+      "scripts/guest/clean-desktop.sh",
     ]
   }
 }

@@ -55,4 +55,10 @@ build {
   provisioner "shell" {
     script = "scripts/guest/install-command-line-tools.sh"
   }
+
+  provisioner "shell" {
+    timeout          = "2m"
+    environment_vars = ["GUEST_USERNAME=${var.guest_username}"]
+    script           = "scripts/guest/clean-desktop.sh"
+  }
 }

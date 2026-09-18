@@ -68,6 +68,7 @@ build {
       "scripts/guest/install-mobile-tools.sh",
       "scripts/guest/cleanup-build.sh",
       "scripts/guest/verify-xcode.sh",
+      "scripts/guest/clean-desktop.sh",
     ]
   }
 }

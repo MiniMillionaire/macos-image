@@ -5,11 +5,65 @@ test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
 test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
 test "$(uname -m)" = arm64
 
+verify_desktop() {
+  local desktop_timeout_seconds=120
+  local desktop_settle_seconds=30
+  local deadline=$((SECONDS + desktop_timeout_seconds))
+  local guest_uid
+  guest_uid=$(id -u "$GUEST_USERNAME")
+  while true; do
+    console_user=$(stat -f %Su /dev/console)
+    if [[ "$console_user" == "$GUEST_USERNAME" ]] &&
+      pgrep -u "$guest_uid" -x Finder >/dev/null &&
+      pgrep -u "$guest_uid" -x Dock >/dev/null; then
+      break
+    fi
+    (( SECONDS < deadline )) || { echo 'The desktop did not start' >&2; exit 1; }
+    sleep 5
+  done
+  sleep "$desktop_settle_seconds"
+  pgrep -u "$guest_uid" -x Finder >/dev/null
+  pgrep -u "$guest_uid" -x Dock >/dev/null
+  ! pgrep -x 'Setup Assistant' >/dev/null || { echo 'Setup Assistant is still running' >&2; exit 1; }
+  osascript -l JavaScript - "$GUEST_USERNAME" <<'JAVASCRIPT'
+ObjC.import("AppKit");
+ObjC.import("CoreGraphics");
+
+function run(arguments) {
+    var session = ObjC.deepUnwrap(ObjC.castRefToObject($.CGSessionCopyCurrentDictionary()));
+    if (session.kCGSSessionUserNameKey !== arguments[0] ||
+        !session.kCGSSessionOnConsoleKey || !session.kCGSessionLoginDoneKey ||
+        session.CGSSessionScreenIsLocked) {
+        throw new Error("The desktop session is not logged in and unlocked");
+    }
+    var running = $.NSWorkspace.sharedWorkspace.runningApplications;
+    for (var index = 0; index < running.count; index++) {
+        var application = running.objectAtIndex(index);
+        if (Number(application.activationPolicy) === 0 &&
+            ObjC.unwrap(application.bundleIdentifier) !== "com.apple.finder") {
+            throw new Error("Unexpected desktop application: " + ObjC.unwrap(application.localizedName));
+        }
+    }
+    var options = $.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements;
+    var windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(options, $.kCGNullWindowID)));
+    var normalWindowLevel = Number($.CGWindowLevelForKey($.kCGNormalWindowLevelKey));
+    var visible = windows.filter(function(window) {
+        return window.kCGWindowLayer === normalWindowLevel && window.kCGWindowAlpha > 0;
+    });
+    if (visible.length) {
+        throw new Error("Unexpected desktop windows: " + visible.map(function(window) {
+            return window.kCGWindowOwnerName;
+        }).join(", "));
+    }
+    return "Verified clean desktop: logged in, unlocked, and no application windows";
+}
+JAVASCRIPT
+}
+
 verify_vanilla() {
   filevault_status=$(sudo -n fdesetup status)
   [[ "$filevault_status" == 'FileVault is Off.' ]] || { echo "Unexpected FileVault status: $filevault_status" >&2; exit 1; }
   [[ -e /var/db/.AppleSetupDone ]] || { echo 'Setup Assistant is incomplete' >&2; exit 1; }
-  ! pgrep -x 'Setup Assistant' >/dev/null || { echo 'Setup Assistant is still running' >&2; exit 1; }
   id "$GUEST_USERNAME" >/dev/null
   real_name=$(dscl . -read "/Users/$GUEST_USERNAME" RealName | sed -E 's/^RealName:[[:space:]]*//; /^[[:space:]]*$/d; s/^[[:space:]]*//')
   [[ "$real_name" == "$GUEST_USERNAME" ]] || { echo "Unexpected full name: $real_name" >&2; exit 1; }
@@ -27,13 +81,7 @@ verify_vanilla() {
   fi
   gatekeeper_status=$(spctl --status 2>&1 || true)
   [[ "$gatekeeper_status" == 'assessments disabled' ]] || { echo "Unexpected Gatekeeper status: $gatekeeper_status" >&2; exit 1; }
-  console_user=$(stat -f %Su /dev/console)
-  console_deadline=$((SECONDS + 120))
-  while [[ "$console_user" != "$GUEST_USERNAME" && $SECONDS -lt $console_deadline ]]; do
-    sleep 5
-    console_user=$(stat -f %Su /dev/console)
-  done
-  [[ "$console_user" == "$GUEST_USERNAME" ]] || { echo "Automatic login failed: $console_user" >&2; exit 1; }
+  verify_desktop
   developer_dir=$(xcode-select -p)
   test -d "$developer_dir"
   xcrun --find clang

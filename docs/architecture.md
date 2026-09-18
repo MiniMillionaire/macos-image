@@ -42,6 +42,11 @@ VoiceOver and Gatekeeper, automatic login, and Command Line Tools. Tests boot a
 fresh clone so that persistence is checked independently of the provisioning
 session.
 
+All image variants close build applications and clear session restoration before
+shutdown. Cold-boot verification waits for the desktop to settle, then checks
+that the account is logged in and unlocked, with no application windows or
+Setup Assistant. These checks use native session and window metadata.
+
 Screenshots may be used to map a new macOS version during development. Production and CI builds neither capture nor interpret the screen, and do not use OCR.
 
 On the macOS 27 host, VNC initially advertises a temporary 1280 by 720 display.
