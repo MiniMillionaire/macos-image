@@ -52,7 +52,8 @@ so a rebuild can be recorded without replacing earlier evidence. The hosted Rele
 an absent Git tag at the verified source revision and never moves an existing
 tag. Individual image records identify their own build revisions and macOS
 prerelease status. Prerelease macOS or Xcode versions produce prerelease Releases.
-Existing Releases named only for Xcode retain their original tags and assets.
+Migrating an Xcode-only Release changes its Release tag to the combined tag;
+the original Git tag and assets remain unchanged.
 
 ## Runner
 

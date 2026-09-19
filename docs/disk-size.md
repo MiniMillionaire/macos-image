@@ -92,5 +92,6 @@ The September 17, 2026 experiment used the published Sequoia vanilla digest
 
 RecoveryOS boot itself was not tested. Base and Xcode were inspected through
 their recipes and the agent source; their published images were not downloaded
-for this experiment. Published Sequoia and Tahoe Xcode disks are already
-180 GB and 220 GB respectively, so 160 GB would be a shrink for those images.
+for this experiment. At the time, the published Sequoia and Tahoe Xcode disks
+were 180 GB and 220 GB respectively, so 160 GB would have been a shrink for
+those images.

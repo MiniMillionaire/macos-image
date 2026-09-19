@@ -1,8 +1,38 @@
 # Validation
 
+The September 19, 2026 table records the accepted replacements. The later
+sections preserve the original CI runs and digests as historical evidence.
+
+## September 19, 2026 replacements
+
+These 13 combinations were republished after desktop cleanup and disk shrinking.
+Each export was downloaded anonymously in full, checked against its OCI digests,
+imported, and verified in an independent cold boot. Acceptance required a
+logged-in, unlocked desktop with no application windows. Tags were promoted
+afterward and checked anonymously.
+
+References below are under `ghcr.io/minimillionaire/`. These digests supersede
+the original publication records in the following sections.
+
+| Primary tag | Manifest digest | Upload | Promotion |
+| --- | --- | --- | --- |
+| `macos-sequoia-vanilla:15.6.1` | `sha256:85b93f809f1f0d5a7f30f50a11cc3bdd7f13a96cb01348f6d77d3f6c2d41ac58` | [35433801415](https://github.com/MiniMillionaire/macos-image/actions/runs/35433801415) | [35434125963](https://github.com/MiniMillionaire/macos-image/actions/runs/35434125963) |
+| `macos-sequoia-base:15.6.1` | `sha256:4f3adcb1834d29b3da0c565d6e248030b565450e0a0f77437c83b3606f6a5e79` | [35425939190](https://github.com/MiniMillionaire/macos-image/actions/runs/35425939190) | [35426293609](https://github.com/MiniMillionaire/macos-image/actions/runs/35426293609) |
+| `macos-sequoia-xcode:15.6.1-xcode26.3` | `sha256:b65b9a40bc0be0baa27f5fb05d97c92efbfb4c398edc9c8c9af6cf7682732c7a` | [35427842694](https://github.com/MiniMillionaire/macos-image/actions/runs/35427842694) | [35428744125](https://github.com/MiniMillionaire/macos-image/actions/runs/35428744125) |
+| `macos-sequoia-vanilla:15.7.7` | `sha256:e3750c6cf95f50aa64de1c236ad2b3ee7e5ab999ceaf343b3facd7d4f2d2da4a` | [35416084453](https://github.com/MiniMillionaire/macos-image/actions/runs/35416084453) | [35417289084](https://github.com/MiniMillionaire/macos-image/actions/runs/35417289084) |
+| `macos-sequoia-vanilla:15.7.8` | `sha256:926affa774d567164249cda979d89d388e7786b0446435755f6a4107756f49b7` | [35378835733](https://github.com/MiniMillionaire/macos-image/actions/runs/35378835733) | [35381811188](https://github.com/MiniMillionaire/macos-image/actions/runs/35381811188) |
+| `macos-sequoia-vanilla:15.7.9` | `sha256:2599aebfe945b8cea4f82a4f856960f3d2d1d953ef46125322a62cb2463fbae5` | [35412520936](https://github.com/MiniMillionaire/macos-image/actions/runs/35412520936) | [35414062228](https://github.com/MiniMillionaire/macos-image/actions/runs/35414062228) |
+| `macos-sequoia-vanilla:15.8` | `sha256:8ffb2e25b48a82e18af44aeabcd08ca2888f7f8b9d0543c09afbdbccfb6ecccd` | [35413310015](https://github.com/MiniMillionaire/macos-image/actions/runs/35413310015) | [35414708507](https://github.com/MiniMillionaire/macos-image/actions/runs/35414708507) |
+| `macos-tahoe-vanilla:26.6.2` | `sha256:49e51a2e5f2bea3b23e54212cc99696219c6c45fa2d22080d9ae088779550335` | [35421928559](https://github.com/MiniMillionaire/macos-image/actions/runs/35421928559) | [35422318811](https://github.com/MiniMillionaire/macos-image/actions/runs/35422318811) |
+| `macos-tahoe-base:26.6.2` | `sha256:e0bc35e00529f73a2c65d04595d4c4651ffe0b418f16fb8b4cc9c69de1b13a92` | [35420440654](https://github.com/MiniMillionaire/macos-image/actions/runs/35420440654) | [35421236220](https://github.com/MiniMillionaire/macos-image/actions/runs/35421236220) |
+| `macos-tahoe-xcode:26.6.2-xcode26.6` | `sha256:46a15040ae8e4d71c4614edeaacaaad792e654214e5923caf13046dc0ae7d101` | [35430315170](https://github.com/MiniMillionaire/macos-image/actions/runs/35430315170) | [35431288927](https://github.com/MiniMillionaire/macos-image/actions/runs/35431288927) |
+| `macos-golden-gate-vanilla:27.0` | `sha256:87454d0fb763c927fe48c6d9f5ea2c3ca78f6b17f4045c076415e75da5d059ce` | [35425118964](https://github.com/MiniMillionaire/macos-image/actions/runs/35425118964) | [35425561558](https://github.com/MiniMillionaire/macos-image/actions/runs/35425561558) |
+| `macos-golden-gate-base:27.0` | `sha256:d7e70edc6b76c25ce8e70a3a0d74073daf8e3051377c005ed0dc9caf2d642f51` | [35424191336](https://github.com/MiniMillionaire/macos-image/actions/runs/35424191336) | [35424711364](https://github.com/MiniMillionaire/macos-image/actions/runs/35424711364) |
+| `macos-golden-gate-xcode:27.0-xcode27` | `sha256:54357dbc67aeb8d8c8a3fff6ed19e8e98ffdd00fe427222c34e81fb18673b095` | [35432153645](https://github.com/MiniMillionaire/macos-image/actions/runs/35432153645) | [35433109696](https://github.com/MiniMillionaire/macos-image/actions/runs/35433109696) |
+
 ## Sequoia upgrade builds
 
-These vanilla images passed the full build and publication workflow:
+These original vanilla images passed the full build and publication workflow:
 
 | macOS | Apple build | Revision | CI run | OCI blob size |
 | --- | --- | --- | --- | --- |
@@ -20,7 +50,7 @@ downloaded every blob anonymously, verified its hashes, and cold-booted the
 imported image. Checks covered the exact OS/build, admin account, locale,
 keyboard, automatic login, CLT, and disabled FileVault.
 
-The published tags under `ghcr.io/minimillionaire/macos-sequoia-vanilla` are:
+The original tags under `ghcr.io/minimillionaire/macos-sequoia-vanilla` resolved to:
 
 | Tag | Manifest digest |
 | --- | --- |
@@ -238,11 +268,11 @@ The three original Xcode images also have combined macOS-Xcode tags:
 `15.6.1-xcode26.3`, `26.6.2-xcode26.6`, and `27.0-xcode27`. The
 [tagging run](https://github.com/MiniMillionaire/macos-image/actions/runs/35341725448)
 preserved their manifest digests and existing numeric aliases. Anonymous checks
-confirmed all six references. The original GitHub Releases are unchanged.
+confirmed all six references. That run left the original GitHub Releases unchanged.
 
-On September 19, the Golden Gate Xcode image was shrunk locally from 220 GB to
-100 GB using revision `7b58292`, without reinstalling macOS or Xcode. Recovery's
-SHA-256 and all partition UUIDs were preserved. The guest retained 16.15 GiB free;
+An earlier September 19 replacement shrank the Golden Gate Xcode image from
+220 GB to 100 GB using revision `7b58292`, without reinstalling macOS or Xcode.
+Recovery's SHA-256 and all partition UUIDs were preserved. The guest retained 16.15 GiB free;
 Recovery and Data filesystem checks and all four simulator runtimes passed.
 
 [35360602842](https://github.com/MiniMillionaire/macos-image/actions/runs/35360602842)
