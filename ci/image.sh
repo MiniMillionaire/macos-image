@@ -215,19 +215,6 @@ check_tools() {
         ;;
       prepared|verified)
         minimum_kib=$((2 * 1024 * 1024))
-        if [[ "$OPERATION" == recover-upload ]]; then
-          local directory download_kib import_kib
-          directory=$(verified_directory "$BUILD_RUN")
-          require_verified_path "$directory"
-          [[ -d "$directory/vm" && ! -L "$directory/vm" &&
-             -z $(find "$directory/vm" -type l -print -quit) ]] || ci_die "Invalid saved VM directory"
-          download_kib=$(jq -er '.blob_bytes | select(type == "number" and . > 0) | . / 1024 | ceil' "$result")
-          import_kib=$(du -sk "$directory/vm" | awk '{print $1}')
-          [[ "$download_kib" =~ ^[1-9][0-9]*$ && "$import_kib" =~ ^[1-9][0-9]*$ ]] || ci_die "Invalid publication size"
-          minimum_kib=$download_kib
-          (( import_kib <= minimum_kib )) || minimum_kib=$import_kib
-          minimum_kib=$((minimum_kib + 20 * 1024 * 1024))
-        fi
         ;;
       *) ci_die "Recovery requires a built, prepared, or verified image" ;;
     esac
@@ -440,12 +427,11 @@ write_built_result() {
     ' > "$logs/result.json"
 }
 
-verify_bundle() {
+verify_bundle_metadata() {
   local directory=$1
   local metadata="$directory/bundle.json"
-  local path
-  local actual_count
-  [[ -f "$metadata" && ! -L "$metadata" && -d "$directory/vm" && ! -L "$directory/vm" ]] || ci_die "Saved VM bundle is incomplete"
+  require_verified_path "$directory"
+  [[ -f "$metadata" && ! -L "$metadata" ]] || ci_die "Saved VM metadata is missing"
   jq -e \
     --arg repository "$repository" \
     --arg build_run "$BUILD_RUN" \
@@ -464,6 +450,20 @@ verify_bundle() {
         (.size | type == "number" and . >= 0) and
         (.sha256 | test("^[0-9a-f]{64}$")))
     ' "$metadata" >/dev/null || ci_die "Saved VM metadata does not match this request"
+}
+
+bundle_import_kib() {
+  verify_bundle_metadata "$1"
+  jq -er '([.files[].size] | add) / 1024 | ceil | select(. > 0)' "$1/bundle.json"
+}
+
+verify_bundle() {
+  local directory=$1
+  local metadata="$directory/bundle.json"
+  local path
+  local actual_count
+  verify_bundle_metadata "$directory"
+  [[ -d "$directory/vm" && ! -L "$directory/vm" ]] || ci_die "Saved VM bundle is incomplete"
   [[ $(find "$directory/vm" -mindepth 1 -maxdepth 1 -print | sed 's#.*/##' | LC_ALL=C sort | tr '\n' ' ') == "config.json disk.img nvram.bin " ]] ||
     ci_die "Saved VM bundle has unexpected entries"
   actual_count=$(find "$directory/vm" -type f | wc -l | tr -d ' ')
@@ -512,26 +512,120 @@ save_publication_layout() {
   fi
 }
 
-restore_publication_layout() {
-  local directory
-  directory=$(verified_directory "$BUILD_RUN")
-  require_verified_path "$directory"
-  verify_bundle "$directory"
+verify_prepared_bundle() {
+  local directory=$1 digest=$2
+  local recovery="$directory/layout-recovery.json"
+  verify_bundle_metadata "$directory"
   [[ -d "$directory/layout" && ! -L "$directory/layout" && -f "$directory/layout.json" && ! -L "$directory/layout.json" ]] ||
     ci_die "The exact prepared OCI layout was not retained"
   [[ -z $(find "$directory/layout" -type l -print -quit) ]] || ci_die "Saved OCI layout contains a symbolic link"
   inspect_layout "$directory/layout" "$task_root/saved-layout.json"
   [[ $(ci_sha256 "$directory/layout.json") == "$(ci_sha256 "$task_root/saved-layout.json")" ]] || ci_die "Saved layout metadata changed"
-  [[ $(jq -er .manifest_digest "$task_root/saved-layout.json") == "$1" ]] || ci_die "Saved layout digest differs from the authorized result"
+  [[ $(jq -er .manifest_digest "$task_root/saved-layout.json") == "$digest" ]] || ci_die "Saved layout digest differs from the authorized result"
+  require_layout "$task_root/saved-layout.json" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$repository_url"
+  if [[ -e "$recovery" || -L "$recovery" ]]; then
+    [[ -f "$recovery" && ! -L "$recovery" ]] || ci_die "Invalid prepared recovery record"
+    jq -e --arg digest "$digest" \
+      --arg bundle "$(ci_sha256 "$directory/bundle.json")" \
+      --arg layout "$(ci_sha256 "$directory/layout.json")" \
+      --argjson import_kib "$(bundle_import_kib "$directory")" '
+        .format == 1 and .manifest_digest == $digest and .bundle_sha256 == $bundle and
+        .layout_sha256 == $layout and .import_kib == $import_kib
+      ' "$recovery" >/dev/null || ci_die "Prepared recovery record changed"
+  else
+    verify_bundle "$directory"
+  fi
+}
+
+restore_publication_layout() {
+  local directory filesystem
+  directory=$(verified_directory "$BUILD_RUN")
+  verify_prepared_bundle "$directory" "$1"
   mkdir -p "$task_root/publication"
+  filesystem=$(diskutil info -plist "$(df -P "$directory/layout" | awk 'END {print $1}')" |
+    plutil -extract FilesystemType raw -)
+  [[ $(stat -f '%d' "$directory/layout") == "$(stat -f '%d' "$task_root/publication")" &&
+     "$filesystem" == apfs ]] || ci_die "Prepared recovery requires the same APFS volume"
   /bin/cp -cR "$directory/layout" "$layout"
+}
+
+require_owned_storage() {
+  local directory=$1 allow_cache_links=${2:-false} link unexpected
+  [[ -d "$directory" && ! -L "$directory" && $(stat -f '%u' "$directory") == "$(id -u)" ]] || ci_die "Invalid owned storage directory"
+  unexpected=$(find "$directory" ! -user "$(id -u)" -print -quit) || ci_die "Could not inspect storage ownership"
+  [[ -z "$unexpected" ]] || ci_die "Storage belongs to another user"
+  while IFS= read -r link; do
+    [[ "$allow_cache_links" == true && "$link" == "$directory/cache/OCIs/"* ]] || ci_die "Unexpected storage symbolic link"
+  done < <(find "$directory" -type l -print)
+}
+
+require_closed_storage() {
+  local output status=0
+  output=$(.build/tools/image-artifact run --timeout 30 -- lsof -t +D "$1" 2>&1) || status=$?
+  [[ "$status" == 1 && -z "$output" ]] || ci_die "Could not confirm that storage is closed"
+}
+
+retire_prepared_raw() {
+  require_task
+  local directory digest recovery temporary bundle
+  local retired="$task_root/prepared-tart"
+  digest=$(jq -er 'select(.result == "passed" and .stage == "prepared") | .manifest_digest' "$logs/result.json")
+  directory=$(verified_directory "$BUILD_RUN")
+  verify_prepared_bundle "$directory" "$digest"
+  [[ $(ci_sha256 "$directory/bundle.json") == "$(ci_sha256 "$logs/bundle.json")" ]] || ci_die "Recovery bundle metadata changed"
+  recovery="$directory/layout-recovery.json"
+  if [[ ! -e "$recovery" ]]; then
+    temporary="$recovery.tmp-$run_key"
+    [[ ! -e "$temporary" && ! -L "$temporary" ]] || ci_die "Incomplete recovery transition requires review"
+    jq -n --arg digest "$digest" \
+      --arg bundle "$(ci_sha256 "$directory/bundle.json")" \
+      --arg layout "$(ci_sha256 "$directory/layout.json")" \
+      --argjson import_kib "$(bundle_import_kib "$directory")" '
+        {format: 1, manifest_digest: $digest, bundle_sha256: $bundle,
+         layout_sha256: $layout, import_kib: $import_kib}
+      ' > "$temporary"
+    mv "$temporary" "$recovery"
+  fi
+  [[ "$tart_home" == "$task_root/tart" && -d "$RUNNER_TEMP" && ! -L "$RUNNER_TEMP" &&
+     -d "$task_root" && ! -L "$task_root" ]] || ci_die "Invalid private Tart path"
+  printf 'Free space before retiring prepared raw storage: %s KiB\n' "$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')"
+  if [[ -e "$retired" || -L "$retired" ]]; then
+    require_owned_storage "$retired" true
+    require_closed_storage "$retired"
+    rm -rf -- "$retired"
+  fi
+  if [[ -e "$tart_home" || -L "$tart_home" ]]; then
+    require_owned_storage "$tart_home" true
+    if [[ -d "$tart_home/vms" ]]; then
+      while IFS= read -r bundle; do
+        stop_vm "${bundle##*/}"
+      done < <(find "$tart_home/vms" -mindepth 1 -maxdepth 1 -type d -print)
+    fi
+    require_closed_storage "$tart_home"
+    mv "$tart_home" "$retired"
+    mkdir -p "$tart_home/vms"
+    rm -rf -- "$retired"
+  else
+    mkdir -p "$tart_home/vms"
+  fi
+  if [[ -e "$directory/vm" || -L "$directory/vm" ]]; then
+    require_owned_storage "$directory/vm"
+    require_closed_storage "$directory/vm"
+    rm -rf -- "$directory/vm"
+  fi
+  printf 'Released prepared raw storage; exact OCI recovery layout retained\n'
+  printf 'Free space after retiring prepared raw storage: %s KiB\n' "$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')"
 }
 
 remove_verified_bundle() {
   local directory
   directory=$(verified_directory "$BUILD_RUN")
   require_verified_path "$directory"
-  verify_bundle "$directory"
+  if [[ -e "$directory/layout-recovery.json" || -L "$directory/layout-recovery.json" ]]; then
+    verify_prepared_bundle "$directory" "$(jq -er .manifest_digest "$logs/result.json")"
+  else
+    verify_bundle "$directory"
+  fi
   [[ "$directory" == "$verified_root/$PROFILE/$VARIANT_ID/$BUILD_RUN" ]] || ci_die "Invalid verified bundle path"
   rm -rf -- "$directory"
 }
@@ -609,15 +703,21 @@ restore_image() {
   [[ $(ci_sha256 "$SOURCE_ARTIFACT_DIR/bundle.json") == "$BUNDLE_METADATA_SHA256" ]] || ci_die "Recovery bundle metadata changed after authorization"
   directory=$(verified_directory "$BUILD_RUN")
   require_verified_path "$directory"
-  verify_bundle "$directory"
+  verify_bundle_metadata "$directory"
   [[ $(ci_sha256 "$directory/bundle.json") == "$BUNDLE_METADATA_SHA256" ]] || ci_die "Local VM metadata does not match the original build artifact"
-  /bin/cp -cR "$directory/vm" "$tart_home/vms/$vm_name"
+  recovery_digest=$(jq -er '.manifest_digest // .recovery_expected_digest // ""' "$source_result")
+  if [[ -n "$recovery_digest" ]]; then
+    verify_prepared_bundle "$directory" "$recovery_digest"
+  else
+    verify_bundle "$directory"
+    [[ ! -e "$directory/layout-recovery.json" && ! -L "$directory/layout-recovery.json" ]] || ci_die "Raw storage was retired; recover from the prepared run"
+    /bin/cp -cR "$directory/vm" "$tart_home/vms/$vm_name"
+  fi
   set_input_sources \
     "$(jq -er .source "$source_inputs")" \
     "$(jq -er .source_digest "$source_inputs")" \
     "$(jq -er .xcode_archive_sha256 "$source_inputs")"
   cp "$SOURCE_ARTIFACT_DIR/bundle.json" "$logs/bundle.json"
-  recovery_digest=$(jq -er '.manifest_digest // .recovery_expected_digest // ""' "$source_result")
   if [[ -z "$recovery_digest" ]]; then
     [[ "$SOURCE_RUN" =~ ^[1-9][0-9]*-[1-9][0-9]*$ ]] || ci_die "Invalid recovery source run"
     for path in \
@@ -841,7 +941,7 @@ verify_publication() {
   require_layout "$inspect" "$VARIANT" "${XCODE_VERSION:-}" "$BUILD_REVISION" "$source"
   [[ $(jq -er .manifest_digest "$inspect") == "$digest" ]] || ci_die "Downloaded manifest digest changed"
   retain_downloaded_layout "$downloaded" "$digest"
-  require_publication_space "$(du -sk "$(verified_directory "$BUILD_RUN")/vm" | awk '{print $1}')"
+  require_publication_space "$(bundle_import_kib "$(verified_directory "$BUILD_RUN")")"
   .build/tools/image-artifact import --layout "$downloaded" --vm "$published_vm"
   ./scripts/image test "$published_vm" "$VARIANT"
   jq -n \
@@ -962,9 +1062,11 @@ cleanup_task() {
   if [[ -d "$cache" && ! -L "$cache" ]]; then
     if [[ ! -f "$logs/bundle.json" || ! -f "$logs/result.json" ]]; then
       if [[ "$BUILD_RUN" == "$run_key" ]]; then
-        verify_bundle "$cache"
-        rm -rf -- "$cache"
-        cache=
+        if [[ ! -e "$cache/layout-recovery.json" && ! -L "$cache/layout-recovery.json" ]]; then
+          verify_bundle "$cache"
+          rm -rf -- "$cache"
+          cache=
+        fi
       fi
     elif [[ $(ci_sha256 "$cache/bundle.json") != "$(ci_sha256 "$logs/bundle.json")" ]]; then
       ci_die "Verified cache metadata changed during the run"
@@ -975,7 +1077,8 @@ cleanup_task() {
     if [[ -f "$logs/result.json" ]]; then
       recovery_digest=$(jq -er '.recovery_expected_digest // ""' "$logs/result.json")
     fi
-    if [[ -z "$recovery_digest" && $(jq -er '.stage // ""' "$logs/result.json" 2>/dev/null || true) == built ]]; then
+    if [[ -z "$recovery_digest" && ! -e "$cache/layout-recovery.json" && ! -L "$cache/layout-recovery.json" &&
+          $(jq -er '.stage // ""' "$logs/result.json" 2>/dev/null || true) == built ]]; then
       for path in "$cache/layout.incomplete-$run_key" "$cache/layout.json.tmp"; do
         if [[ -e "$path" || -L "$path" ]]; then
           [[ -d "$path" && ! -L "$path" ]] || [[ -f "$path" && ! -L "$path" ]] || ci_die "Invalid incomplete layout cache"
@@ -1004,6 +1107,7 @@ case ${1:-} in
   build) build_image ;;
   restore) restore_image ;;
   prepare) prepare_publication ;;
+  retire-prepared) retire_prepared_raw ;;
   upload) upload_publication ;;
   verify) verify_publication ;;
   promote) promote_publication ;;
@@ -1011,5 +1115,5 @@ case ${1:-} in
   prune-published) prune_published_bundle ;;
   cache-parent) cache_published_parent ;;
   cleanup) cleanup_task ;;
-  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|upload|verify|promote|complete|prune-published|cache-parent|cleanup>" ;;
+  *) ci_die "Usage: ci/image.sh <init|check|build|restore|prepare|retire-prepared|upload|verify|promote|complete|prune-published|cache-parent|cleanup>" ;;
 esac

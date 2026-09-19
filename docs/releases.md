@@ -131,7 +131,8 @@ markers. Interrupted cache writes are removed by cleanup or the next run.
   digest, and confirms the remote digest. It does not download anonymously,
   update tags, or create a release. It uploads without changing package visibility.
 - `recover-upload` takes a previous run ID and attempt, such as `123456789-1`.
-  It validates that run's evidence and restores the verified bundle and export.
+  It validates that run's evidence and restores its exact prepared export, or
+  its verified VM bundle if the source run stopped before preparation.
 - `recover-release` creates or completes an Xcode GitHub Release from verified
   publication results. It checks successful digest verification and tag promotion,
   the saved publication record, and the current anonymous registry references.
@@ -149,8 +150,16 @@ artifacts, with additional release assets for Xcode images.
 
 After `upload-only`, the saved result remains at `prepared`. Use that upload run
 as `source_run` for `recover-upload` when ready to complete anonymous acceptance
-and update tags. Recovery requires the retained local VM bundle and OCI layout;
-it preserves the original export and digest.
+and update tags. Prepared recovery requires the retained OCI layout and original
+bundle metadata; it preserves the original export and digest without restoring
+a raw VM. Built-only recovery still requires the verified local VM bundle.
+
+After preparation succeeds, a separate step verifies the retained export and
+atomically records its digest, layout metadata hash, original bundle metadata
+hash, and import-space bound. It then removes the run's private Tart storage and
+saved raw VM. An interruption during removal preserves layout-based recovery.
+The original `bundle.json` remains unchanged. Recovery must reference a run with
+successful preparation evidence once its raw storage has been retired.
 
 After the anonymous download passes verification, the saved recovery layout
 shares its blobs with that download through APFS clones. Each replacement is
@@ -160,10 +169,11 @@ before import. An interrupted replacement leaves the exact export recoverable.
 Upload-only runs reserve the saved bundle's full logical size, five percent for
 export overhead, and 2 GiB of remaining workspace for tools and temporary files.
 Restoring and retaining the bundle use APFS clones. If the source run already has a prepared
-export, only the 2 GiB workspace allowance is needed. Recovering a prepared
-export reserves the larger of its download size and allocated VM size, plus
-20 GiB. Publication checks space before downloading and importing, pruning
-unused parent caches when necessary. Fresh builds still
+export, recovery requires the same APFS volume and only the 2 GiB workspace
+allowance before retiring raw storage. Publication then checks space before
+downloading and importing, reserving 20 GiB beyond each stage's requirement
+and pruning unused parent caches when necessary. The import check uses the
+saved bundle's full logical size. Fresh builds still
 require 100 GiB free, or 250 GiB for Xcode images, to allow for builds and
 downloaded image checks, less the space already occupied by the verified parent
 cache selected for that build.
@@ -208,7 +218,8 @@ verification clones are deleted after their logs are saved. Unrelated VMs are
 never touched, and automatic Tart pruning remains disabled.
 
 Verified recovery bundles live under `~/.cache/macos-image/verified`. Failed
-publication retains the verified bundle and any completed export. Successful
+publication retains its prepared export and original bundle metadata, or its
+verified raw bundle if preparation has not completed. Successful
 anonymous verification of the promoted tags is followed by a separate cleanup
 step with 20 minutes to verify and remove that cache. Small logs and
 result files are uploaded as Actions artifacts even when a stage fails.

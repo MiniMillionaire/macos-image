@@ -385,6 +385,11 @@ jobs:
         timeout-minutes: 45
         working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
         run: bash ci/image.sh prepare 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/prepare.log"
+      - name: Release prepared raw storage
+        if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'upload-only' || needs.authorize.outputs.operation == 'recover-upload'
+        timeout-minutes: 30
+        working-directory: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/source
+        run: bash ci/image.sh retire-prepared 2>&1 | tee "$RUNNER_TEMP/macos-image-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/logs/retire-prepared.log"
       - name: Upload image manifest
         if: needs.authorize.outputs.operation == 'publish' || needs.authorize.outputs.operation == 'upload-only' || needs.authorize.outputs.operation == 'recover-upload'
         timeout-minutes: 60
