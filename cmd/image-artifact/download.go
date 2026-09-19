@@ -104,14 +104,37 @@ func downloadOCI(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	metadata := []struct {
+		name  string
+		value any
+	}{
+		{"oci-layout", map[string]string{"imageLayoutVersion": "1.0.0"}},
+		{"index.json", index{SchemaVersion: 2, Manifests: []descriptor{entry}}},
+	}
+	if *resume {
+		for _, file := range metadata {
+			if _, err := reuseJSON(filepath.Join(*layout, file.name), file.value); err != nil {
+				return err
+			}
+		}
+	}
 	if err := d.blobs(ctx, *layout, append([]descriptor{doc.Config}, doc.Layers...), *resume); err != nil {
 		return err
 	}
-	if err := saveJSON(filepath.Join(*layout, "oci-layout"), map[string]string{"imageLayoutVersion": "1.0.0"}); err != nil {
-		return err
-	}
-	if err := saveJSON(filepath.Join(*layout, "index.json"), index{SchemaVersion: 2, Manifests: []descriptor{entry}}); err != nil {
-		return err
+	for _, file := range metadata {
+		path := filepath.Join(*layout, file.name)
+		if *resume {
+			exists, err := reuseJSON(path, file.value)
+			if err != nil {
+				return err
+			}
+			if exists {
+				continue
+			}
+		}
+		if err := saveJSON(path, file.value); err != nil {
+			return err
+		}
 	}
 	_, _, err = inspect(*layout)
 	return err

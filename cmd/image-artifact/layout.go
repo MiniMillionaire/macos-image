@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -64,6 +65,28 @@ func saveJSON(path string, value any) error {
 	}
 	err = writeJSON(file, value)
 	return errors.Join(err, file.Close())
+}
+
+func reuseJSON(path string, value any) (bool, error) {
+	var existing any
+	if err := jsonFile(path, &existing); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return false, err
+	}
+	var expected any
+	if err := json.Unmarshal(data, &expected); err != nil {
+		return false, err
+	}
+	if !reflect.DeepEqual(existing, expected) {
+		return false, fmt.Errorf("existing JSON does not match: %s", path)
+	}
+	return true, nil
 }
 
 func blobPath(layout, digest string) (string, error) {
