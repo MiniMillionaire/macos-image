@@ -769,6 +769,9 @@ build_xcode() {
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
+    -var "xcode_excluded_platforms=${XCODE_EXCLUDED_PLATFORMS:-[]}" \
+    -var "xcode_platform_architecture=${XCODE_PLATFORM_ARCHITECTURE:-}" \
+    -var "xcode_platforms=${XCODE_PLATFORMS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
   clean_desktop "$target" xcode

@@ -26,6 +26,21 @@ variable "xcode_components" {
   default = []
 }
 
+variable "xcode_excluded_platforms" {
+  type    = list(string)
+  default = []
+}
+
+variable "xcode_platform_architecture" {
+  type    = string
+  default = ""
+}
+
+variable "xcode_platforms" {
+  type    = list(string)
+  default = []
+}
+
 variable "guest_username" {
   type = string
 }
@@ -61,6 +76,9 @@ build {
     environment_vars = [
       "GUEST_USERNAME=${var.guest_username}",
       "XCODE_COMPONENTS=${join(",", var.xcode_components)}",
+      "XCODE_EXCLUDED_PLATFORMS=${join(",", var.xcode_excluded_platforms)}",
+      "XCODE_PLATFORM_ARCHITECTURE=${var.xcode_platform_architecture}",
+      "XCODE_PLATFORMS=${join(",", var.xcode_platforms)}",
       "XCODE_VERSION=${var.xcode_version}",
     ]
     scripts = [

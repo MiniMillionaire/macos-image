@@ -29,7 +29,18 @@ export PATH="$HOME/.local/share/mise/shims:$PATH"
 tuist version
 
 runtime_directory=$(mktemp -d "$HOME/Downloads/macos-image-runtimes.XXXXXX")
-xcodebuild -downloadAllPlatforms -exportPath "$runtime_directory"
+platform_arguments=()
+if [[ -n "$XCODE_PLATFORM_ARCHITECTURE" ]]; then
+  platform_arguments=(-architectureVariant "$XCODE_PLATFORM_ARCHITECTURE")
+fi
+if [[ -n "$XCODE_PLATFORMS" ]]; then
+  IFS=',' read -ra platforms <<< "$XCODE_PLATFORMS"
+  for platform in "${platforms[@]}"; do
+    xcodebuild -downloadPlatform "$platform" -exportPath "$runtime_directory" "${platform_arguments[@]}"
+  done
+else
+  xcodebuild -downloadAllPlatforms -exportPath "$runtime_directory" "${platform_arguments[@]}"
+fi
 runtime_count=0
 while IFS= read -r -d '' runtime; do
   xcodebuild -importPlatform "$runtime"
@@ -38,6 +49,20 @@ while IFS= read -r -d '' runtime; do
 done < <(find "$runtime_directory" -type f -name '*.dmg' -print0)
 test "$runtime_count" -gt 0
 rm -rf "$runtime_directory"
+
+if [[ -n "$XCODE_EXCLUDED_PLATFORMS" ]]; then
+  IFS=',' read -ra excluded_platforms <<< "$XCODE_EXCLUDED_PLATFORMS"
+  for platform in "${excluded_platforms[@]}"; do
+    case "$platform" in
+      tvOS) bundles=(AppleTVOS.platform AppleTVSimulator.platform) ;;
+      visionOS) bundles=(XROS.platform XRSimulator.platform) ;;
+      *) echo "Unsupported excluded Xcode platform: $platform" >&2; exit 1 ;;
+    esac
+    for bundle in "${bundles[@]}"; do
+      sudo rm -rf -- "$target/Contents/Developer/Platforms/$bundle"
+    done
+  done
+fi
 
 if [[ -n "$XCODE_COMPONENTS" ]]; then
   IFS=',' read -ra components <<< "$XCODE_COMPONENTS"
