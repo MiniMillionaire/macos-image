@@ -10,6 +10,8 @@ if pgrep -x 'Setup Assistant' >/dev/null; then
 fi
 
 defaults write NSGlobalDomain NSQuitAlwaysKeepsWindows -bool false
+defaults write com.apple.WindowManager StandardHideWidgets -bool true
+defaults write com.apple.WindowManager StageManagerHideWidgets -bool true
 osascript -l JavaScript <<'JAVASCRIPT'
 ObjC.import("AppKit");
 var running = $.NSWorkspace.sharedWorkspace.runningApplications;
