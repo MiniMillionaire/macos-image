@@ -76,6 +76,7 @@ func main() {
 	var initialWait string
 	var screenshotPath string
 	var keyInterval string
+	var shutdown bool
 
 	flag.StringVar(&vm, "vm", "", "Tart VM name")
 	flag.StringVar(&endpointURL, "endpoint", "", "existing Tart VNC endpoint")
@@ -83,20 +84,32 @@ func main() {
 	flag.StringVar(&initialWait, "initial-wait", "90s", "delay before the first action")
 	flag.StringVar(&screenshotPath, "screenshot", "", "write the final framebuffer to this path")
 	flag.StringVar(&keyInterval, "key-interval", "100ms", "delay between key events")
+	flag.BoolVar(&shutdown, "shutdown", false, "shut down the guest normally after a successful VM sequence")
 	flag.Parse()
 
-	if err := run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval); err != nil {
+	if err := run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval, shutdown); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval string) error {
+func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval string, shutdown bool) error {
 	if sequencePath == "" {
 		return errors.New("--sequence is required")
 	}
 	if (vm == "") == (endpointURL == "") {
 		return errors.New("exactly one of --vm and --endpoint is required")
+	}
+	if shutdown && vm == "" {
+		return errors.New("--shutdown requires --vm")
+	}
+	var askpass string
+	var err error
+	if shutdown {
+		askpass, err = shutdownCredentials()
+		if err != nil {
+			return err
+		}
 	}
 
 	setup, err := loadSequence(sequencePath)
@@ -124,6 +137,7 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 	defer cancel()
 
 	var server endpoint
+	var process *vmProcess
 	if endpointURL != "" {
 		var ok bool
 		server, ok, err = parseEndpoint(endpointURL)
@@ -145,7 +159,8 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 		if err := command.Start(); err != nil {
 			return err
 		}
-		defer stopVM(vm, command)
+		process = watchVM(command)
+		defer stopVM(vm, process)
 
 		server, err = waitForEndpoint(ctx, stdout)
 		if err != nil {
@@ -213,6 +228,9 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 		}
 	}
 	fmt.Println("Setup Assistant sequence completed")
+	if shutdown {
+		return shutdownVM(ctx, vm, process, askpass)
+	}
 
 	return nil
 }
@@ -607,9 +625,38 @@ func capture(client *vnc.ClientConn, messages <-chan vnc.ServerMessage, width, h
 	}
 }
 
-func stopVM(vm string, command *exec.Cmd) {
-	if command.Process == nil || command.ProcessState != nil {
+type vmProcess struct {
+	command *exec.Cmd
+	done    chan struct{}
+	err     error
+}
+
+func watchVM(command *exec.Cmd) *vmProcess {
+	process := &vmProcess{command: command, done: make(chan struct{})}
+	go func() {
+		process.err = command.Wait()
+		close(process.done)
+	}()
+	return process
+}
+
+func (process *vmProcess) wait(ctx context.Context) error {
+	select {
+	case <-process.done:
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return process.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func stopVM(vm string, process *vmProcess) {
+	select {
+	case <-process.done:
 		return
+	default:
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	stop := exec.CommandContext(ctx, "tart", "stop", vm, "--timeout", "30")
@@ -617,16 +664,14 @@ func stopVM(vm string, command *exec.Cmd) {
 	stop.Stderr = os.Stderr
 	_ = stop.Run()
 	cancel()
-	_ = command.Process.Signal(os.Interrupt)
-	done := make(chan struct{})
-	go func() {
-		_ = command.Wait()
-		close(done)
-	}()
+	_ = process.command.Process.Signal(os.Interrupt)
 	select {
-	case <-done:
+	case <-process.done:
 	case <-time.After(15 * time.Second):
-		_ = command.Process.Kill()
-		<-done
+		_ = process.command.Process.Kill()
+		select {
+		case <-process.done:
+		case <-time.After(5 * time.Second):
+		}
 	}
 }
