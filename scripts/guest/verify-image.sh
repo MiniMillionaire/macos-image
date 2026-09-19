@@ -53,9 +53,10 @@ function run(arguments) {
     var visible = windows.filter(function(window) {
         if (window.kCGWindowAlpha <= 0) return false;
         var owner = window.kCGWindowOwnerName;
+        var name = window.kCGWindowName || "";
         var level = window.kCGWindowLayer;
         if (owner === "Window Server" && level === menuLevel) return false;
-        if (owner === "Dock" && level === dockLevel) return false;
+        if (owner === "Dock" && (level === dockLevel || name.indexOf("Wallpaper-") === 0)) return false;
         return level !== statusLevel || statusOwners.indexOf(owner) === -1;
     });
     if (visible.length) {
