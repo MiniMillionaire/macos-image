@@ -1,0 +1,18 @@
+{
+  "width": 1024,
+  "height": 768,
+  "actions": [
+    {"scroll": {"x": 675, "y": 49, "steps": 1}},
+    {"wait": "2s"},
+    {"click": {"x": 668, "y": 46}},
+    {"wait": "2s"},
+    {"scroll": {"x": 675, "y": 49, "steps": 1}},
+    {"wait": "2s"},
+    {"click": {"x": 668, "y": 46}},
+    {"wait": "2s"},
+    {"scroll": {"x": 675, "y": 49, "steps": 1}},
+    {"wait": "2s"},
+    {"click": {"x": 668, "y": 46}},
+    {"wait": "2s"}
+  ]
+}

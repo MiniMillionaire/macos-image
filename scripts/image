@@ -535,8 +535,36 @@ run_setup_phase() {
 
 clean_desktop() {
   local vm=$1
+  local variant=${2:-vanilla}
+  local notification_sequence='' display
   local packer_build_timeout_seconds=900
+  case "$variant" in
+    vanilla) ;;
+    base) notification_sequence=${BASE_NOTIFICATION_SEQUENCE:-} ;;
+    xcode) notification_sequence=${XCODE_NOTIFICATION_SEQUENCE:-} ;;
+    *) die "Invalid desktop cleanup variant: $variant" ;;
+  esac
   clear_stale_control_socket "$vm"
+  if [[ -n "$notification_sequence" ]]; then
+    need go
+    need jq
+    display=$(jq -er '
+      [.width, .height] |
+      select(all(.[]; type == "number" and . == floor and . > 0 and . <= 65535)) |
+      "\(.[0])x\(.[1])px"
+    ' "$notification_sequence") || die "Invalid notification display dimensions: $notification_sequence"
+    run_bounded "$tart_operation_timeout_seconds" tart set "$vm" \
+      --display "$display" --no-display-refit
+    printf 'Running notification cleanup sequence: %s\n' "$notification_sequence"
+    GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+      run_bounded 480 go run ./cmd/setup-assistant \
+        --vm "$vm" \
+        --sequence "$notification_sequence" \
+        --initial-wait 90s \
+        --key-interval 300ms \
+        --shutdown
+    clear_stale_control_socket "$vm"
+  fi
   printf 'Cleaning desktop: %s\n' "$vm"
   packer_build templates/clean-desktop.pkr.hcl \
     -var "vm_name=$vm" \
@@ -681,7 +709,7 @@ build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
   prepare_base "$source" "$target"
-  clean_desktop "$target"
+  clean_desktop "$target" base
   shrink_vm "$target"
 }
 
@@ -743,7 +771,7 @@ build_xcode() {
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
-  clean_desktop "$target"
+  clean_desktop "$target" xcode
   shrink_vm "$target"
 }
 
@@ -1037,7 +1065,7 @@ case ${1:-} in
     case ${2:-} in
       base)
         provision_base "${3:?VM name is required}"
-        clean_desktop "$3"
+        clean_desktop "$3" base
         shrink_vm "$3"
         ;;
       disable-sip) disable_sip "${3:?VM name is required}" ;;
