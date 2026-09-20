@@ -41,6 +41,13 @@ that paths or first-login behavior are shared by every major or patch release.
 Keep installer backups outside the guest. Move `latest` only after confirming
 that the accepted target is the current release within its macOS major.
 
+The post-upgrade phase waits a bounded six minutes for Setup Assistant. A
+version-selected mapping checks the target version, build, account, FileVault,
+privacy state, and active pane before sending fixed VNC input. It then verifies
+the completed native state before shutdown. CI does not capture or interpret
+the framebuffer. A target without a verified mapping fails if Setup Assistant
+appears.
+
 ## Local investigation
 
 Run the commands below inside a disposable clone. Keep the source image stopped.
@@ -138,10 +145,11 @@ Check `sw_vers`, require a different `kern.bootsessionuuid`, and check FileVault
 volume ownership, account, language, keyboard and retained data. Then shut down
 and perform a separate cold boot with the normal image verifier.
 
-The first login after the full-installer update launched
-`Setup Assistant -MiniBuddyYes`. A separate cold boot cleared it and passed
-the vanilla verifier without UI input or Setup Assistant preference changes.
-The cold-boot check is part of the update procedure.
+The first login after the full-installer update may launch
+`Setup Assistant -MiniBuddyYes`. Some runs cleared it after a separate cold
+boot, while another 15.7.8 build retained it. The build now observes this state
+and completes the verified Sequoia flow before desktop cleanup. The independent
+cold-boot check remains part of the update procedure.
 
 ## Validation
 

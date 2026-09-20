@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
+test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
+test "$(id -un)" = "$GUEST_USERNAME"
+test "$HOME" = "/Users/$GUEST_USERNAME"
+test "$(sudo -n fdesetup status)" = 'FileVault is Off.'
+test -e /var/db/.AppleSetupDone
+
+deadline=$((SECONDS + 120))
+while [[ $(stat -f %Su /dev/console) != "$GUEST_USERNAME" ]]; do
+  (( SECONDS < deadline )) || { echo 'The upgraded guest did not log in' >&2; exit 1; }
+  sleep 5
+done
+
+case "$POST_UPGRADE_MODE" in
+  observe)
+    deadline=$((SECONDS + 360))
+    while (( SECONDS < deadline )); do
+      if pgrep -x 'Setup Assistant' >/dev/null; then
+        declare -F verify_pending_setup >/dev/null || {
+          echo "Pending Setup Assistant has no verified mapping for $EXPECTED_VERSION ($EXPECTED_BUILD)" >&2
+          exit 1
+        }
+        verify_pending_setup
+        printf 'pending\n'
+        exit 0
+      fi
+      sleep 5
+    done
+    ;;
+  verify)
+    deadline=$((SECONDS + 120))
+    while pgrep -x 'Setup Assistant' >/dev/null; do
+      (( SECONDS < deadline )) || { echo 'Post-upgrade Setup Assistant did not finish' >&2; exit 1; }
+      sleep 5
+    done
+    declare -F verify_post_upgrade_setup >/dev/null
+    ;;
+  *) echo "Unknown post-upgrade check: $POST_UPGRADE_MODE" >&2; exit 1 ;;
+esac
+
+if pgrep -x 'Setup Assistant' >/dev/null; then
+  echo 'Post-upgrade Setup Assistant is still running' >&2
+  exit 1
+fi
+if declare -F verify_post_upgrade_setup >/dev/null; then
+  verify_post_upgrade_setup
+fi
+printf 'complete\n'

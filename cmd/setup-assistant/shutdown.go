@@ -51,22 +51,8 @@ func requestGuestShutdown(ctx context.Context, vm, askpass string) error {
 	if address == nil || !address.IsPrivate() {
 		return errors.New("guest shutdown requires a private VM address")
 	}
-	command := exec.CommandContext(ctx, "/usr/bin/ssh",
-		"-F", "/dev/null", "-T",
-		"-o", "UseKeychain=no", "-o", "AddKeysToAgent=no",
-		"-o", "IdentityAgent=none", "-o", "IdentityFile=none", "-o", "IdentitiesOnly=yes",
-		"-o", "PubkeyAuthentication=no", "-o", "HostbasedAuthentication=no",
-		"-o", "GSSAPIAuthentication=no", "-o", "KbdInteractiveAuthentication=no",
-		"-o", "PreferredAuthentications=password", "-o", "PasswordAuthentication=yes",
-		"-o", "NumberOfPasswordPrompts=1",
-		"-o", "UserKnownHostsFile=/dev/null", "-o", "GlobalKnownHostsFile=/dev/null",
-		"-o", "StrictHostKeyChecking=no", "-o", "LogLevel=ERROR",
-		"-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1",
-		"-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3",
-		"-l", os.Getenv("GUEST_USERNAME"), host, "/bin/bash -se")
-	command.Env = append(os.Environ(), "SSH_ASKPASS="+askpass, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=:0")
+	command := guestSSHCommand(ctx, host, askpass, "/bin/bash -se")
 	command.Stdin = strings.NewReader("sync\nsudo -n /usr/bin/true\nprintf 'MACOS_IMAGE_SHUTDOWN_REQUESTED\\n'\nexec sudo -n /sbin/shutdown -h now\n")
-	command.WaitDelay = 5 * time.Second
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 	output, err = command.Output()
@@ -82,6 +68,25 @@ func requestGuestShutdown(ctx context.Context, vm, askpass string) error {
 		return errors.New("guest did not acknowledge the shutdown request")
 	}
 	return nil
+}
+
+func guestSSHCommand(ctx context.Context, host, askpass, remoteCommand string) *exec.Cmd {
+	command := exec.CommandContext(ctx, "/usr/bin/ssh",
+		"-F", "/dev/null", "-T",
+		"-o", "UseKeychain=no", "-o", "AddKeysToAgent=no",
+		"-o", "IdentityAgent=none", "-o", "IdentityFile=none", "-o", "IdentitiesOnly=yes",
+		"-o", "PubkeyAuthentication=no", "-o", "HostbasedAuthentication=no",
+		"-o", "GSSAPIAuthentication=no", "-o", "KbdInteractiveAuthentication=no",
+		"-o", "PreferredAuthentications=password", "-o", "PasswordAuthentication=yes",
+		"-o", "NumberOfPasswordPrompts=1",
+		"-o", "UserKnownHostsFile=/dev/null", "-o", "GlobalKnownHostsFile=/dev/null",
+		"-o", "StrictHostKeyChecking=no", "-o", "LogLevel=ERROR",
+		"-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1",
+		"-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3",
+		"-l", os.Getenv("GUEST_USERNAME"), host, remoteCommand)
+	command.Env = append(os.Environ(), "SSH_ASKPASS="+askpass, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=:0")
+	command.WaitDelay = 5 * time.Second
+	return command
 }
 
 func shutdownVM(ctx context.Context, vm string, process *vmProcess, askpass string) error {

@@ -71,6 +71,8 @@ setup_assistant_user_wait=${SETUP_ASSISTANT_USER_WAIT:-${DEFAULT_SETUP_ASSISTANT
 setup_assistant_final_wait=${SETUP_ASSISTANT_FINAL_WAIT:-${DEFAULT_SETUP_ASSISTANT_FINAL_WAIT:-90s}}
 setup_assistant_gatekeeper_wait=${SETUP_ASSISTANT_GATEKEEPER_WAIT:-${DEFAULT_SETUP_ASSISTANT_GATEKEEPER_WAIT:-90s}}
 setup_assistant_key_interval=${SETUP_ASSISTANT_KEY_INTERVAL:-50ms}
+setup_assistant_upgrade_wait=${SETUP_ASSISTANT_UPGRADE_WAIT:-60s}
+setup_assistant_upgrade_key_interval=${SETUP_ASSISTANT_UPGRADE_KEY_INTERVAL:-150ms}
 temporary_locale_home=
 active_pid=
 verification_vm=
@@ -152,6 +154,14 @@ validate_configuration() {
   else
     [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
     [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "Invalid IPSW SHA-256: $IPSW_SHA256"
+  fi
+  if [[ -n ${POST_UPGRADE_SETUP_SEQUENCE:-} || -n ${POST_UPGRADE_SETUP_CHECK:-} ]]; then
+    [[ -n ${POST_UPGRADE_SETUP_SEQUENCE:-} && -n ${POST_UPGRADE_SETUP_CHECK:-} ]] ||
+      die 'Post-upgrade setup requires both a sequence and native checks'
+    [[ -f "$root_dir/$POST_UPGRADE_SETUP_SEQUENCE" && ! -L "$root_dir/$POST_UPGRADE_SETUP_SEQUENCE" ]] ||
+      die "Post-upgrade Setup Assistant sequence not found: $POST_UPGRADE_SETUP_SEQUENCE"
+    [[ -f "$root_dir/$POST_UPGRADE_SETUP_CHECK" && ! -L "$root_dir/$POST_UPGRADE_SETUP_CHECK" ]] ||
+      die "Post-upgrade setup checks not found: $POST_UPGRADE_SETUP_CHECK"
   fi
 }
 
@@ -533,6 +543,35 @@ run_setup_phase() {
       --key-interval "$setup_assistant_key_interval"
 }
 
+complete_post_upgrade_setup() {
+  local vm=$1
+  local display
+  need go
+  require_duration "$setup_assistant_upgrade_wait"
+  require_duration "$setup_assistant_upgrade_key_interval"
+  if [[ -n ${POST_UPGRADE_SETUP_SEQUENCE:-} ]]; then
+    need jq
+    display=$(jq -er '
+      [.width, .height] |
+      select(all(.[]; type == "number" and . == floor and . > 0 and . <= 65535)) |
+      "\(.[0])x\(.[1])px"
+    ' "$POST_UPGRADE_SETUP_SEQUENCE") || die "Invalid post-upgrade display dimensions: $POST_UPGRADE_SETUP_SEQUENCE"
+    run_bounded "$tart_operation_timeout_seconds" tart set "$vm" \
+      --display "$display" --no-display-refit
+  fi
+  clear_stale_control_socket "$vm"
+  printf 'Checking post-upgrade Setup Assistant: %s\n' "$vm"
+  GUEST_USERNAME="$guest_username" GUEST_PASSWORD="$guest_password" \
+    EXPECTED_VERSION="$MACOS_VERSION" EXPECTED_BUILD="$MACOS_BUILD" \
+    run_bounded "$setup_assistant_timeout_seconds" go run ./cmd/setup-assistant \
+      --vm "$vm" \
+      --sequence "${POST_UPGRADE_SETUP_SEQUENCE:-}" \
+      --post-upgrade \
+      --post-upgrade-check "${POST_UPGRADE_SETUP_CHECK:-}" \
+      --initial-wait "$setup_assistant_upgrade_wait" \
+      --key-interval "$setup_assistant_upgrade_key_interval"
+}
+
 clean_desktop() {
   local vm=$1
   local variant=${2:-vanilla}
@@ -711,6 +750,7 @@ upgrade_macos() {
     -var "disk_size_gb=$build_disk_size_gb" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  complete_post_upgrade_setup "$target"
 }
 
 build_upgraded_vanilla() {

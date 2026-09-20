@@ -77,6 +77,8 @@ func main() {
 	var screenshotPath string
 	var keyInterval string
 	var shutdown bool
+	var postUpgrade bool
+	var postUpgradeCheck string
 
 	flag.StringVar(&vm, "vm", "", "Tart VM name")
 	flag.StringVar(&endpointURL, "endpoint", "", "existing Tart VNC endpoint")
@@ -85,21 +87,33 @@ func main() {
 	flag.StringVar(&screenshotPath, "screenshot", "", "write the final framebuffer to this path")
 	flag.StringVar(&keyInterval, "key-interval", "100ms", "delay between key events")
 	flag.BoolVar(&shutdown, "shutdown", false, "shut down the guest normally after a successful VM sequence")
+	flag.BoolVar(&postUpgrade, "post-upgrade", false, "complete Setup Assistant after a macOS upgrade")
+	flag.StringVar(&postUpgradeCheck, "post-upgrade-check", "", "native checks for the upgraded guest")
 	flag.Parse()
 
-	if err := run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval, shutdown); err != nil {
+	if err := run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval, shutdown, postUpgrade, postUpgradeCheck); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval string, shutdown bool) error {
-	if sequencePath == "" {
+func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval string, shutdown, postUpgrade bool, postUpgradeCheck string) error {
+	if sequencePath == "" && !postUpgrade {
 		return errors.New("--sequence is required")
 	}
 	if (vm == "") == (endpointURL == "") {
 		return errors.New("exactly one of --vm and --endpoint is required")
 	}
+	if postUpgrade && (vm == "" || screenshotPath != "") {
+		return errors.New("post-upgrade setup requires VM mode without screenshots")
+	}
+	if postUpgrade && (sequencePath == "") != (postUpgradeCheck == "") {
+		return errors.New("post-upgrade setup requires both a sequence and native checks")
+	}
+	if !postUpgrade && postUpgradeCheck != "" {
+		return errors.New("--post-upgrade-check requires --post-upgrade")
+	}
+	shutdown = shutdown || postUpgrade
 	if shutdown && vm == "" {
 		return errors.New("--shutdown requires --vm")
 	}
@@ -112,9 +126,12 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 		}
 	}
 
-	setup, err := loadSequence(sequencePath)
-	if err != nil {
-		return err
+	var setup sequence
+	if sequencePath != "" {
+		setup, err = loadSequence(sequencePath)
+		if err != nil {
+			return err
+		}
 	}
 	wait, err := time.ParseDuration(initialWait)
 	if err != nil {
@@ -205,6 +222,19 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 			return err
 		}
 	}
+	if postUpgrade {
+		state, err := checkPostUpgrade(ctx, vm, askpass, postUpgradeCheck, "observe")
+		if err != nil {
+			return err
+		}
+		if state == "complete" {
+			fmt.Println("No pending post-upgrade Setup Assistant")
+			return shutdownVM(ctx, vm, process, askpass)
+		}
+		if state != "pending" || sequencePath == "" {
+			return errors.New("pending Setup Assistant requires a verified target mapping")
+		}
+	}
 	if err := synchronizeDisplay(ctx, client, messages, setup.Width, setup.Height); err != nil {
 		return err
 	}
@@ -228,6 +258,15 @@ func run(vm, endpointURL, sequencePath, initialWait, screenshotPath, keyInterval
 		}
 	}
 	fmt.Println("Setup Assistant sequence completed")
+	if postUpgrade {
+		state, err := checkPostUpgrade(ctx, vm, askpass, postUpgradeCheck, "verify")
+		if err != nil {
+			return err
+		}
+		if state != "complete" {
+			return errors.New("post-upgrade setup completion was not confirmed")
+		}
+	}
 	if shutdown {
 		return shutdownVM(ctx, vm, process, askpass)
 	}
