@@ -29,6 +29,9 @@ case "$POST_UPGRADE_MODE" in
       fi
       sleep 5
     done
+    if declare -F verify_no_pending_setup >/dev/null; then
+      verify_no_pending_setup
+    fi
     ;;
   verify)
     deadline=$((SECONDS + 120))
@@ -37,6 +40,7 @@ case "$POST_UPGRADE_MODE" in
       sleep 5
     done
     declare -F verify_post_upgrade_setup >/dev/null
+    verify_post_upgrade_setup
     ;;
   *) echo "Unknown post-upgrade check: $POST_UPGRADE_MODE" >&2; exit 1 ;;
 esac
@@ -44,8 +48,5 @@ esac
 if pgrep -x 'Setup Assistant' >/dev/null; then
   echo 'Post-upgrade Setup Assistant is still running' >&2
   exit 1
-fi
-if declare -F verify_post_upgrade_setup >/dev/null; then
-  verify_post_upgrade_setup
 fi
 printf 'complete\n'

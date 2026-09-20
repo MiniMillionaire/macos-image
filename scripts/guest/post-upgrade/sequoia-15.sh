@@ -17,6 +17,12 @@ verify_pending_setup() {
   case "$pane" in *'Making pane visible: DiagnosticsAndUsage') ;; *) return 1 ;; esac
 }
 
+verify_no_pending_setup() {
+  verify_sequoia_target
+  test "$(sudo -n plutil -extract AutoSubmit raw '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist')" = false
+  test "$(sudo -n plutil -extract ThirdPartyDataSubmit raw '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist')" = false
+}
+
 verify_post_upgrade_setup() {
   verify_sequoia_target
   test "$(defaults read com.apple.SetupAssistant LastSeenDiagnosticsProductVersion)" = "$EXPECTED_VERSION"
