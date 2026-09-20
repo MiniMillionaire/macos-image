@@ -230,7 +230,7 @@ check_tools() {
     minimum_kib=$((minimum_kib - parent_cache_credit_kib))
   fi
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
-        "$VARIANT" == vanilla && -n "$VANILLA_SOURCE_PROFILE" ]]; then
+        -n "$VANILLA_SOURCE_PROFILE" ]]; then
     minimum_kib=$((minimum_kib + (INSTALLER_SIZE + 1023) / 1024))
   fi
   parent_cache_prune "$minimum_kib" "$parent_cache_keep"

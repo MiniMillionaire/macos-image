@@ -75,6 +75,11 @@ Base and Xcode builds clone the matching validated vanilla image. Each Xcode
 build provisions the base tools before installing Xcode; it does not inherit
 an earlier Xcode installation. Both use SSH provisioning.
 
+For macOS versions produced by an in-guest update, base and Xcode builds clone
+the pinned IPSW vanilla, disable SIP through its paired recoveryOS, and then
+apply the same pinned update used by the target vanilla image. The updated guest
+must pass the requested version, build, and image-profile checks.
+
 Before verification, base and Xcode builds remove Homebrew, npm, and Ruby
 download caches and their staged provisioning files. Xcode's XIP is removed
 after installation. Simulator packages are downloaded into a temporary directory,

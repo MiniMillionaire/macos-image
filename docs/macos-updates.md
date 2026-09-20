@@ -23,9 +23,11 @@ independent cold-boot and anonymous-download acceptance checks.
 Each upgrade pins its source version and build, source image digest, target
 version and build, and installer URL, size, and SHA-256. A missing exact target
 is a failed build, not a reason to install a different release or macOS major.
-Base and Xcode images are derived from the matching accepted vanilla version.
-Each Xcode combination starts from vanilla and installs its own development
-tools; it does not reuse an earlier Xcode image.
+For upgraded targets, base and Xcode builds start from the same pinned IPSW
+vanilla, disable SIP, and then install the pinned macOS update. This preserves
+the security policy through the update without depending on the target's paired
+recoveryOS. Each Xcode combination starts from vanilla and installs its own
+development tools; it does not reuse an earlier Xcode image.
 
 Keep the source image unchanged. Grow each target's clone to a sparse 256 GB
 disk for the upgrade, then shrink it after cleanup and before verification.

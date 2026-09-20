@@ -653,21 +653,39 @@ build_vanilla() {
   shrink_vm "$target"
 }
 
-build_upgraded_vanilla() {
-  local target=$1
+load_upgrade_source() {
   local source_config="$root_dir/config/$VANILLA_SOURCE_PROFILE.env"
-  local source_version source_build source_family installer_app
-  local installer_path=${INSTALLER_PATH:-$installer_cache_dir/$INSTALLER_SHA256.pkg}
+  local source_family
   [[ -f "$source_config" && ! -L "$source_config" ]] || die 'Source profile is missing'
   (source "$source_config" && test "$IMAGE_PRERELEASE" = false && test -n "${IPSW_SHA256:-}") ||
     die 'The source must be an official IPSW profile'
-  source_version=$(source "$source_config"; printf '%s' "$MACOS_VERSION")
-  source_build=$(source "$source_config"; printf '%s' "$MACOS_BUILD")
+  upgrade_source_config=$source_config
+  upgrade_source_version=$(source "$source_config"; printf '%s' "$MACOS_VERSION")
+  upgrade_source_build=$(source "$source_config"; printf '%s' "$MACOS_BUILD")
   source_family=$(source "$source_config"; printf '%s' "$MACOS_FAMILY")
-  [[ "$source_family" == "$MACOS_FAMILY" && ${source_version%%.*} == "${MACOS_VERSION%%.*}" ]] ||
+  [[ "$source_family" == "$MACOS_FAMILY" && ${upgrade_source_version%%.*} == "${MACOS_VERSION%%.*}" ]] ||
     die 'An upgrade must stay within its source macOS major'
-  [[ "$source_version" != "$MACOS_VERSION" ]] && version_is_at_least "$MACOS_VERSION" "$source_version" ||
+  [[ "$upgrade_source_version" != "$MACOS_VERSION" ]] && version_is_at_least "$MACOS_VERSION" "$upgrade_source_version" ||
     die 'The target must be newer than its source'
+}
+
+clone_upgrade_source() {
+  local target=$1
+  load_upgrade_source
+  if [[ -n ${VANILLA_SOURCE_VM:-} ]]; then
+    clone_vm "$VANILLA_SOURCE_VM" "$target" vanilla
+  else
+    [[ -n "$registry" ]] || die 'REGISTRY is required to download the pinned source image'
+    MACOS_VERSION="$upgrade_source_version" MACOS_BUILD="$upgrade_source_build" config_path="$upgrade_source_config" \
+      registry_pull vanilla "$registry/macos-$MACOS_FAMILY-vanilla@$VANILLA_SOURCE_DIGEST" "$target"
+  fi
+}
+
+upgrade_macos() {
+  local target=$1
+  local installer_app
+  local installer_path=${INSTALLER_PATH:-$installer_cache_dir/$INSTALLER_SHA256.pkg}
+  load_upgrade_source
   case "$MACOS_FAMILY" in
     sequoia) installer_app='/Applications/Install macOS Sequoia.app' ;;
     *) die "No verified upgrade procedure for $MACOS_FAMILY" ;;
@@ -681,18 +699,11 @@ build_upgraded_vanilla() {
     --url "$INSTALLER_URL" --output "$installer_path" \
     --sha256 "$INSTALLER_SHA256" --size "$INSTALLER_SIZE" --ca-file "$image_cacert"
 
-  if [[ -n ${VANILLA_SOURCE_VM:-} ]]; then
-    clone_vm "$VANILLA_SOURCE_VM" "$target" vanilla
-  else
-    [[ -n "$registry" ]] || die 'REGISTRY is required to download the pinned source image'
-    MACOS_VERSION="$source_version" MACOS_BUILD="$source_build" config_path="$source_config" \
-      registry_pull vanilla "$registry/macos-$MACOS_FAMILY-vanilla@$VANILLA_SOURCE_DIGEST" "$target"
-  fi
   clear_stale_control_socket "$target"
   packer_build "$VANILLA_TEMPLATE" \
     -var "vm_name=$target" \
-    -var "source_version=$source_version" \
-    -var "source_build=$source_build" \
+    -var "source_version=$upgrade_source_version" \
+    -var "source_build=$upgrade_source_build" \
     -var "expected_version=$MACOS_VERSION" \
     -var "expected_build=$MACOS_BUILD" \
     -var "installer_archive=$installer_path" \
@@ -700,6 +711,12 @@ build_upgraded_vanilla() {
     -var "disk_size_gb=$build_disk_size_gb" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+}
+
+build_upgraded_vanilla() {
+  local target=$1
+  clone_upgrade_source "$target"
+  upgrade_macos "$target"
   clean_desktop "$target"
   shrink_vm "$target"
   verify_existing "$target" vanilla
@@ -719,6 +736,10 @@ prepare_base() {
   require_build_host
   clone_vm "$source" "$target" vanilla
   disable_sip "$target"
+  if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+    upgrade_macos "$target"
+    clean_desktop "$target"
+  fi
   provision_base "$target"
 }
 

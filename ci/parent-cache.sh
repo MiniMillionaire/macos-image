@@ -123,7 +123,7 @@ prepare_parent_source() {
   local source_version=$MACOS_VERSION source_build=$MACOS_BUILD
   variant=vanilla
   reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
-  if [[ "$VARIANT" == vanilla && -n "$VANILLA_SOURCE_PROFILE" ]]; then
+  if [[ -n "$VANILLA_SOURCE_PROFILE" ]]; then
     digest=$VANILLA_SOURCE_DIGEST
     source_version=$VANILLA_SOURCE_VERSION
     source_build=$VANILLA_SOURCE_BUILD
