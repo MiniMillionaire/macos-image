@@ -76,8 +76,10 @@ for label in 'Command Line Tools for Xcode-16.4' 'Command Line Tools for Xcode 2
 done
 
 expect_failure env MOCK_LABEL= /bin/bash "$root_dir/scripts/guest/install-command-line-tools.sh"
-for script in configure-vanilla.sh prepare-native.sh verify-image.sh; do
+for script in configure-vanilla.sh prepare-native.sh; do
   expect_failure env EXPECTED_VERSION=0 EXPECTED_BUILD=25G83 /bin/bash "$root_dir/scripts/guest/$script"
   expect_failure env EXPECTED_VERSION=26.6.2 EXPECTED_BUILD=invalid /bin/bash "$root_dir/scripts/guest/$script"
 done
+expect_failure env IMAGE_PROFILE=vanilla EXPECTED_VERSION=0 EXPECTED_BUILD=25G83 /bin/bash "$root_dir/scripts/guest/verify-image.sh"
+expect_failure env IMAGE_PROFILE=vanilla EXPECTED_VERSION=26.6.2 EXPECTED_BUILD=invalid /bin/bash "$root_dir/scripts/guest/verify-image.sh"
 printf 'Guest script checks passed with %s\n' "$(/bin/bash --version | head -1)"

@@ -24,8 +24,8 @@ source "tart-cli" "recovery" {
   recovery_partition = "keep"
   communicator       = "none"
   boot_command = [
-    "<wait60s><right><right><enter>",
-    "<wait10s><leftAltOn>T<leftAltOff>",
+    "<wait120s><left><wait1s><left><wait1s><left><wait1s><right><wait1s><enter><wait2s><enter>",
+    "<wait30s><leftAltOn><wait1s>T<wait1s><leftAltOff>",
     "<wait10s>csrutil disable<enter>",
     "<wait10s>y<enter>",
     "<wait10s>${var.guest_password}<enter>",

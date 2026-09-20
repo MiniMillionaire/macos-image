@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
-test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
-test "$(uname -m)" = arm64
-
 verify_desktop() {
   local desktop_timeout_seconds=120
   local desktop_settle_seconds=30
@@ -70,6 +66,9 @@ JAVASCRIPT
 }
 
 verify_vanilla() {
+  test "$(sw_vers -productVersion)" = "$EXPECTED_VERSION"
+  test "$(sw_vers -buildVersion)" = "$EXPECTED_BUILD"
+  test "$(uname -m)" = arm64
   filevault_status=$(sudo -n fdesetup status)
   [[ "$filevault_status" == 'FileVault is Off.' ]] || { echo "Unexpected FileVault status: $filevault_status" >&2; exit 1; }
   [[ -e /var/db/.AppleSetupDone ]] || { echo 'Setup Assistant is incomplete' >&2; exit 1; }
@@ -125,7 +124,10 @@ verify_base() {
 
 case "$IMAGE_PROFILE" in
   vanilla) verify_vanilla ;;
-  sip) csrutil status | grep -F disabled >/dev/null ;;
+  sip)
+    test "$(uname -m)" = arm64
+    csrutil status | grep -F disabled >/dev/null
+    ;;
   base)
     verify_vanilla
     verify_base
