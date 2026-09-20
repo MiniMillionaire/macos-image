@@ -17,10 +17,21 @@ verify_pending_setup() {
   case "$pane" in *'Making pane visible: DiagnosticsAndUsage') ;; *) return 1 ;; esac
 }
 
+verify_consent_disabled_or_unset() {
+  local key=$1 value
+  if value=$(sudo -n plutil -extract "$key" raw '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist' 2>/dev/null); then
+    test "$value" = false || {
+      printf '%s is unexpectedly enabled\n' "$key" >&2
+      return 1
+    }
+  fi
+}
+
 verify_no_pending_setup() {
   verify_sequoia_target
-  test "$(sudo -n plutil -extract AutoSubmit raw '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist')" = false
-  test "$(sudo -n plutil -extract ThirdPartyDataSubmit raw '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist')" = false
+  sudo -n plutil -lint '/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist' >/dev/null
+  verify_consent_disabled_or_unset AutoSubmit
+  verify_consent_disabled_or_unset ThirdPartyDataSubmit
 }
 
 verify_post_upgrade_setup() {
