@@ -30,11 +30,20 @@ tuist version
 
 runtime_directory=$(mktemp -d "$HOME/Downloads/macos-image-runtimes.XXXXXX")
 download_runtime() {
-  if [[ -n "$XCODE_PLATFORM_ARCHITECTURE" ]]; then
-    xcodebuild "$@" -exportPath "$runtime_directory" -architectureVariant "$XCODE_PLATFORM_ARCHITECTURE"
-  else
-    xcodebuild "$@" -exportPath "$runtime_directory"
-  fi
+  local attempt delay
+  local max_attempts=4
+  local retry_seconds=30
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if [[ -n "$XCODE_PLATFORM_ARCHITECTURE" ]]; then
+      xcodebuild "$@" -exportPath "$runtime_directory" -architectureVariant "$XCODE_PLATFORM_ARCHITECTURE" && return
+    else
+      xcodebuild "$@" -exportPath "$runtime_directory" && return
+    fi
+    (( attempt < max_attempts )) || return 1
+    delay=$((attempt * retry_seconds))
+    printf 'Retrying Xcode platform download in %d seconds\n' "$delay"
+    sleep "$delay"
+  done
 }
 if [[ -n "$XCODE_PLATFORMS" ]]; then
   IFS=',' read -ra platforms <<< "$XCODE_PLATFORMS"
