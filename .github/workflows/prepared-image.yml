@@ -14,6 +14,11 @@ on:
         options: [sequoia-15.6.1, sequoia-15.7.7, sequoia-15.7.8, sequoia-15.7.9, sequoia-15.8, tahoe-26.6.2, golden-gate-27.0]
         required: true
         description: Image configuration
+      flavor:
+        type: choice
+        options: [standard, slim]
+        default: standard
+        description: Package family
       variant:
         type: choice
         options: [vanilla, base, xcode]
@@ -67,6 +72,7 @@ jobs:
         id: source
         env:
           PROFILE: ${{ inputs.profile }}
+          PACKAGE_FLAVOR: ${{ inputs.flavor }}
           VARIANT: ${{ inputs.variant }}
           XCODE_VERSION: ${{ inputs.xcode_version }}
           XCODE_TAG: ${{ inputs.xcode_tag }}
@@ -103,6 +109,7 @@ jobs:
     env:
       PATH: /opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
       PROFILE: ${{ inputs.profile }}
+      PACKAGE_FLAVOR: ${{ inputs.flavor }}
       VARIANT: ${{ inputs.variant }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_TAG: ${{ inputs.xcode_tag }}
@@ -149,6 +156,7 @@ jobs:
           ' "$task/image.json" >/dev/null
           {
             printf 'IMAGE_CONFIG=%s\n' "$CONFIG_PATH"
+            printf 'IMAGE_PACKAGE_FAMILY=%s\n' "$PACKAGE_FAMILY"
             printf 'IMAGE_VARIANT=%s\n' "$VARIANT"
             printf 'PACKAGE_REF=%s\n' "$PACKAGE_REF"
             printf 'LATEST_REF=%s\n' "$LATEST_REF"

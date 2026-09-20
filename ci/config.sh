@@ -150,15 +150,24 @@ ci_load_profile() {
   fi
 
   [[ ${REGISTRY:-} == ghcr.io/minimillionaire ]] || ci_die "Unexpected registry: ${REGISTRY:-}"
-  PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:$MACOS_VERSION"
+  PACKAGE_FLAVOR=${PACKAGE_FLAVOR:-standard}
+  case "$PACKAGE_FLAVOR" in
+    standard) PACKAGE_FAMILY=$MACOS_FAMILY ;;
+    slim)
+      [[ "$PROFILE" == golden-gate-27.0 ]] || ci_die "Slim publication requires the Golden Gate profile"
+      PACKAGE_FAMILY=$MACOS_FAMILY-slim
+      ;;
+    *) ci_die "Unknown package flavor: $PACKAGE_FLAVOR" ;;
+  esac
+  PACKAGE_REF="$REGISTRY/macos-$PACKAGE_FAMILY-$VARIANT:$MACOS_VERSION"
   LATEST_REF=
   RELEASE_TAG=
   if [[ "$VARIANT" == xcode ]]; then
-    PACKAGE_REF="$REGISTRY/macos-$MACOS_FAMILY-xcode:$MACOS_VERSION-xcode$XCODE_TAG"
+    PACKAGE_REF="$REGISTRY/macos-$PACKAGE_FAMILY-xcode:$MACOS_VERSION-xcode$XCODE_TAG"
     RELEASE_TAG="$MACOS_VERSION-xcode$XCODE_TAG"
     [[ ${#RELEASE_TAG} -le 128 ]] || ci_die "Combined macOS and Xcode tag is too long"
   fi
-  [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$MACOS_FAMILY-$VARIANT:latest"
+  [[ "$UPDATE_LATEST" == false ]] || LATEST_REF="$REGISTRY/macos-$PACKAGE_FAMILY-$VARIANT:latest"
   PROFILE_CONFIG_SHA256=$(ci_sha256 "$CONFIG_PATH")
   TOOLCHAIN_CONFIG_SHA256=$(ci_sha256 config/toolchain.env)
 }

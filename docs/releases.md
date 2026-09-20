@@ -185,7 +185,8 @@ For a locally modified, accepted image, `Publish prepared macOS image` uploads a
 existing OCI export without rebuilding it. Put the export at
 `~/.cache/macos-image/prepared/<manifest-sha256>/layout` on the runner, where
 `<manifest-sha256>` omits the `sha256:` prefix. Dispatch `upload` with the complete
-digest and image configuration. The workflow verifies the export and uploads by
+digest and image configuration. Select the `slim` flavor only for an accepted
+Golden Gate slim export. The workflow verifies the export and uploads by
 digest without changing tags.
 
 Download that digest anonymously, verify all blobs, import it, and verify a cold

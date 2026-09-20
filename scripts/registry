@@ -76,7 +76,10 @@ check() {
 
 require_image_reference() {
   local reference=$1 variant=${IMAGE_VARIANT:?IMAGE_VARIANT is required}
+  local package_family=${IMAGE_PACKAGE_FAMILY:-$MACOS_FAMILY}
   local tag=$MACOS_VERSION
+  [[ "$package_family" == "$MACOS_FAMILY" || "$package_family" == "$MACOS_FAMILY-slim" ]] ||
+    fail 'Invalid image package family'
   case "$variant" in
     vanilla|base)
       if [[ ${2:-false} == true && "$reference" == *:latest ]]; then
@@ -105,7 +108,7 @@ require_image_reference() {
     *) fail "Unknown image variant: $variant" ;;
   esac
   (( ${#tag} <= 128 )) || fail 'Image tag exceeds 128 characters'
-  local suffix="/macos-$MACOS_FAMILY-$variant:$tag"
+  local suffix="/macos-$package_family-$variant:$tag"
   [[ "$reference" == *"$suffix" ]] || fail 'Reference does not match the configured image identity'
 }
 
