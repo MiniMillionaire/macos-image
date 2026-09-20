@@ -29,17 +29,20 @@ export PATH="$HOME/.local/share/mise/shims:$PATH"
 tuist version
 
 runtime_directory=$(mktemp -d "$HOME/Downloads/macos-image-runtimes.XXXXXX")
-platform_arguments=()
-if [[ -n "$XCODE_PLATFORM_ARCHITECTURE" ]]; then
-  platform_arguments=(-architectureVariant "$XCODE_PLATFORM_ARCHITECTURE")
-fi
+download_runtime() {
+  if [[ -n "$XCODE_PLATFORM_ARCHITECTURE" ]]; then
+    xcodebuild "$@" -exportPath "$runtime_directory" -architectureVariant "$XCODE_PLATFORM_ARCHITECTURE"
+  else
+    xcodebuild "$@" -exportPath "$runtime_directory"
+  fi
+}
 if [[ -n "$XCODE_PLATFORMS" ]]; then
   IFS=',' read -ra platforms <<< "$XCODE_PLATFORMS"
   for platform in "${platforms[@]}"; do
-    xcodebuild -downloadPlatform "$platform" -exportPath "$runtime_directory" "${platform_arguments[@]}"
+    download_runtime -downloadPlatform "$platform"
   done
 else
-  xcodebuild -downloadAllPlatforms -exportPath "$runtime_directory" "${platform_arguments[@]}"
+  download_runtime -downloadAllPlatforms
 fi
 runtime_count=0
 while IFS= read -r -d '' runtime; do
