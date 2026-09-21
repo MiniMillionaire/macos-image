@@ -231,7 +231,14 @@ check_tools() {
   fi
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
         -n "$VANILLA_SOURCE_PROFILE" ]]; then
-    minimum_kib=$((minimum_kib + (INSTALLER_SIZE + 1023) / 1024))
+    local installer_path=${INSTALLER_PATH:-$INSTALLER_CACHE_DIR/$INSTALLER_SHA256.pkg}
+    local installer_size=
+    if [[ -f "$installer_path" && ! -L "$installer_path" ]]; then
+      installer_size=$(stat -f %z "$installer_path")
+    fi
+    if [[ "$installer_size" != "$INSTALLER_SIZE" ]]; then
+      minimum_kib=$((minimum_kib + (INSTALLER_SIZE + 1023) / 1024))
+    fi
   fi
   parent_cache_prune "$minimum_kib" "$parent_cache_keep"
   available=$(df -Pk "$RUNNER_TEMP" | awk 'END {print $4}')
