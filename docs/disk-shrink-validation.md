@@ -80,8 +80,8 @@ Growing the disk with the same command also worked:
   available after boot. All four runtimes were still present.
 - 120 to 256 GB was refused with `Requested size exceeds maximum size`. The
   limits reported a maximum of 146,006,921,216 bytes, which is the current
-  size plus about 100 GiB of host free space. Builds therefore grow disks with
-  Tart and Packer.
+  size plus about 100 GiB of host free space. Builds therefore grow disks in
+  bounded offline stages.
 - Applying the policy from 120 GB gave a 86,138,421,248-byte minimum, which
   sets a 100 GB target. The shrink took 4.7 seconds and host allocation
   stayed at 83.3 GB.
