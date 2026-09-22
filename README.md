@@ -223,6 +223,9 @@ Tags can change after a rebuild. Pin a manifest digest with `@sha256:...` when
 consuming exact image bytes. OCI metadata records the macOS version, Apple
 build, Xcode version, and source commit.
 
+Sequoia publishes only `slim-xcode` because the current trimming process does
+not materially reduce its vanilla or base images.
+
 For Xcode registry operations, set `XCODE_VERSION` to the installed compiler
 version. `XCODE_TAG` supplies the Xcode part of the combined tag and defaults to
 that version; it can name a prerelease such as `27-beta-6` while `XCODE_VERSION`
