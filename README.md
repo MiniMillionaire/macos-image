@@ -28,7 +28,7 @@ digests, and CI runs.
 
 - Apple silicon
 - A host with `diskutil image resize` (verified on macOS 27)
-- Tart 2.36 or newer
+- Tart 2.36 or newer with `tart set --relocate-recovery`
 - Packer 1.14 or newer
 - Go 1.25 or newer
 - Swift 6 or newer

@@ -4,7 +4,7 @@
 
 Every build runs on a sparse 256 GB raw disk. IPSW builds create it with
 `tart create --disk-size 256`. Upgrade, base and Xcode builds start from a
-published image. Packer grows that clone to 256 GB and moves Recovery to the
+published image. Tart grows that clone to 256 GB and moves Recovery to the
 new end. The source image is unchanged. The file only allocates host space
 for written blocks.
 
@@ -57,24 +57,16 @@ above.
 Sizes are decimal GB, as in Tart. A 160 GB disk is about 149 GiB. Recovery,
 iBoot and filesystem overhead consume part of that capacity.
 
-## Why `tart set` alone is insufficient
+## Tart requirement
 
-Tart 2.36.0 increases the raw disk file's length when given `--disk-size`.
-It does not move partitions or expand the guest filesystem. These images keep
-Recovery after the system APFS partition, so newly added space is beyond
-Recovery and cannot be used by `diskutil apfs resizeContainer ... 0` alone.
+Upstream Tart 2.36.0 only extends the raw disk file. This project uses a Tart
+build with `tart set --relocate-recovery`, which moves Recovery to the end of
+the enlarged sparse disk.
 
 Vanilla has no guest agent. Base and Xcode install
 [`openai/tart-guest-agent`](https://github.com/openai/tart-guest-agent), whose
-resize code repairs the partition map and expands adjacent APFS space. It does
-not relocate Recovery. Xcode builds already relocate Recovery when growing
-their disk, but a subsequent size increase encounters the same boundary.
-
-The resize command uses the existing pinned Tart Packer plugin's offline
-Recovery relocation. A guest-agent fork alone would not fix the current
-partition layout. Supporting this directly in `tart set` and `tart run` would
-require a host-side Tart change or another independently verified method.
-See [Tart's disk resizing FAQ](https://tart.run/faq/#disk-resizing).
+daemon expands the adjacent system APFS container on boot. The build waits for
+that expansion before provisioning.
 
 ## Validation
 

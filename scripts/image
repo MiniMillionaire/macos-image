@@ -54,7 +54,6 @@ ipsw_cache_dir=${IPSW_CACHE_DIR:-${TART_HOME:-$HOME/.tart}/cache/macos-image/ips
 ipsw_path_override=${IPSW_PATH:-}
 installer_cache_dir=${INSTALLER_CACHE_DIR:-$HOME/.cache/macos-image/installers}
 build_disk_size_gb=256
-disk_growth_max_steps=8
 disk_size_tolerance_bytes=$((1024 * 1024))
 published_free_bytes=$((8 * 1024 * 1024 * 1024))
 published_disk_step_gb=10
@@ -831,39 +830,22 @@ grow_vm_disk() {
   local size_gb=$2
   local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
   local current_bytes
-  local maximum_bytes
-  local next_size_gb
-  local step
   local target_bytes=$((size_gb * 1000000000))
   [[ -f "$disk" && ! -L "$disk" ]] || die "Raw VM disk not found: $vm"
   capture_bounded 30 tart get "$vm" --format json || die "VM not found: $vm"
   jq -e '.OS == "darwin" and .State == "stopped" and .DiskFormat == "raw"' <<<"$bounded_output" >/dev/null ||
     die "VM must be stopped and use a raw macOS disk: $vm"
+  capture_bounded 30 tart set --help || die 'Could not inspect Tart disk resize support'
+  grep -F -- '--relocate-recovery' <<<"$bounded_output" >/dev/null ||
+    die 'Tart does not support macOS Recovery relocation'
   wait_for_disk_close "$vm"
-  for ((step = 1; step <= disk_growth_max_steps; step++)); do
-    capture_bounded 60 diskutil image resize --plist "$disk" ||
-      die "Could not read the disk resize limits: $vm"$'\n'"$bounded_output"
-    current_bytes=$(plutil -extract current raw - <<<"$bounded_output") ||
-      die "Could not read the current disk size: $vm"
-    maximum_bytes=$(plutil -extract max raw - <<<"$bounded_output") ||
-      die "Could not read the maximum disk size: $vm"
-    [[ "$current_bytes" =~ ^[1-9][0-9]*$ && "$maximum_bytes" =~ ^[1-9][0-9]*$ ]] ||
-      die "Invalid disk resize limits: $vm"
-    if (( current_bytes >= target_bytes )); then
-      (( current_bytes <= target_bytes + disk_size_tolerance_bytes )) ||
-        die "VM disk exceeds requested build size: $vm"
-      return
-    fi
-    if (( target_bytes <= maximum_bytes )); then
-      next_size_gb=$size_gb
-    else
-      next_size_gb=$((maximum_bytes / 1000000000 - 1))
-      (( next_size_gb * 1000000000 > current_bytes )) ||
-        die "Insufficient host space to grow VM disk: $vm"
-    fi
-    run_bounded "$tart_operation_timeout_seconds" diskutil image resize --size "${next_size_gb}g" "$disk"
-  done
-  die "VM disk did not reach the requested build size: $vm"
+  current_bytes=$(stat -f %z "$disk") || die "Could not read the current disk size: $vm"
+  (( current_bytes <= target_bytes + disk_size_tolerance_bytes )) ||
+    die "VM disk exceeds requested build size: $vm"
+  if (( current_bytes < target_bytes )); then
+    run_bounded "$tart_operation_timeout_seconds" tart set "$vm" \
+      --disk-size "$size_gb" --relocate-recovery
+  fi
 }
 
 provision_xcode() {
@@ -873,6 +855,7 @@ provision_xcode() {
   grow_vm_disk "$target" "$build_disk_size_gb"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
+    -var "disk_size_gb=$build_disk_size_gb" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \

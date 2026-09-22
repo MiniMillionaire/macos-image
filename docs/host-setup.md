@@ -5,19 +5,19 @@ The Apple silicon host was checked on September 11, 2026. It runs macOS 27.0
 first Tahoe build. Xcode command line tools and Homebrew were already installed.
 No Tart VMs existed at the start of the session.
 
-The following ARM64 toolchain was installed from release archives. Each archive
-was checked against the publisher's SHA-256 value before extraction.
+The following ARM64 toolchain was installed. Release archives were checked
+against the publisher's SHA-256 value before extraction.
 
-| Tool | Version | Archive SHA-256 |
+| Tool | Version | Source or archive SHA-256 |
 | --- | --- | --- |
-| Tart | 2.36.0 | `c72a8ab8d78a6498a1e42688b1a1ec6c512ce46ca35a3a3be130c3de1440c7e8` |
+| Tart | 2.36.0 with Recovery relocation | local signed build |
 | Packer | 1.16.0 | `6530042cf8f8a1f96b6607cb22b5be298be53b400cd4a2c81ab8b946964fccda` |
 | Go | 1.25.0 | `544932844156d8172f7a28f77f2ac9c15a23046698b6243f633b0a0b00c0749c` |
 
 The current Xcode toolchain provides Swift 6.4 for building the compiled CLI.
 This version passed validation on September 14, 2026.
 
-Release metadata: [Tart](https://github.com/cirruslabs/tart/releases/tag/2.36.0),
+Release metadata: [Tart fork](https://github.com/MiniMillionaire/tart),
 [Packer checksums](https://releases.hashicorp.com/packer/1.16.0/packer_1.16.0_SHA256SUMS),
 and [Go archives](https://go.dev/dl/#go1.25.0).
 
@@ -31,6 +31,7 @@ Check the installation with:
 ```shell
 export PACKER_CONFIG="$PWD/config/packer.json"
 tart --version
+tart set --help | grep -- --relocate-recovery
 packer --version
 go version
 xcrun swift --version

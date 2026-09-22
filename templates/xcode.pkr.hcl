@@ -13,6 +13,10 @@ variable "vm_name" {
   type = string
 }
 
+variable "disk_size_gb" {
+  type = number
+}
+
 variable "xcode_version" {
   type = string
 }
@@ -61,6 +65,12 @@ source "tart-cli" "xcode" {
 
 build {
   sources = ["source.tart-cli.xcode"]
+
+  provisioner "shell" {
+    timeout          = "5m"
+    environment_vars = ["TARGET_DISK_SIZE_GB=${var.disk_size_gb}"]
+    script           = "scripts/guest/verify-resize.sh"
+  }
 
   provisioner "file" {
     source      = "data/Brewfile.xcode"

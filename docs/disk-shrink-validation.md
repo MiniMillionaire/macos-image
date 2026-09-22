@@ -81,7 +81,7 @@ Growing the disk with the same command also worked:
 - 120 to 256 GB was refused with `Requested size exceeds maximum size`. The
   limits reported a maximum of 146,006,921,216 bytes, which is the current
   size plus about 100 GiB of host free space. Builds therefore grow disks in
-  bounded offline stages.
+  Tart while relocating Recovery.
 - Applying the policy from 120 GB gave a 86,138,421,248-byte minimum, which
   sets a 100 GB target. The shrink took 4.7 seconds and host allocation
   stayed at 83.3 GB.
@@ -209,6 +209,8 @@ These notes come from source inspection:
 - `tart-guest-agent` runs `diskutil apfs resizeContainer <disk> 0`, which
   stops at Recovery
   ([`diskresizer.go`](https://github.com/openai/tart-guest-agent/blob/v0.14.2/internal/diskresizer/diskresizer.go#L63-L89)).
+- The required Tart fork relocates Recovery while extending a raw disk, so the
+  guest agent can consume the new adjacent space.
 - `cirruslabs/macos-image-templates` builds vanilla at 50 GB with Recovery
   kept, base at 50 GB with Recovery deleted, and Xcode at 140 GB or more. It
   does not shrink. Anka documents that a VM disk cannot be downsized.
