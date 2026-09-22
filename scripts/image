@@ -824,13 +824,30 @@ resolve_xcode_archive() {
   printf '%s\n' "$archive"
 }
 
+grow_vm_disk() {
+  local vm=$1
+  local size_gb=$2
+  local disk="${TART_HOME:-$HOME/.tart}/vms/$vm/disk.img"
+  local disk_bytes
+  local target_bytes=$((size_gb * 1000000000))
+  [[ -f "$disk" && ! -L "$disk" ]] || die "Raw VM disk not found: $vm"
+  capture_bounded 30 tart get "$vm" --format json || die "VM not found: $vm"
+  jq -e '.OS == "darwin" and .State == "stopped" and .DiskFormat == "raw"' <<<"$bounded_output" >/dev/null ||
+    die "VM must be stopped and use a raw macOS disk: $vm"
+  wait_for_disk_close "$vm"
+  disk_bytes=$(stat -f %z "$disk")
+  (( disk_bytes <= target_bytes )) || die "VM disk exceeds requested build size: $vm"
+  (( disk_bytes == target_bytes )) ||
+    run_bounded "$tart_operation_timeout_seconds" diskutil image resize --size "${size_gb}g" "$disk"
+}
+
 provision_xcode() {
   local version=${1:?Xcode version is required}
   local target=${2:?Target VM is required}
   local archive=${3:?Xcode archive is required}
+  grow_vm_disk "$target" "$build_disk_size_gb"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
-    -var "disk_size_gb=$build_disk_size_gb" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \

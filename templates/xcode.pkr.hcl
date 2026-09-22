@@ -17,10 +17,6 @@ variable "xcode_version" {
   type = string
 }
 
-variable "disk_size_gb" {
-  type = number
-}
-
 variable "xcode_archive" {
   type = string
 }
@@ -57,8 +53,7 @@ variable "guest_password" {
 source "tart-cli" "xcode" {
   vm_name            = var.vm_name
   headless           = true
-  disk_size_gb       = var.disk_size_gb
-  recovery_partition = "relocate"
+  recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"
