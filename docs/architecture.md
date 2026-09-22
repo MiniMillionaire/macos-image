@@ -133,11 +133,11 @@ version/build, and variant. Xcode images also record their installed Xcode
 version. Tags can be updated after a rebuild; consumers pin a digest for exact
 bytes.
 
-ARM64-only derivatives use `macos-<family>-slim-<variant>`. They remove the
-installed Rosetta runtime and its Preboot Cryptex without modifying the sealed
-system snapshot. Slim Xcode builds also retain only
-iOS and watchOS platform runtimes and thin writable development binaries when
-that reduces their allocated size.
+ARM64-only derivatives use `macos-<family>-slim-<variant>`. Sequoia publishes
+only Xcode slim images because trimming its vanilla and base images has no
+material benefit. Slim Xcode builds start from the accepted standard base,
+remove installed Rosetta, retain only iOS and watchOS platform runtimes, and
+thin writable development binaries when that reduces their allocated size.
 
 The release workflow verifies a fresh clone before uploading by digest, then
 downloads the full image anonymously, imports it, and checks another cold boot.

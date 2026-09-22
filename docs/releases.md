@@ -110,11 +110,11 @@ install the base tools before Xcode.
 Their source tags are resolved to digests and checked against the selected
 macOS version/build before use.
 
-The `slim` flavor publishes to `macos-<family>-slim-<variant>`. Vanilla and
-base start from the accepted standard image of the same version and remove the
-installed Rosetta runtime and its Preboot Cryptex. Slim Xcode images start from
-vanilla, retain iOS and watchOS,
-and remove safe x86-only files and x86 slices from writable development tools.
+The `slim` flavor publishes to `macos-<family>-slim-<variant>`. Sequoia publishes
+only Xcode slim images because trimming its vanilla and base images has no
+material benefit. Slim Xcode images start from the accepted standard base,
+remove installed Rosetta, retain iOS and watchOS, and remove safe x86-only files
+and x86 slices from writable development tools.
 They use the same version tags and acceptance checks as standard images, but do
 not create a second GitHub Release for an existing macOS-Xcode tag.
 

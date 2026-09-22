@@ -811,20 +811,23 @@ provision_base() {
     -var "guest_password=$guest_password"
 }
 
-build_xcode() {
+resolve_xcode_archive() {
   local version=${1:?Xcode version is required}
-  local source=${2:-$(default_source vanilla)}
-  local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
   local archive="$xcode_cache/Xcode_$version.xip"
   local silicon_archive="$xcode_cache/Xcode_${version}_Apple_silicon.xip"
   is_numeric_version "$version" || die "Invalid Xcode version: $version"
-  require_build_host
   if [[ -e "$silicon_archive" || -L "$silicon_archive" ]]; then
     archive=$silicon_archive
   fi
   [[ -f "$archive" && ! -L "$archive" && -r "$archive" && -s "$archive" ]] ||
     die "A readable, nonempty Xcode archive is required: $archive"
-  prepare_base "$source" "$target"
+  printf '%s\n' "$archive"
+}
+
+provision_xcode() {
+  local version=${1:?Xcode version is required}
+  local target=${2:?Target VM is required}
+  local archive=${3:?Xcode archive is required}
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "xcode_version=$version" \
@@ -851,11 +854,25 @@ build_xcode() {
   shrink_vm "$target"
 }
 
+build_xcode() {
+  local version=${1:?Xcode version is required}
+  local source=${2:-$(default_source vanilla)}
+  local target=${3:-macos-$MACOS_FAMILY-$MACOS_VERSION-xcode-$version}
+  local archive
+  archive=$(resolve_xcode_archive "$version")
+  require_build_host
+  prepare_base "$source" "$target"
+  provision_xcode "$version" "$target" "$archive"
+}
+
 build_slim() {
   local variant=${1:?Image variant is required}
   local version=$2
   local source=${3:?Source VM is required}
   local target=${4:?Target VM is required}
+  local archive
+  [[ "$MACOS_FAMILY" != sequoia || "$variant" == xcode ]] ||
+    die 'Sequoia slim images are only built for Xcode'
   case "$variant" in
     vanilla|base)
       [[ -z "$version" ]] || die "Xcode version applies only to Xcode images"
@@ -870,7 +887,10 @@ build_slim() {
       XCODE_EXCLUDED_PLATFORMS='["tvOS","visionOS"]'
       XCODE_PLATFORM_ARCHITECTURE=arm64
       SLIM_XCODE=true
-      build_xcode "$version" "$source" "$target"
+      archive=$(resolve_xcode_archive "$version")
+      require_build_host
+      clone_vm "$source" "$target" base
+      provision_xcode "$version" "$target" "$archive"
       ;;
     *) die "Unknown image variant: $variant" ;;
   esac

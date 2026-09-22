@@ -236,7 +236,7 @@ check_tools() {
   fi
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
         -n "$VANILLA_SOURCE_PROFILE" &&
-        ( "$PACKAGE_FLAVOR" == standard || "$VARIANT" == xcode ) ]]; then
+        "$PACKAGE_FLAVOR" == standard ]]; then
     local installer_path=${INSTALLER_PATH:-$INSTALLER_CACHE_DIR/$INSTALLER_SHA256.pkg}
     local installer_size=
     if [[ -f "$installer_path" && ! -L "$installer_path" ]]; then

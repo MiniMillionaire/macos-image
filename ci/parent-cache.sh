@@ -121,17 +121,23 @@ parent_cache_store() {
 prepare_parent_source() {
   local variant reference digest entry metadata="$task_root/parent-image.json"
   local source_version=$MACOS_VERSION source_build=$MACOS_BUILD
-  variant=vanilla
-  reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
-  if [[ "$PACKAGE_FLAVOR" == slim && "$VARIANT" != xcode ]]; then
-    variant=$VARIANT
+  if [[ "$PACKAGE_FLAVOR" == slim ]]; then
+    if [[ "$VARIANT" == xcode ]]; then
+      variant=base
+    else
+      variant=$VARIANT
+    fi
     reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
     digest=$(./scripts/registry resolve "$reference:$MACOS_VERSION")
   elif [[ -n "$VANILLA_SOURCE_PROFILE" ]]; then
+    variant=vanilla
+    reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
     digest=$VANILLA_SOURCE_DIGEST
     source_version=$VANILLA_SOURCE_VERSION
     source_build=$VANILLA_SOURCE_BUILD
   else
+    variant=vanilla
+    reference="$REGISTRY/macos-$MACOS_FAMILY-$variant"
     digest=$(./scripts/registry resolve "$reference:$MACOS_VERSION")
   fi
   entry=$(parent_cache_entry "$digest")

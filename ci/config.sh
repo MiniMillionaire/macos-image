@@ -156,6 +156,8 @@ ci_load_profile() {
     slim) PACKAGE_FAMILY=$MACOS_FAMILY-slim ;;
     *) ci_die "Unknown package flavor: $PACKAGE_FLAVOR" ;;
   esac
+  [[ "$PACKAGE_FLAVOR" != slim || "$MACOS_FAMILY" != sequoia || "$VARIANT" == xcode ]] ||
+    ci_die "Sequoia slim images are only published for Xcode"
   [[ "$PACKAGE_FLAVOR" == standard ]] || VARIANT_ID="slim-$VARIANT_ID"
   PACKAGE_REF="$REGISTRY/macos-$PACKAGE_FAMILY-$VARIANT:$MACOS_VERSION"
   LATEST_REF=
