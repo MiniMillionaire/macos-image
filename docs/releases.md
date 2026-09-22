@@ -112,7 +112,8 @@ macOS version/build before use.
 
 The `slim` flavor publishes to `macos-<family>-slim-<variant>`. Vanilla and
 base start from the accepted standard image of the same version and remove the
-Rosetta Cryptex. Slim Xcode images start from vanilla, retain iOS and watchOS,
+installed Rosetta runtime and its Preboot Cryptex. Slim Xcode images start from
+vanilla, retain iOS and watchOS,
 and remove safe x86-only files and x86 slices from writable development tools.
 They use the same version tags and acceptance checks as standard images, but do
 not create a second GitHub Release for an existing macOS-Xcode tag.

@@ -133,8 +133,9 @@ version/build, and variant. Xcode images also record their installed Xcode
 version. Tags can be updated after a rebuild; consumers pin a digest for exact
 bytes.
 
-ARM64-only derivatives use `macos-<family>-slim-<variant>`. They omit Rosetta
-without modifying the sealed system snapshot. Slim Xcode builds also retain only
+ARM64-only derivatives use `macos-<family>-slim-<variant>`. They remove the
+installed Rosetta runtime and its Preboot Cryptex without modifying the sealed
+system snapshot. Slim Xcode builds also retain only
 iOS and watchOS platform runtimes and thin writable development binaries when
 that reduces their allocated size.
 

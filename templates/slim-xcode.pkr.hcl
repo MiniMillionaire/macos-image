@@ -63,6 +63,7 @@ build {
     ]
     scripts = [
       "scripts/guest/slim-xcode.sh",
+      "scripts/guest/remove-rosetta.sh",
       "scripts/guest/verify-xcode.sh",
     ]
   }

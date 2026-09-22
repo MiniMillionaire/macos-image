@@ -131,7 +131,10 @@ verify_slim() {
   /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1
   x86_status=$?
   set -e
-  test "$x86_status" -ne 0
+  if [[ "$x86_status" -eq 0 ]]; then
+    echo 'Rosetta can still execute x86_64 binaries' >&2
+    exit 1
+  fi
 }
 
 verify_slim_xcode() {
