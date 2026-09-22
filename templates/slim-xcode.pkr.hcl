@@ -13,26 +13,8 @@ variable "vm_name" {
   type = string
 }
 
-variable "profile" {
+variable "xcode_version" {
   type = string
-}
-
-variable "expected_version" {
-  type = string
-}
-
-variable "expected_build" {
-  type = string
-}
-
-variable "expected_xcode_version" {
-  type    = string
-  default = ""
-}
-
-variable "image_flavor" {
-  type    = string
-  default = "standard"
 }
 
 variable "xcode_excluded_platforms" {
@@ -54,35 +36,34 @@ variable "guest_password" {
   sensitive = true
 }
 
-source "tart-cli" "verify" {
+source "tart-cli" "slim" {
   vm_name            = var.vm_name
   headless           = true
   recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
-  ssh_timeout        = "5m"
+  ssh_timeout        = "10m"
 }
 
 build {
-  sources = ["source.tart-cli.verify"]
+  sources = ["source.tart-cli.slim"]
 
   provisioner "file" {
-    source      = "scripts/guest/user-tcc-database.sh"
-    destination = "/tmp/macos-image-user-tcc-database.sh"
+    source      = "scripts/guest/slim-xcode.py"
+    destination = "/tmp/macos-image-slim-xcode.py"
   }
 
   provisioner "shell" {
-    timeout = "5m"
+    timeout = "2h"
     environment_vars = [
-      "EXPECTED_BUILD=${var.expected_build}",
-      "EXPECTED_XCODE_VERSION=${var.expected_xcode_version}",
-      "EXPECTED_VERSION=${var.expected_version}",
       "GUEST_USERNAME=${var.guest_username}",
-      "IMAGE_FLAVOR=${var.image_flavor}",
-      "IMAGE_PROFILE=${var.profile}",
       "XCODE_EXCLUDED_PLATFORMS=${join(",", var.xcode_excluded_platforms)}",
       "XCODE_PLATFORMS=${join(",", var.xcode_platforms)}",
+      "XCODE_VERSION=${var.xcode_version}",
     ]
-    script = "scripts/guest/verify-image.sh"
+    scripts = [
+      "scripts/guest/slim-xcode.sh",
+      "scripts/guest/verify-xcode.sh",
+    ]
   }
 }

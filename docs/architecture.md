@@ -133,6 +133,11 @@ version/build, and variant. Xcode images also record their installed Xcode
 version. Tags can be updated after a rebuild; consumers pin a digest for exact
 bytes.
 
+ARM64-only derivatives use `macos-<family>-slim-<variant>`. They omit Rosetta
+without modifying the sealed system snapshot. Slim Xcode builds also retain only
+iOS and watchOS platform runtimes and thin writable development binaries when
+that reduces their allocated size.
+
 The release workflow verifies a fresh clone before uploading by digest, then
 downloads the full image anonymously, imports it, and checks another cold boot.
 Only then does it update the version or latest tag. Xcode publications are

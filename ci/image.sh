@@ -23,6 +23,8 @@ source ci/parent-cache.sh
 
 export IMAGE_CONFIG="$CONFIG_PATH"
 export IMAGE_CACERT
+export IMAGE_FLAVOR="$PACKAGE_FLAVOR"
+export IMAGE_PACKAGE_FAMILY="$PACKAGE_FAMILY"
 export IMAGE_VARIANT="$VARIANT"
 if [[ -z "$VANILLA_SOURCE_PROFILE" ]]; then
   export IPSW_PATH="$task_root/restore.ipsw"
@@ -42,8 +44,9 @@ expected_marker() {
     --arg repository "$repository" \
     --arg run "$run_key" \
     --arg profile "$PROFILE" \
+    --arg flavor "$PACKAGE_FLAVOR" \
     --arg variant "$VARIANT_ID" \
-    '{format: 1, repository: $repository, run: $run, profile: $profile, variant: $variant}'
+    '{format: 1, repository: $repository, run: $run, profile: $profile, flavor: $flavor, variant: $variant}'
 }
 
 require_task() {
@@ -77,6 +80,7 @@ write_inputs() {
     --arg workflow_revision "$GITHUB_SHA" \
     --arg revision "$BUILD_REVISION" \
     --arg profile "$PROFILE" \
+    --arg flavor "$PACKAGE_FLAVOR" \
     --arg config "$CONFIG_PATH" \
     --arg config_sha "$PROFILE_CONFIG_SHA256" \
     --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
@@ -117,6 +121,7 @@ write_inputs() {
         workflow_revision: $workflow_revision,
         revision: $revision,
         profile: $profile,
+        flavor: $flavor,
         config: $config,
         config_sha256: $config_sha,
         toolchain_sha256: $tools_sha,
@@ -225,12 +230,13 @@ check_tools() {
   parent_cache_credit_kib=0
   parent_cache_keep=
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
-        ( "$VARIANT" != vanilla || -n "$VANILLA_SOURCE_PROFILE" ) ]]; then
+        ( "$PACKAGE_FLAVOR" == slim || "$VARIANT" != vanilla || -n "$VANILLA_SOURCE_PROFILE" ) ]]; then
     prepare_parent_source
     minimum_kib=$((minimum_kib - parent_cache_credit_kib))
   fi
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
-        -n "$VANILLA_SOURCE_PROFILE" ]]; then
+        -n "$VANILLA_SOURCE_PROFILE" &&
+        ( "$PACKAGE_FLAVOR" == standard || "$VARIANT" == xcode ) ]]; then
     local installer_path=${INSTALLER_PATH:-$INSTALLER_CACHE_DIR/$INSTALLER_SHA256.pkg}
     local installer_size=
     if [[ -f "$installer_path" && ! -L "$installer_path" ]]; then
@@ -674,7 +680,7 @@ build_image() {
     xcode_sha=$(ci_sha256 "$archive")
   fi
 
-  if [[ "$VARIANT" == vanilla && -z "$VANILLA_SOURCE_PROFILE" ]]; then
+  if [[ "$PACKAGE_FLAVOR" == standard && "$VARIANT" == vanilla && -z "$VANILLA_SOURCE_PROFILE" ]]; then
     source=$IPSW_URL
     source_digest="sha256:$IPSW_SHA256"
     ./scripts/image build vanilla "" "$vm_name"
@@ -685,11 +691,15 @@ build_image() {
     source=$(jq -er .reference "$task_root/parent-source.json")
     .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
     rm -rf -- "$source_layout"
-    case "$VARIANT" in
-      vanilla) VANILLA_SOURCE_VM="$source_vm" ./scripts/image build vanilla "" "$vm_name" ;;
-      base) ./scripts/image build base "$source_vm" "$vm_name" ;;
-      xcode) ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name" ;;
-    esac
+    if [[ "$PACKAGE_FLAVOR" == slim ]]; then
+      ./scripts/image slim "$VARIANT" "${XCODE_VERSION:-}" "$source_vm" "$vm_name"
+    else
+      case "$VARIANT" in
+        vanilla) VANILLA_SOURCE_VM="$source_vm" ./scripts/image build vanilla "" "$vm_name" ;;
+        base) ./scripts/image build base "$source_vm" "$vm_name" ;;
+        xcode) ./scripts/image build xcode "$XCODE_VERSION" "$source_vm" "$vm_name" ;;
+      esac
+    fi
   fi
   ./scripts/image test "$vm_name" "$VARIANT"
   set_input_sources "$source" "$source_digest" "$xcode_sha"

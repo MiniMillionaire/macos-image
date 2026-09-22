@@ -835,8 +835,44 @@ build_xcode() {
     -var "xcode_platforms=${XCODE_PLATFORMS:-[]}" \
     -var "guest_username=$guest_username" \
     -var "guest_password=$guest_password"
+  if [[ ${SLIM_XCODE:-false} == true ]]; then
+    packer_build templates/slim-xcode.pkr.hcl \
+      -var "vm_name=$target" \
+      -var "xcode_version=$version" \
+      -var "xcode_excluded_platforms=${XCODE_EXCLUDED_PLATFORMS:-[]}" \
+      -var "xcode_platforms=${XCODE_PLATFORMS:-[]}" \
+      -var "guest_username=$guest_username" \
+      -var "guest_password=$guest_password"
+  fi
   clean_desktop "$target" xcode
+  if [[ ${SLIM_XCODE:-false} == true ]]; then
+    "$root_dir/scripts/remove-rosetta" "$target" "$MACOS_VERSION" "$MACOS_BUILD"
+  fi
   shrink_vm "$target"
+}
+
+build_slim() {
+  local variant=${1:?Image variant is required}
+  local version=$2
+  local source=${3:?Source VM is required}
+  local target=${4:?Target VM is required}
+  case "$variant" in
+    vanilla|base)
+      [[ -z "$version" ]] || die "Xcode version applies only to Xcode images"
+      require_build_host
+      clone_vm "$source" "$target" "$variant"
+      "$root_dir/scripts/remove-rosetta" "$target" "$MACOS_VERSION" "$MACOS_BUILD"
+      shrink_vm "$target"
+      ;;
+    xcode)
+      XCODE_PLATFORMS='["iOS","watchOS"]'
+      XCODE_EXCLUDED_PLATFORMS='["tvOS","visionOS"]'
+      XCODE_PLATFORM_ARCHITECTURE=arm64
+      SLIM_XCODE=true
+      build_xcode "$version" "$source" "$target"
+      ;;
+    *) die "Unknown image variant: $variant" ;;
+  esac
 }
 
 shrink_vm() {
@@ -965,7 +1001,10 @@ verify_existing() {
     -var "expected_version=$MACOS_VERSION" \
     -var "expected_xcode_version=${XCODE_VERSION:-}" \
     -var "guest_username=$guest_username" \
-    -var "guest_password=$guest_password"
+    -var "guest_password=$guest_password" \
+    -var "image_flavor=${IMAGE_FLAVOR:-standard}" \
+    -var "xcode_excluded_platforms=${XCODE_EXCLUDED_PLATFORMS:-[]}" \
+    -var "xcode_platforms=${XCODE_PLATFORMS:-[]}"
 }
 
 wait_for_disk_close() {
@@ -1087,6 +1126,7 @@ Usage:
   scripts/image build vanilla [initial-wait] [target]
   scripts/image build base [source] [target]
   scripts/image build xcode <version> [source] [target]
+  scripts/image slim <vanilla|base|xcode> [xcode-version] <source> <target>
   scripts/image import vanilla [source] [target]
   scripts/image provision base <vm>
   scripts/image provision disable-sip <vm>
@@ -1121,6 +1161,7 @@ case ${1:-} in
       *) usage; exit 1 ;;
     esac
     ;;
+  slim) build_slim "${2:-}" "${3:-}" "${4:-}" "${5:-}" ;;
   import)
     [[ ${2:-} == vanilla ]] || { usage; exit 1; }
     import_vanilla "${3:-}" "${4:-}"

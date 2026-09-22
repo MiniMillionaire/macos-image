@@ -122,6 +122,39 @@ verify_base() {
   done
 }
 
+verify_slim() {
+  if mount | grep -Fq /System/Volumes/Preboot/Cryptexes/Rosetta; then
+    echo 'Rosetta Cryptex is mounted' >&2
+    exit 1
+  fi
+  set +e
+  /usr/bin/arch -x86_64 /usr/bin/true >/dev/null 2>&1
+  x86_status=$?
+  set -e
+  test "$x86_status" -ne 0
+}
+
+verify_slim_xcode() {
+  sdks=$(xcodebuild -showsdks)
+  grep -F 'iOS SDKs:' <<< "$sdks" >/dev/null
+  grep -F 'watchOS SDKs:' <<< "$sdks" >/dev/null
+  if grep -Eiq 'tvOS|appletv|visionOS|xros' <<< "$sdks"; then
+    echo 'Excluded Xcode platform is installed' >&2
+    exit 1
+  fi
+  xcrun --sdk iphoneos --show-sdk-path >/dev/null
+  xcrun --sdk watchos --show-sdk-path >/dev/null
+  xcrun simctl list runtimes -j | python3 -c '
+import json
+import sys
+
+names = [item["name"] for item in json.load(sys.stdin)["runtimes"] if item.get("isAvailable", True)]
+assert any(name.startswith("iOS ") for name in names), names
+assert any(name.startswith("watchOS ") for name in names), names
+assert not any(name.startswith(("tvOS ", "visionOS ")) for name in names), names
+'
+}
+
 case "$IMAGE_PROFILE" in
   vanilla) verify_vanilla ;;
   sip)
@@ -148,6 +181,15 @@ case "$IMAGE_PROFILE" in
     echo "Unknown image profile: $IMAGE_PROFILE" >&2
     exit 1
     ;;
+esac
+
+case "${IMAGE_FLAVOR:-standard}" in
+  standard) ;;
+  slim)
+    verify_slim
+    [[ "$IMAGE_PROFILE" != xcode ]] || verify_slim_xcode
+    ;;
+  *) echo "Unknown image flavor: $IMAGE_FLAVOR" >&2; exit 1 ;;
 esac
 
 printf 'Verified image profile: %s\n' "$IMAGE_PROFILE"

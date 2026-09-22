@@ -34,6 +34,7 @@ git merge-base --is-ancestor "$revision" origin/main || ci_die "Image revision i
 jq -e \
   --arg repository "$repository" \
   --arg profile "$PROFILE" \
+  --arg flavor "$PACKAGE_FLAVOR" \
   --arg config "$CONFIG_PATH" \
   --arg config_sha "$PROFILE_CONFIG_SHA256" \
   --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
@@ -50,7 +51,7 @@ jq -e \
   --arg latest "$LATEST_REF" \
   --arg revision "$revision" '
     .format == 1 and .repository == $repository and
-    .profile == $profile and .config == $config and
+    .profile == $profile and (.flavor // "standard") == $flavor and .config == $config and
     .config_sha256 == $config_sha and .toolchain_sha256 == $tools_sha and
     .macos == {family: $macos_family, version: $macos_version, build: $macos_build} and
     .prerelease == $prerelease and

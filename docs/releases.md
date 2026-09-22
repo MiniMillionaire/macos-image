@@ -110,6 +110,13 @@ install the base tools before Xcode.
 Their source tags are resolved to digests and checked against the selected
 macOS version/build before use.
 
+The `slim` flavor publishes to `macos-<family>-slim-<variant>`. Vanilla and
+base start from the accepted standard image of the same version and remove the
+Rosetta Cryptex. Slim Xcode images start from vanilla, retain iOS and watchOS,
+and remove safe x86-only files and x86 slices from writable development tools.
+They use the same version tags and acceptance checks as standard images, but do
+not create a second GitHub Release for an existing macOS-Xcode tag.
+
 The runner caches parent OCI images under
 `~/.cache/macos-image/parents/minimillionaire-macos-image`. Each run resolves the
 parent tag again, then checks every cached blob against that digest before use.
@@ -186,7 +193,7 @@ existing OCI export without rebuilding it. Put the export at
 `~/.cache/macos-image/prepared/<manifest-sha256>/layout` on the runner, where
 `<manifest-sha256>` omits the `sha256:` prefix. Dispatch `upload` with the complete
 digest and image configuration. Select the `slim` flavor only for an accepted
-Golden Gate slim export. The workflow verifies the export and uploads by
+slim export. The workflow verifies the export and uploads by
 digest without changing tags.
 
 Download that digest anonymously, verify all blobs, import it, and verify a cold

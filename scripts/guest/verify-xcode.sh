@@ -24,10 +24,16 @@ if [[ -n "$XCODE_PLATFORMS" ]]; then
 fi
 if [[ -n "$XCODE_EXCLUDED_PLATFORMS" ]]; then
   if [[ "$XCODE_EXCLUDED_PLATFORMS" == *tvOS* ]]; then
-    ! grep -Eiq 'tvOS|appletv' <<< "$sdks"
+    if grep -Eiq 'tvOS|appletv' <<< "$sdks"; then
+      echo 'tvOS SDK remains installed' >&2
+      exit 1
+    fi
   fi
   if [[ "$XCODE_EXCLUDED_PLATFORMS" == *visionOS* ]]; then
-    ! grep -Eiq 'visionOS|xros' <<< "$sdks"
+    if grep -Eiq 'visionOS|xros' <<< "$sdks"; then
+      echo 'visionOS SDK remains installed' >&2
+      exit 1
+    fi
   fi
 fi
 for tool in flutter sdkmanager tuist xcodes; do

@@ -137,6 +137,7 @@ validate_common_result() {
     --arg repository "$repository" \
     --arg workflow "$workflow" \
     --arg profile "$PROFILE" \
+    --arg flavor "$PACKAGE_FLAVOR" \
     --arg config "$CONFIG_PATH" \
     --arg config_sha "$PROFILE_CONFIG_SHA256" \
     --arg tools_sha "$TOOLCHAIN_CONFIG_SHA256" \
@@ -151,7 +152,7 @@ validate_common_result() {
     --argjson update_latest "$UPDATE_LATEST" \
     --arg package "$PACKAGE_REF" '
       .format == 1 and .repository == $repository and .workflow == $workflow and
-      .profile == $profile and .config == $config and
+      .profile == $profile and (.flavor // "standard") == $flavor and .config == $config and
       .config_sha256 == $config_sha and .toolchain_sha256 == $tools_sha and
       .macos == {family: $macos_family, version: $macos_version, build: $macos_build} and
       .prerelease == $prerelease and
@@ -206,8 +207,10 @@ authorize_current() {
     [[ -z ${SOURCE_RUN:-} ]] || ci_die "Source run applies only to recovery operations"
   fi
   [[ "$OPERATION" != recover-release || "$VARIANT" == xcode ]] || ci_die "Only Xcode images have GitHub releases"
+  [[ "$OPERATION" != recover-release || "$PACKAGE_FLAVOR" == standard ]] || ci_die "Slim images do not use GitHub releases"
 
   ci_write_output profile "$PROFILE"
+  ci_write_output flavor "$PACKAGE_FLAVOR"
   ci_write_output config "$CONFIG_PATH"
   ci_write_output operation "$OPERATION"
   ci_write_output variant "$VARIANT"

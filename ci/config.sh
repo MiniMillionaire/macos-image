@@ -153,12 +153,10 @@ ci_load_profile() {
   PACKAGE_FLAVOR=${PACKAGE_FLAVOR:-standard}
   case "$PACKAGE_FLAVOR" in
     standard) PACKAGE_FAMILY=$MACOS_FAMILY ;;
-    slim)
-      [[ "$PROFILE" == golden-gate-27.0 ]] || ci_die "Slim publication requires the Golden Gate profile"
-      PACKAGE_FAMILY=$MACOS_FAMILY-slim
-      ;;
+    slim) PACKAGE_FAMILY=$MACOS_FAMILY-slim ;;
     *) ci_die "Unknown package flavor: $PACKAGE_FLAVOR" ;;
   esac
+  [[ "$PACKAGE_FLAVOR" == standard ]] || VARIANT_ID="slim-$VARIANT_ID"
   PACKAGE_REF="$REGISTRY/macos-$PACKAGE_FAMILY-$VARIANT:$MACOS_VERSION"
   LATEST_REF=
   RELEASE_TAG=
