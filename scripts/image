@@ -861,10 +861,6 @@ build_slim() {
       [[ -z "$version" ]] || die "Xcode version applies only to Xcode images"
       require_build_host
       clone_vm "$source" "$target" "$variant"
-      packer_build templates/slim.pkr.hcl \
-        -var "vm_name=$target" \
-        -var "guest_username=$guest_username" \
-        -var "guest_password=$guest_password"
       clean_desktop "$target" "$variant"
       "$root_dir/scripts/remove-rosetta" "$target" "$MACOS_VERSION" "$MACOS_BUILD"
       shrink_vm "$target"

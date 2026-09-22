@@ -14,13 +14,17 @@ if /usr/sbin/lsof -t -- "$disk" | grep -q .; then
   exit 1
 fi
 
-mountpoint=
+preboot_mountpoint=
 preboot=
+data=
+data_mountpoint=
 whole=
 cleanup() {
+  [[ -z "$data" ]] || /usr/sbin/diskutil unmount "$data" >/dev/null 2>&1 || true
   [[ -z "$preboot" ]] || /usr/sbin/diskutil unmount "$preboot" >/dev/null 2>&1 || true
   [[ -z "$whole" ]] || /usr/sbin/diskutil eject "$whole" >/dev/null 2>&1 || true
-  [[ -z "$mountpoint" || ! -d "$mountpoint" ]] || rmdir "$mountpoint" 2>/dev/null || true
+  [[ -z "$data_mountpoint" || ! -d "$data_mountpoint" ]] || rmdir "$data_mountpoint" 2>/dev/null || true
+  [[ -z "$preboot_mountpoint" || ! -d "$preboot_mountpoint" ]] || rmdir "$preboot_mountpoint" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -42,24 +46,33 @@ print(stores[0])
 ')
 [[ "$store" == "$whole_id"* ]]
 
-preboot=$(/usr/sbin/diskutil apfs list -plist | python3 -c '
+volumes=$(/usr/sbin/diskutil apfs list -plist | python3 -c '
 import plistlib
 import sys
 
 store = sys.argv[1]
 data = plistlib.loads(sys.stdin.buffer.read())
-matches = []
+matches = {"Preboot": [], "Data": []}
 for container in data["Containers"]:
     if store not in {item["DeviceIdentifier"] for item in container["PhysicalStores"]}:
         continue
-    matches.extend(volume["DeviceIdentifier"] for volume in container["Volumes"] if "Preboot" in volume.get("Roles", []))
-if len(matches) != 1:
-    raise SystemExit("expected one Preboot volume")
-print(matches[0])
+    for volume in container["Volumes"]:
+        for role in matches:
+            if role in volume.get("Roles", []):
+                matches[role].append(volume["DeviceIdentifier"])
+for role in ("Preboot", "Data"):
+    if len(matches[role]) != 1:
+        raise SystemExit(f"expected one {role} volume")
+    print(matches[role][0])
 ' "$store")
+preboot=$(sed -n '1p' <<< "$volumes")
+data=$(sed -n '2p' <<< "$volumes")
+[[ "$preboot" =~ ^disk[0-9]+s[0-9]+$ && "$data" =~ ^disk[0-9]+s[0-9]+$ ]]
 
-mountpoint=$(mktemp -d /tmp/macos-image-preboot.XXXXXX)
-/usr/sbin/diskutil mount -mountOptions nobrowse,noowners -mountPoint "$mountpoint" "$preboot" >/dev/null
+preboot_mountpoint=$(mktemp -d /tmp/macos-image-preboot.XXXXXX)
+/usr/sbin/diskutil mount -mountOptions nobrowse,noowners -mountPoint "$preboot_mountpoint" "$preboot" >/dev/null
+data_mountpoint=$(mktemp -d /tmp/macos-image-data.XXXXXX)
+/usr/sbin/diskutil mount -mountOptions nobrowse,noowners -mountPoint "$data_mountpoint" "$data" >/dev/null
 
 current=
 while IFS= read -r plist; do
@@ -69,7 +82,7 @@ while IFS= read -r plist; do
     [[ -z "$current" ]] || { echo 'Multiple matching Cryptex directories' >&2; exit 1; }
     current=${plist%/SystemVersion.plist}
   fi
-done < <(find "$mountpoint" -path '*/cryptex1/current/SystemVersion.plist' -type f)
+done < <(find "$preboot_mountpoint" -path '*/cryptex1/current/SystemVersion.plist' -type f 2>/dev/null)
 [[ -n "$current" ]] || { echo 'Matching Cryptex directory not found' >&2; exit 1; }
 
 artifacts=(
@@ -87,9 +100,28 @@ done
 }
 if (( present > 0 )); then
   rm -- "${artifacts[@]}"
-  sync
 fi
 for artifact in "${artifacts[@]}"; do
   [[ ! -e "$artifact" ]]
 done
-printf 'Removed Rosetta Cryptex from %s\n' "$vm"
+
+data_artifacts=(
+  "$data_mountpoint/Library/Apple/usr/lib/libRosettaAot.dylib"
+  "$data_mountpoint/Library/Apple/usr/libexec/oah"
+  "$data_mountpoint/Library/Apple/usr/share/rosetta"
+  "$data_mountpoint/private/var/db/oah"
+  "$data_mountpoint/Library/Apple/System/Library/Receipts/com.apple.pkg.RosettaUpdateAuto.bom"
+  "$data_mountpoint/Library/Apple/System/Library/Receipts/com.apple.pkg.RosettaUpdateAuto.plist"
+)
+for artifact in "${data_artifacts[@]}"; do
+  if [[ -e "$artifact" ]]; then
+    [[ ! -L "$artifact" ]]
+    /usr/bin/chflags -R noschg,nouchg "$artifact"
+    rm -rf -- "$artifact"
+  fi
+done
+for artifact in "${data_artifacts[@]}"; do
+  [[ ! -e "$artifact" ]]
+done
+sync
+printf 'Removed Rosetta artifacts from %s\n' "$vm"
