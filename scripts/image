@@ -830,6 +830,7 @@ provision_xcode() {
   local archive=${3:?Xcode archive is required}
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
+    -var "disk_size_gb=$build_disk_size_gb" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
     -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
