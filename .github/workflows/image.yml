@@ -73,7 +73,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: macos-image-publication-${{ inputs.flavor }}
+  group: macos-image-publication-${{ inputs.flavor }}-${{ inputs.runner }}
   cancel-in-progress: false
 
 jobs:
