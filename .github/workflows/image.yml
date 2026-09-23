@@ -1,5 +1,5 @@
 name: Build and publish macOS image
-run-name: ${{ inputs.operation }} ${{ inputs.flavor }} ${{ inputs.profile }} ${{ inputs.variant }}
+run-name: ${{ inputs.operation }} ${{ inputs.flavor }} ${{ inputs.profile }} ${{ inputs.variant }}${{ inputs.variant == 'xcode' && format('-{0}', inputs.xcode_tag || inputs.xcode_version) || '' }}
 
 on:
   workflow_dispatch:
