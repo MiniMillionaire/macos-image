@@ -3,6 +3,7 @@ set -euo pipefail
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew update
+brew pin tart-guest-agent
 brew upgrade
 brew install xcodes
 
