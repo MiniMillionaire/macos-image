@@ -195,7 +195,7 @@ jobs:
           path: .ci-dependency
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         if: inputs.operation != 'recover-release'
         timeout-minutes: 5
         with:
@@ -233,7 +233,7 @@ jobs:
               dependency_sha256: $dependency_sha,
               go_vendor_sha256: $vendor_sha
             }' > "$RUNNER_TEMP/macos-image-sources/sources.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: inputs.operation != 'recover-release'
         timeout-minutes: 5
         with:
@@ -438,7 +438,7 @@ jobs:
       - name: Upload logs and metadata
         if: always()
         timeout-minutes: 5
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: macos-image-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/macos-image-${{ github.run_id }}-${{ github.run_attempt }}/logs/
@@ -513,7 +513,7 @@ jobs:
           github-token: ${{ github.token }}
           repository: MiniMillionaire/macos-image
           run-id: ${{ needs.authorize.outputs.publication_run_id }}
-      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         timeout-minutes: 5
         with:
           go-version: ${{ needs.authorize.outputs.go_version }}
