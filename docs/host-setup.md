@@ -22,7 +22,8 @@ Release metadata: [Tart fork](https://github.com/MiniMillionaire/tart),
 and [Go archives](https://go.dev/dl/#go1.25.0).
 
 Versioned installations are under `~/.local/share/macos-image/toolchains`.
-Symlinks for `tart`, `packer`, `go`, and `gofmt` are in `/opt/homebrew/bin`.
+Symlinks for `tart`, `packer`, `go`, and `gofmt` are in `/opt/homebrew/bin` or
+`~/.local/bin`.
 `packer init` installed Tart plugin 1.21.0 under
 `~/.config/packer/plugins/github.com/cirruslabs/tart`.
 

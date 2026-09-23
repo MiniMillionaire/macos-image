@@ -193,6 +193,10 @@ authorize_current() {
     build|publish|upload-only|recover-upload|recover-release) ;;
     *) ci_die "Unknown operation: ${OPERATION:-}" ;;
   esac
+  case ${RUNNER_TARGET:-} in
+    primary|secondary) ;;
+    *) ci_die "Unknown runner target: ${RUNNER_TARGET:-}" ;;
+  esac
 
   [[ ${GITHUB_REPOSITORY:-} == "$repository" ]] || ci_die "This workflow only runs in $repository"
   [[ ${GITHUB_REF:-} == refs/heads/main ]] || ci_die "Image runs must be dispatched from main"
@@ -211,6 +215,7 @@ authorize_current() {
 
   ci_write_output profile "$PROFILE"
   ci_write_output flavor "$PACKAGE_FLAVOR"
+  ci_write_output runner_label "macos-image-$RUNNER_TARGET"
   ci_write_output config "$CONFIG_PATH"
   ci_write_output operation "$OPERATION"
   ci_write_output variant "$VARIANT"

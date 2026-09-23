@@ -23,6 +23,13 @@ on:
           - standard
           - slim
         default: standard
+      runner:
+        description: Image runner
+        type: choice
+        options:
+          - primary
+          - secondary
+        default: primary
       variant:
         description: Image variant
         type: choice
@@ -66,7 +73,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: macos-image-publication
+  group: macos-image-publication-${{ inputs.flavor }}
   cancel-in-progress: false
 
 jobs:
@@ -89,6 +96,7 @@ jobs:
       TRUSTED_ACTOR: ${{ vars.TRUSTED_ACTOR || 'cocoa-xu' }}
       PROFILE: ${{ inputs.profile }}
       PACKAGE_FLAVOR: ${{ inputs.flavor }}
+      RUNNER_TARGET: ${{ inputs.runner }}
       VARIANT: ${{ inputs.variant }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_TAG: ${{ inputs.xcode_tag }}
@@ -98,6 +106,7 @@ jobs:
     outputs:
       profile: ${{ steps.current.outputs.profile }}
       flavor: ${{ steps.current.outputs.flavor }}
+      runner_label: ${{ steps.current.outputs.runner_label }}
       config: ${{ steps.current.outputs.config }}
       operation: ${{ steps.current.outputs.operation }}
       variant: ${{ steps.current.outputs.variant }}
@@ -246,16 +255,16 @@ jobs:
     name: Build, publish, or recover image
     needs: authorize
     if: needs.authorize.outputs.operation != 'recover-release'
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: [self-hosted, macOS, ARM64, "${{ needs.authorize.outputs.runner_label }}"]
     timeout-minutes: 600
     permissions:
       actions: read
       contents: read
       packages: write
     env:
-      PATH: /opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+      PATH: /Users/cocoa/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
       REGISTRY: ghcr.io/minimillionaire
-      IMAGE_CACERT: /opt/homebrew/etc/openssl@3/cert.pem
+      IMAGE_CACERT: /etc/ssl/cert.pem
       PROFILE: ${{ needs.authorize.outputs.profile }}
       PACKAGE_FLAVOR: ${{ needs.authorize.outputs.flavor }}
       VARIANT: ${{ needs.authorize.outputs.variant }}
