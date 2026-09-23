@@ -852,13 +852,21 @@ provision_xcode() {
   local version=${1:?Xcode version is required}
   local target=${2:?Target VM is required}
   local archive=${3:?Xcode archive is required}
+  local components
+  components=$(jq -ce '
+    if type == "array" and all(.[]; type == "string") then
+      if index("MetalToolchain") then . else . + ["MetalToolchain"] end
+    else
+      error("XCODE_COMPONENTS must be an array of strings")
+    end
+  ' <<< "${XCODE_COMPONENTS:-[]}") || die 'Invalid XCODE_COMPONENTS'
   grow_vm_disk "$target" "$build_disk_size_gb"
   packer_build templates/xcode.pkr.hcl \
     -var "vm_name=$target" \
     -var "disk_size_gb=$build_disk_size_gb" \
     -var "xcode_version=$version" \
     -var "xcode_archive=$archive" \
-    -var "xcode_components=${XCODE_COMPONENTS:-[]}" \
+    -var "xcode_components=$components" \
     -var "xcode_excluded_platforms=${XCODE_EXCLUDED_PLATFORMS:-[]}" \
     -var "xcode_platform_architecture=${XCODE_PLATFORM_ARCHITECTURE:-}" \
     -var "xcode_platforms=${XCODE_PLATFORMS:-[]}" \
