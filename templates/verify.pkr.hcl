@@ -60,7 +60,7 @@ source "tart-cli" "verify" {
   recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
-  ssh_timeout        = "5m"
+  ssh_timeout        = "10m"
 }
 
 build {
