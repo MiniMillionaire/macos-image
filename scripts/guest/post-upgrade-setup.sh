@@ -26,12 +26,17 @@ case "$POST_UPGRADE_MODE" in
           echo "Pending Setup Assistant has no verified mapping for $EXPECTED_VERSION ($EXPECTED_BUILD)" >&2
           exit 1
         }
-        verify_pending_setup
-        printf 'pending\n'
-        exit 0
+        if verify_pending_setup; then
+          printf 'pending\n'
+          exit 0
+        fi
       fi
       sleep 5
     done
+    if pgrep -x 'Setup Assistant' >/dev/null; then
+      echo 'Post-upgrade Setup Assistant did not reach the expected state' >&2
+      exit 1
+    fi
     if declare -F verify_no_pending_setup >/dev/null; then
       verify_no_pending_setup
     fi
