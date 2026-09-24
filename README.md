@@ -12,6 +12,7 @@ The current image definitions are:
 | `sequoia-15.7.9` | Upgrade 15.6.1 vanilla to 15.7.9 (24G830) | macOS 15 or newer |
 | `sequoia-15.8` | Upgrade 15.6.1 vanilla to 15.8 (24H23) | macOS 15 or newer |
 | `tahoe-26.6.2` | macOS 26.6.2 (25G83) | macOS 26 or newer |
+| `tahoe-26.7` | Update 26.6.2 images to 26.7 (25G229) with `softwareupdate` | macOS 26 or newer |
 | `golden-gate-27.0` | macOS 27.0 (26A428) | macOS 27 or newer |
 
 The three IPSW-based vanilla images and the Sequoia upgrade images through 15.8
@@ -23,6 +24,10 @@ Base and Xcode images passed the same acceptance process for macOS 15.6.1,
 26.6.2, and 27.0. Their Xcode versions are 26.3, 26.6, and 27 respectively.
 See the [validation record](docs/validation.md) for published combinations,
 digests, and CI runs.
+
+Tahoe 26.7 is an experimental fixed-version update profile. Its update phase
+has a 90-minute hard limit, retains Xcode 26.6 for the Xcode variant, and is not
+eligible to replace the Tahoe `latest` tags.
 
 ## Requirements
 

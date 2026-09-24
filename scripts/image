@@ -23,7 +23,16 @@ source "$config_path"
 : "${MACOS_VERSION:?}"
 : "${MACOS_BUILD:?}"
 : "${IMAGE_PRERELEASE:?}"
-if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+if [[ -n ${UPDATE_METHOD:-} ]]; then
+  : "${UPDATE_TIMEOUT_SECONDS:?}"
+  : "${UPDATE_TITLE:?}"
+  : "${UPDATE_SOURCE_VERSION:?}"
+  : "${UPDATE_SOURCE_BUILD:?}"
+  : "${UPDATE_VANILLA_DIGEST:?}"
+  : "${UPDATE_BASE_DIGEST:?}"
+  : "${UPDATE_XCODE_VERSION:?}"
+  : "${UPDATE_XCODE_DIGEST:?}"
+elif [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
   : "${VANILLA_SOURCE_DIGEST:?}"
   : "${INSTALLER_URL:?}"
   : "${INSTALLER_SIZE:?}"
@@ -146,7 +155,21 @@ versions_match() {
 validate_configuration() {
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] ||
     die "Invalid prerelease value: $IMAGE_PRERELEASE"
-  if [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+  if [[ -n ${UPDATE_METHOD:-} ]]; then
+    [[ "$UPDATE_METHOD" == softwareupdate ]] || die 'Invalid update method'
+    [[ "$UPDATE_TIMEOUT_SECONDS" == 5400 ]] || die 'Invalid software-update timeout'
+    [[ "$UPDATE_TITLE" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || die 'Invalid update title'
+    [[ "$UPDATE_SOURCE_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || die 'Invalid update source version'
+    [[ "$UPDATE_SOURCE_BUILD" =~ ^[0-9A-Z]+$ ]] || die 'Invalid update source build'
+    if [[ ${UPDATE_SOURCE_VERSION%%.*} != "${MACOS_VERSION%%.*}" || "$UPDATE_SOURCE_VERSION" == "$MACOS_VERSION" ]] ||
+       ! version_is_at_least "$MACOS_VERSION" "$UPDATE_SOURCE_VERSION"; then
+      die 'Software update must target a newer release of the same macOS major'
+    fi
+    for digest in "$UPDATE_VANILLA_DIGEST" "$UPDATE_BASE_DIGEST" "$UPDATE_XCODE_DIGEST"; do
+      [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || die 'Invalid update source digest'
+    done
+    is_numeric_version "$UPDATE_XCODE_VERSION" || die 'Invalid update source Xcode version'
+  elif [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
     [[ "$VANILLA_SOURCE_PROFILE" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || die 'Invalid source profile'
     [[ "$VANILLA_SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || die 'Invalid source digest'
     [[ "$INSTALLER_URL" == https://swcdn.apple.com/* ]] || die 'Invalid installer URL'
@@ -763,6 +786,42 @@ build_upgraded_vanilla() {
   verify_existing "$target" vanilla
 }
 
+update_image() {
+  local variant=${1:?Image variant is required}
+  local source=${2:?Source VM is required}
+  local target=${3:?Target VM is required}
+  local packer_build_timeout_seconds=$UPDATE_TIMEOUT_SECONDS
+
+  [[ "${UPDATE_METHOD:-}" == softwareupdate ]] || die 'This profile does not use softwareupdate'
+  case "$variant" in
+    vanilla|base) ;;
+    xcode)
+      require_xcode_version
+      [[ "$XCODE_VERSION" == "$UPDATE_XCODE_VERSION" ]] ||
+        die "The updated Xcode image must retain Xcode $UPDATE_XCODE_VERSION"
+      ;;
+    *) die "Unknown image variant: $variant" ;;
+  esac
+
+  require_build_host
+  clone_vm "$source" "$target" "$variant"
+  clear_stale_control_socket "$target"
+  packer_build "$VANILLA_TEMPLATE" \
+    -var "vm_name=$target" \
+    -var "source_version=$UPDATE_SOURCE_VERSION" \
+    -var "source_build=$UPDATE_SOURCE_BUILD" \
+    -var "expected_version=$MACOS_VERSION" \
+    -var "expected_build=$MACOS_BUILD" \
+    -var "update_title=$UPDATE_TITLE" \
+    -var "disk_size_gb=$build_disk_size_gb" \
+    -var "guest_username=$guest_username" \
+    -var "guest_password=$guest_password"
+  complete_post_upgrade_setup "$target"
+  clean_desktop "$target" "$variant"
+  shrink_vm "$target"
+  verify_existing "$target" "$variant"
+}
+
 build_base() {
   local source=${1:-$(default_source vanilla)}
   local target=${2:-$BASE_VM}
@@ -1181,6 +1240,7 @@ Usage:
   scripts/image build vanilla [initial-wait] [target]
   scripts/image build base [source] [target]
   scripts/image build xcode <version> [source] [target]
+  scripts/image update <vanilla|base|xcode> <source> <target>
   scripts/image slim <vanilla|base|xcode> [xcode-version] <source> <target>
   scripts/image import vanilla [source] [target]
   scripts/image provision base <vm>
@@ -1216,6 +1276,7 @@ case ${1:-} in
       *) usage; exit 1 ;;
     esac
     ;;
+  update) update_image "${2:-}" "${3:-}" "${4:-}" ;;
   slim) build_slim "${2:-}" "${3:-}" "${4:-}" "${5:-}" ;;
   import)
     [[ ${2:-} == vanilla ]] || { usage; exit 1; }

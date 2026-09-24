@@ -40,18 +40,28 @@ case ${0##*/} in
     esac
     ;;
   sudo)
+    if [[ $1 == -n ]]; then
+      shift
+    fi
     if [[ $1 == softwareupdate ]]; then
       shift
       exec softwareupdate "$@"
     fi
+    if [[ $1 == fdesetup && $2 == status ]]; then
+      echo 'FileVault is Off.'
+      exit 0
+    fi
     /usr/bin/touch "$MOCK_STATE/unexpected"
     exit 97
+    ;;
+  sysctl)
+    echo mock-boot-session
     ;;
   touch|rm) ;;
 esac
 EOF
 chmod +x "$test_dir/bin/mock"
-for command in sw_vers uname id defaults xcode-select xcrun softwareupdate sudo touch rm; do
+for command in sw_vers uname id defaults xcode-select xcrun softwareupdate sudo sysctl touch rm; do
   ln -s mock "$test_dir/bin/$command"
 done
 
@@ -76,6 +86,15 @@ for label in 'Command Line Tools for Xcode-16.4' 'Command Line Tools for Xcode 2
 done
 
 expect_failure env MOCK_LABEL= /bin/bash "$root_dir/scripts/guest/install-command-line-tools.sh"
+mkdir "$test_dir/home"
+MOCK_LABEL='macOS Tahoe 26.7-25G229' HOME="$test_dir/home" \
+  SOURCE_VERSION=26.6.2 SOURCE_BUILD=25G83 EXPECTED_VERSION=26.7 EXPECTED_BUILD=25G229 UPDATE_TITLE=Tahoe \
+  /bin/bash "$root_dir/scripts/guest/prepare-software-update.sh" > "$test_dir/output"
+test "$(cat "$test_dir/home/.macos-image-upgrade-boot-session")" = mock-boot-session
+/bin/rm "$test_dir/home/.macos-image-upgrade-boot-session"
+expect_failure env MOCK_LABEL= HOME="$test_dir/home" \
+  SOURCE_VERSION=26.6.2 SOURCE_BUILD=25G83 EXPECTED_VERSION=26.7 EXPECTED_BUILD=25G229 UPDATE_TITLE=Tahoe \
+  /bin/bash "$root_dir/scripts/guest/prepare-software-update.sh"
 for script in configure-vanilla.sh prepare-native.sh; do
   expect_failure env EXPECTED_VERSION=0 EXPECTED_BUILD=25G83 /bin/bash "$root_dir/scripts/guest/$script"
   expect_failure env EXPECTED_VERSION=26.6.2 EXPECTED_BUILD=invalid /bin/bash "$root_dir/scripts/guest/$script"

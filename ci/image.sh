@@ -26,7 +26,7 @@ export IMAGE_CACERT
 export IMAGE_FLAVOR="$PACKAGE_FLAVOR"
 export IMAGE_PACKAGE_FAMILY="$PACKAGE_FAMILY"
 export IMAGE_VARIANT="$VARIANT"
-if [[ -z "$VANILLA_SOURCE_PROFILE" ]]; then
+if [[ -z "$VANILLA_SOURCE_PROFILE" && -z "$UPDATE_METHOD" ]]; then
   export IPSW_PATH="$task_root/restore.ipsw"
 else
   unset IPSW_PATH
@@ -99,6 +99,12 @@ write_inputs() {
     --arg installer_url "$INSTALLER_URL" \
     --argjson installer_size "${INSTALLER_SIZE:-null}" \
     --arg installer_sha "$INSTALLER_SHA256" \
+    --arg update_method "$UPDATE_METHOD" \
+    --argjson update_timeout "${UPDATE_TIMEOUT_SECONDS:-null}" \
+    --arg update_title "$UPDATE_TITLE" \
+    --arg update_source_version "$UPDATE_SOURCE_VERSION" \
+    --arg update_source_build "$UPDATE_SOURCE_BUILD" \
+    --arg update_source_digest "$UPDATE_SOURCE_DIGEST" \
     --arg variant "$VARIANT" \
     --arg variant_id "$VARIANT_ID" \
     --arg xcode "${XCODE_VERSION:-}" \
@@ -145,7 +151,15 @@ write_inputs() {
         source_digest: "",
         xcode_archive_sha256: ""
       }
-      | if $source_profile == "" then
+      | if $update_method != "" then
+          .update = {
+            method: $update_method,
+            timeout_seconds: $update_timeout,
+            title: $update_title,
+            source_macos: {version: $update_source_version, build: $update_source_build},
+            source_digest: $update_source_digest
+          }
+        elif $source_profile == "" then
           .ipsw = {url: $ipsw_url, size: $ipsw_size, sha256: $ipsw_sha}
         elif $variant == "vanilla" then
           .upgrade = {
@@ -230,12 +244,12 @@ check_tools() {
   parent_cache_credit_kib=0
   parent_cache_keep=
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
-        ( "$PACKAGE_FLAVOR" == slim || "$VARIANT" != vanilla || -n "$VANILLA_SOURCE_PROFILE" ) ]]; then
+        ( "$PACKAGE_FLAVOR" == slim || "$VARIANT" != vanilla || -n "$VANILLA_SOURCE_PROFILE" || -n "$UPDATE_METHOD" ) ]]; then
     prepare_parent_source
     minimum_kib=$((minimum_kib - parent_cache_credit_kib))
   fi
   if [[ ( "$OPERATION" == build || "$OPERATION" == publish ) &&
-        -n "$VANILLA_SOURCE_PROFILE" &&
+        -n "$VANILLA_SOURCE_PROFILE" && -z "$UPDATE_METHOD" &&
         "$PACKAGE_FLAVOR" == standard ]]; then
     local installer_path=${INSTALLER_PATH:-$INSTALLER_CACHE_DIR/$INSTALLER_SHA256.pkg}
     local installer_size=
@@ -669,7 +683,7 @@ build_image() {
   local source_layout="$task_root/parent-image/layout"
   local source_metadata="$task_root/parent-image.json"
 
-  if [[ "$VARIANT" == xcode ]]; then
+  if [[ "$VARIANT" == xcode && -z "$UPDATE_METHOD" ]]; then
     local archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_$XCODE_VERSION.xip"
     local silicon_archive="${XCODE_CACHE:-$HOME/XcodesCache}/Xcode_${XCODE_VERSION}_Apple_silicon.xip"
     if [[ -e "$silicon_archive" || -L "$silicon_archive" ]]; then
@@ -680,7 +694,7 @@ build_image() {
     xcode_sha=$(ci_sha256 "$archive")
   fi
 
-  if [[ "$PACKAGE_FLAVOR" == standard && "$VARIANT" == vanilla && -z "$VANILLA_SOURCE_PROFILE" ]]; then
+  if [[ "$PACKAGE_FLAVOR" == standard && "$VARIANT" == vanilla && -z "$VANILLA_SOURCE_PROFILE" && -z "$UPDATE_METHOD" ]]; then
     source=$IPSW_URL
     source_digest="sha256:$IPSW_SHA256"
     ./scripts/image build vanilla "" "$vm_name"
@@ -691,7 +705,9 @@ build_image() {
     source=$(jq -er .reference "$task_root/parent-source.json")
     .build/tools/image-artifact import --layout "$source_layout" --vm "$source_vm"
     rm -rf -- "$source_layout"
-    if [[ "$PACKAGE_FLAVOR" == slim ]]; then
+    if [[ -n "$UPDATE_METHOD" ]]; then
+      ./scripts/image update "$VARIANT" "$source_vm" "$vm_name"
+    elif [[ "$PACKAGE_FLAVOR" == slim ]]; then
       ./scripts/image slim "$VARIANT" "${XCODE_VERSION:-}" "$source_vm" "$vm_name"
     else
       case "$VARIANT" in

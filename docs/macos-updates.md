@@ -173,5 +173,18 @@ The 15.8 update briefly rejected SSH authentication during its first boot;
 the original password worked on a later attempt without changing the account.
 Require successful guest checks after restart, not just an open SSH port.
 
+## Tahoe 26.7 experiment
+
+The `tahoe-26.7` profile updates each pinned 26.6.2 source variant directly
+with `softwareupdate`. Vanilla, base, and Xcode use their own source digests;
+the Xcode image retains Xcode 26.6. The guest scan must contain exactly one
+`macOS Tahoe 26.7-25G229` label before installation begins.
+
+The update Packer process has a 5,400-second hard limit. A guest that has not
+returned within that bound is a failed attempt. The profile cannot update any
+Tahoe `latest` tag while this restart behavior remains unreliable. Successful
+CI builds are retained locally so publication can resume from the verified
+bundle without repeating the update.
+
 These observations apply to the tested Sequoia guest. Catalog availability and
 unattended behavior still need checking when adding another macOS major.

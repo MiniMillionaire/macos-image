@@ -18,6 +18,18 @@ ci_version_key() {
   printf '%s.%s.%s\n' "$major" "${minor:-0}" "${patch:-0}"
 }
 
+ci_version_is_at_least() {
+  awk -v actual="$1" -v minimum="$2" 'BEGIN {
+    split(actual, a, ".")
+    split(minimum, m, ".")
+    for (i = 1; i <= 3; i++) {
+      if ((a[i] + 0) > (m[i] + 0)) exit 0
+      if ((a[i] + 0) < (m[i] + 0)) exit 1
+    }
+    exit 0
+  }'
+}
+
 ci_read_value() {
   local file=$1
   local key=$2
@@ -37,8 +49,9 @@ ci_read_value() {
 }
 
 ci_load_profile() {
+  local digest source_config
   case ${PROFILE:-} in
-    sequoia-15.6.1|sequoia-15.7.7|sequoia-15.7.8|sequoia-15.7.9|sequoia-15.8|tahoe-26.6.2|golden-gate-27.0) ;;
+    sequoia-15.6.1|sequoia-15.7.7|sequoia-15.7.8|sequoia-15.7.9|sequoia-15.8|tahoe-26.6.2|tahoe-26.7|golden-gate-27.0) ;;
     *) ci_die "Unknown image profile: ${PROFILE:-}" ;;
   esac
   case ${VARIANT:-} in
@@ -65,8 +78,34 @@ ci_load_profile() {
   VANILLA_SOURCE_VERSION=
   VANILLA_SOURCE_BUILD=
   VANILLA_SOURCE_CONFIG_SHA256=
-  if grep -q '^VANILLA_SOURCE_PROFILE=' "$CONFIG_PATH"; then
-    local source_config
+  UPDATE_METHOD=
+  UPDATE_TIMEOUT_SECONDS=
+  UPDATE_TITLE=
+  UPDATE_SOURCE_VERSION=
+  UPDATE_SOURCE_BUILD=
+  UPDATE_SOURCE_DIGEST=
+  UPDATE_VANILLA_DIGEST=
+  UPDATE_BASE_DIGEST=
+  UPDATE_XCODE_VERSION=
+  UPDATE_XCODE_DIGEST=
+  LATEST_ELIGIBLE=true
+  if grep -q '^UPDATE_METHOD=' "$CONFIG_PATH"; then
+    UPDATE_METHOD=$(ci_read_value "$CONFIG_PATH" UPDATE_METHOD)
+    UPDATE_TIMEOUT_SECONDS=$(ci_read_value "$CONFIG_PATH" UPDATE_TIMEOUT_SECONDS)
+    UPDATE_TITLE=$(ci_read_value "$CONFIG_PATH" UPDATE_TITLE)
+    UPDATE_SOURCE_VERSION=$(ci_read_value "$CONFIG_PATH" UPDATE_SOURCE_VERSION)
+    UPDATE_SOURCE_BUILD=$(ci_read_value "$CONFIG_PATH" UPDATE_SOURCE_BUILD)
+    UPDATE_VANILLA_DIGEST=$(ci_read_value "$CONFIG_PATH" UPDATE_VANILLA_DIGEST)
+    UPDATE_BASE_DIGEST=$(ci_read_value "$CONFIG_PATH" UPDATE_BASE_DIGEST)
+    UPDATE_XCODE_VERSION=$(ci_read_value "$CONFIG_PATH" UPDATE_XCODE_VERSION)
+    UPDATE_XCODE_DIGEST=$(ci_read_value "$CONFIG_PATH" UPDATE_XCODE_DIGEST)
+    LATEST_ELIGIBLE=$(ci_read_value "$CONFIG_PATH" LATEST_ELIGIBLE)
+    case "$VARIANT" in
+      vanilla) UPDATE_SOURCE_DIGEST=$UPDATE_VANILLA_DIGEST ;;
+      base) UPDATE_SOURCE_DIGEST=$UPDATE_BASE_DIGEST ;;
+      xcode) UPDATE_SOURCE_DIGEST=$UPDATE_XCODE_DIGEST ;;
+    esac
+  elif grep -q '^VANILLA_SOURCE_PROFILE=' "$CONFIG_PATH"; then
     VANILLA_SOURCE_PROFILE=$(ci_read_value "$CONFIG_PATH" VANILLA_SOURCE_PROFILE)
     [[ "$VANILLA_SOURCE_PROFILE" =~ ^[a-z0-9][a-z0-9.-]*$ && "$VANILLA_SOURCE_PROFILE" != "$PROFILE" ]] ||
       ci_die "Invalid vanilla source profile"
@@ -105,7 +144,25 @@ ci_load_profile() {
   [[ "$MACOS_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || ci_die "Invalid macOS version"
   [[ "$MACOS_BUILD" =~ ^[0-9A-Z]+$ ]] || ci_die "Invalid macOS build"
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] || ci_die "Invalid prerelease value"
-  if [[ -n "$VANILLA_SOURCE_PROFILE" ]]; then
+  if [[ -n "$UPDATE_METHOD" ]]; then
+    [[ "$UPDATE_METHOD" == softwareupdate ]] || ci_die "Invalid update method"
+    [[ "$UPDATE_TIMEOUT_SECONDS" == 5400 ]] || ci_die "Invalid software-update timeout"
+    [[ "$UPDATE_TITLE" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || ci_die "Invalid update title"
+    [[ "$UPDATE_SOURCE_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ && "$UPDATE_SOURCE_BUILD" =~ ^[0-9A-Z]+$ ]] ||
+      ci_die "Invalid update source version or build"
+    if [[ ${UPDATE_SOURCE_VERSION%%.*} != "${MACOS_VERSION%%.*}" || "$UPDATE_SOURCE_VERSION" == "$MACOS_VERSION" ]] ||
+       ! ci_version_is_at_least "$MACOS_VERSION" "$UPDATE_SOURCE_VERSION"; then
+      ci_die "Software update must target a newer release of the same macOS major"
+    fi
+    for digest in "$UPDATE_VANILLA_DIGEST" "$UPDATE_BASE_DIGEST" "$UPDATE_XCODE_DIGEST"; do
+      [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || ci_die "Invalid update source digest"
+    done
+    [[ "$UPDATE_XCODE_VERSION" =~ ^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)([.](0|[1-9][0-9]*))?$ ]] ||
+      ci_die "Invalid update source Xcode version"
+    [[ "$LATEST_ELIGIBLE" == true || "$LATEST_ELIGIBLE" == false ]] || ci_die "Invalid latest eligibility"
+    grep -Eq '^(IPSW_|VANILLA_SOURCE_PROFILE=|INSTALLER_)' "$CONFIG_PATH" &&
+      ci_die "Software-update profile must not specify an IPSW or full installer"
+  elif [[ -n "$VANILLA_SOURCE_PROFILE" ]]; then
     [[ "$VANILLA_SOURCE_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ && "$VANILLA_SOURCE_BUILD" =~ ^[0-9A-Z]+$ ]] ||
       ci_die "Invalid vanilla source version or build"
     [[ "$VANILLA_SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || ci_die "Invalid vanilla source digest"
@@ -124,6 +181,8 @@ ci_load_profile() {
 
   UPDATE_LATEST=${UPDATE_LATEST:-false}
   [[ "$UPDATE_LATEST" == true || "$UPDATE_LATEST" == false ]] || ci_die "Invalid update-latest value"
+  [[ "$UPDATE_LATEST" == false || "$LATEST_ELIGIBLE" == true ]] ||
+    ci_die "This macOS profile is not eligible to update latest"
   [[ "$UPDATE_LATEST" == false || "$IMAGE_PRERELEASE" == false ]] ||
     ci_die "Prerelease macOS images cannot update latest"
   if [[ "$VARIANT" == xcode ]]; then
@@ -156,6 +215,11 @@ ci_load_profile() {
     slim) PACKAGE_FAMILY=$MACOS_FAMILY-slim ;;
     *) ci_die "Unknown package flavor: $PACKAGE_FLAVOR" ;;
   esac
+  if [[ -n "$UPDATE_METHOD" ]]; then
+    [[ "$PACKAGE_FLAVOR" == standard ]] || ci_die "Software-update profiles only support standard images"
+    [[ "$VARIANT" != xcode || "$XCODE_VERSION" == "$UPDATE_XCODE_VERSION" ]] ||
+      ci_die "Software-update Xcode images must retain Xcode $UPDATE_XCODE_VERSION"
+  fi
   [[ "$PACKAGE_FLAVOR" != slim || "$MACOS_FAMILY" != sequoia || "$VARIANT" == xcode ]] ||
     ci_die "Sequoia slim images are only published for Xcode"
   [[ "$PACKAGE_FLAVOR" == standard ]] || VARIANT_ID="slim-$VARIANT_ID"
