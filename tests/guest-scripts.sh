@@ -82,4 +82,15 @@ for script in configure-vanilla.sh prepare-native.sh; do
 done
 expect_failure env IMAGE_PROFILE=vanilla EXPECTED_VERSION=0 EXPECTED_BUILD=25G83 /bin/bash "$root_dir/scripts/guest/verify-image.sh"
 expect_failure env IMAGE_PROFILE=vanilla EXPECTED_VERSION=26.6.2 EXPECTED_BUILD=invalid /bin/bash "$root_dir/scripts/guest/verify-image.sh"
+
+source "$root_dir/scripts/guest/post-upgrade/sequoia-15.sh"
+verify_post_upgrade_setup() { return 0; }
+EXPECTED_VERSION=15.7.7 EXPECTED_BUILD=24G720 verify_running_post_upgrade_setup
+for target in '15.7.8 24G730' '15.7.7 invalid'; do
+  read -r EXPECTED_VERSION EXPECTED_BUILD <<< "$target"
+  if verify_running_post_upgrade_setup; then
+    echo "Unexpected running Setup Assistant allowance for $target" >&2
+    exit 1
+  fi
+done
 printf 'Guest script checks passed with %s\n' "$(/bin/bash --version | head -1)"

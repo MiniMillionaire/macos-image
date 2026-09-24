@@ -151,6 +151,11 @@ boot, while another 15.7.8 build retained it. The build now observes this state
 and completes the verified Sequoia flow before desktop cleanup. The independent
 cold-boot check remains part of the update procedure.
 
+For macOS 15.7.7 / 24G720 only, Setup Assistant may remain running after it
+writes every verified completion value. That exact target may proceed to a
+normal shutdown; all other targets still require the process to exit. The next
+cold boot must pass the standard image verification without Setup Assistant.
+
 ## Validation
 
 Both paths passed on September 17, 2026, starting from a clone of the published

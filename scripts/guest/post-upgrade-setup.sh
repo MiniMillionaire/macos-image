@@ -12,6 +12,7 @@ filevault_status=$(sudo -n fdesetup status)
 [[ "$filevault_status" == 'FileVault is Off.' ]] || { echo "Unexpected FileVault status: $filevault_status" >&2; exit 1; }
 
 deadline=$((SECONDS + 120))
+running_setup_verified=false
 while [[ $(stat -f %Su /dev/console) != "$GUEST_USERNAME" ]]; do
   (( SECONDS < deadline )) || { echo 'The upgraded guest did not log in' >&2; exit 1; }
   sleep 5
@@ -42,19 +43,23 @@ case "$POST_UPGRADE_MODE" in
     fi
     ;;
   verify)
+    declare -F verify_post_upgrade_setup >/dev/null
     deadline=$((SECONDS + 120))
     while pgrep -x 'Setup Assistant' >/dev/null; do
-      (( SECONDS < deadline )) || { echo 'Post-upgrade Setup Assistant did not finish' >&2; exit 1; }
+      if declare -F verify_running_post_upgrade_setup >/dev/null && verify_running_post_upgrade_setup; then
+        running_setup_verified=true
+        break
+      fi
+      (( SECONDS < deadline )) || { echo 'Post-upgrade Setup Assistant did not complete' >&2; exit 1; }
       sleep 5
     done
-    declare -F verify_post_upgrade_setup >/dev/null
     verify_post_upgrade_setup
     ;;
   *) echo "Unknown post-upgrade check: $POST_UPGRADE_MODE" >&2; exit 1 ;;
 esac
 
 [[ -e /var/db/.AppleSetupDone ]] || { echo 'Setup Assistant completion marker is missing' >&2; exit 1; }
-if pgrep -x 'Setup Assistant' >/dev/null; then
+if [[ "$running_setup_verified" != true ]] && pgrep -x 'Setup Assistant' >/dev/null; then
   echo 'Post-upgrade Setup Assistant is still running' >&2
   exit 1
 fi
