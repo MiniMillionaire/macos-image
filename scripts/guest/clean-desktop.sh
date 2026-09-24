@@ -16,10 +16,12 @@ osascript -l JavaScript <<'JAVASCRIPT'
 ObjC.import("AppKit");
 var running = $.NSWorkspace.sharedWorkspace.runningApplications;
 var applications = [];
+var crashReporters = ["com.apple.DiagnosticsReporter", "com.apple.ProblemReporter"];
 for (var index = 0; index < running.count; index++) {
     var application = running.objectAtIndex(index);
-    if (Number(application.activationPolicy) === 0 &&
-        ObjC.unwrap(application.bundleIdentifier) !== "com.apple.finder") {
+    var bundleIdentifier = ObjC.unwrap(application.bundleIdentifier);
+    if ((Number(application.activationPolicy) === 0 && bundleIdentifier !== "com.apple.finder") ||
+        crashReporters.indexOf(bundleIdentifier) !== -1) {
         applications.push(application);
         application.terminate;
     }
