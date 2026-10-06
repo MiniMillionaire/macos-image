@@ -168,11 +168,8 @@ import_parent() {
     -n "offline-$IMAGE_PROFILE-$parent_variant-$PARENT_RUN-$attempt" -D "$parent"
   if [[ "$parent_variant" == vanilla ]]; then
     manifest="$parent/construction/source-manifest.json"
-    [[ -f "$manifest" && -f "$parent/construction/boot/journal.json" &&
-      -f "$parent/construction/policy-material/journal.json" ]] || {
-      printf '%s\n' 'This Vanilla run did not retain the inputs needed to derive Base offline.' >&2
-      return 1
-    }
+    if [[ ! -f "$manifest" ]]; then manifest="$parent/bundle-manifest.json"; fi
+    [[ -f "$manifest" ]] || return 1
   else
     manifest="$parent/bundle-manifest.json"
     [[ -f "$manifest" && -f "$parent/software-preparation.json" ]] || return 1
@@ -218,7 +215,13 @@ import_parent() {
   fi
   if [[ "$parent_variant" == vanilla ]]; then
     privileged mv "$work/parent-import/bundle" "$work/vanilla"
-    cp -R "$parent/construction/boot" "$parent/construction/policy-material" "$work/"
+    if [[ -f "$parent/construction/boot/journal.json" &&
+      -f "$parent/construction/policy-material/journal.json" ]]; then
+      cp -R "$parent/construction/boot" "$parent/construction/policy-material" "$work/"
+    else
+      privileged "$miso" base prepare-parent --source "$work/vanilla" \
+        --output "$work/parent-boot" | tee "$evidence/parent-boot.json" >/dev/null
+    fi
   else
     mkdir -p "$work/base/11-cleanup" "$RUNNER_TEMP/offline-evidence/base"
     privileged mv "$work/parent-import/bundle" "$work/base/11-cleanup/bundle"
@@ -239,7 +242,13 @@ record() {
 
 base() {
   privileged test -f "$work/vanilla/manifest.json"
-  [[ -f "$work/boot/journal.json" && -f "$work/policy-material/journal.json" ]]
+  local boot=boot material=policy-material
+  if privileged test -f "$work/parent-boot/journal.json"; then
+    boot="parent-boot"
+    material="parent-boot"
+  fi
+  privileged test -f "$work/$boot/journal.json"
+  privileged test -f "$work/$material/journal.json"
   privileged jq -e --argjson target "$target" '.target == $target and .construction_vm_started == false and
     .runtime_verified == false and (.base_complete != true) and (.xcode_stages == null)' \
     "$work/vanilla/manifest.json" >/dev/null
@@ -279,7 +288,7 @@ base() {
     --argjson security "$(record plans/security.json)" \
     --argjson settings "$(record plans/settings.json)" \
     --argjson certificates "$(record plans/certificates.json)" \
-    --argjson target "$target" --arg username "$username" \
+    --argjson target "$target" --arg username "$username" --arg boot "$boot" --arg material "$material" \
     --argjson formulae "$(jq '[.selectedRoots[]]|unique' "$work/software/core/resolution.json")" '
     {schemaVersion:1,target:$target,username:$username,steps:[
       {stage:"static",files:{runner:$runner,"runner-release":$release,"known-hosts":$hosts},directories:{}},
@@ -289,7 +298,7 @@ base() {
       {stage:"packages",files:{plan:$packages},directories:{inputs:"software/packages"}},
       {stage:"taps",files:{plan:$taps},directories:{inputs:"software/taps"}},
       {stage:"gcm",files:{plan:$gcm},directories:{inputs:"software/gcm"}},
-      {stage:"security",files:{plan:$security},directories:{boot:"boot",material:"policy-material"}},
+      {stage:"security",files:{plan:$security},directories:{boot:$boot,material:$material}},
       {stage:"settings",files:{plan:$settings},directories:{}},
       {stage:"certificates",files:{plan:$certificates},directories:{inputs:"plans"}}
     ]}' > "$work/recipe.json"
@@ -319,7 +328,7 @@ export_image() {
   fi
   local path
   if [[ "$VARIANT" == base && "$TARGET_VARIANT" == xcode ]]; then return 0; fi
-  for path in vanilla base software boot policy-material plans xcode-inputs xcode; do
+  for path in vanilla base software boot policy-material parent-boot plans xcode-inputs xcode; do
     if [[ -d "$work/$path" ]]; then privileged rm -r "$work/$path"; fi
   done
 }
@@ -372,7 +381,7 @@ verify() {
 collect() {
   if [[ -f "$work/common-evidence/host.txt" ]]; then cp "$work/common-evidence/"* "$evidence/"; fi
   local directory path
-  for directory in restore base software xcode-inputs xcode; do
+  for directory in restore base software parent-boot xcode-inputs xcode; do
     [[ -d "$work/$directory" ]] || continue
     privileged find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
       while IFS= read -r -d '' path; do

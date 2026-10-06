@@ -123,7 +123,7 @@ jobs:
         run: bash ci/offline-image.sh software
       - name: Install Base software and settings on a Vanilla clone
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 180
+        timeout-minutes: 270
         env:
           VARIANT: base
         run: bash ci/offline-image.sh base
