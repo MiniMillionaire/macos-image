@@ -1,0 +1,54 @@
+name: Publish accepted offline macOS images
+run-name: Publish macOS ${{ inputs.profile }} ${{ inputs.variant }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Configuration directory under config/miso
+        type: string
+        default: '27.0.1'
+        required: true
+      variant:
+        description: Accepted image to publish
+        type: choice
+        options: [vanilla, base, xcode]
+        required: true
+      xcode_version:
+        description: Xcode configuration name, required for Xcode
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-image-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.repository == 'MiniMillionaire/macos-image' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
+      github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+      - name: Publish accepted digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_PROFILE: ${{ inputs.profile }}
+          VARIANT: ${{ inputs.variant }}
+          XCODE_VERSION: ${{ inputs.xcode_version }}
+        run: bash ci/promote-offline-image.sh

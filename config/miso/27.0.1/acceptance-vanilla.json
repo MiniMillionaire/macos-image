@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "vanilla",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-vanilla@sha256:347e3de9cfeb71a577f4734d2a37c454a01bf06615d10410ff4b8b9ba9a77d30",
+  "sourceRevision": "bdd07a484226f1592eca493d0163f00302c3aa13",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37457965081",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-06T15:32:31Z",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "macOS version and build",
+      "automatic login and clean unlocked desktop",
+      "account and passwordless sudo",
+      "locale, keyboard and timezone",
+      "Gatekeeper and FileVault configuration",
+      "CLT selection and macOS SDK 27.0",
+      "C and Swift compile and execution",
+      "SSH positive and negative authentication",
+      "VNC password positive and negative authentication",
+      "ARD positive and negative authentication",
+      "VNC screenshot, mouse and keyboard input",
+      "no Rosetta",
+      "single boot",
+      "stopped disposable clone and unchanged source"
+    ]
+  }
+}
