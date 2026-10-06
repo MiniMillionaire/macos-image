@@ -41,4 +41,9 @@ else
   oras tag "$reference" "$tag" --registry-config "$scratch/registry.json"
 fi
 [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
+build_run=$(jq -er '.buildRun | split("/") | last' "$record")
+[[ "$build_run" =~ ^[0-9]+$ ]] || exit 1
+candidate_prefix="miso-$(jq -er .target.version "$profile")"
+if [[ "$VARIANT" == xcode ]]; then candidate_prefix="$candidate_prefix-xcode-$XCODE_VERSION"; fi
+bash "$root/ci/cleanup-offline-candidates.sh" "$repository" "$tag" "$digest" "$candidate_prefix-$build_run-"
 printf 'Published %s at %s.\n\n' "$published" "$digest" >> "$GITHUB_STEP_SUMMARY"
