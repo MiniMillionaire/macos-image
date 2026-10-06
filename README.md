@@ -3,13 +3,11 @@
 This repository builds macOS virtual machine images for Tart. It supports local builds and OCI publication.
 
 For macOS 27.0.1, the **Build offline macOS 27.0.1** workflow uses
-[MISO](https://github.com/cocoa-xu/miso) on official
+[MISO 0.2.2](https://github.com/cocoa-xu/miso/releases/tag/v0.2.2) on official
 Apple silicon GitHub runners. Select `both`, `vanilla`, or `base`. Construction
 does not start a VM. Base includes the native development tools and no Rosetta.
 The workflow uploads candidate images and verifies an anonymous download;
 numbered tags follow independent boot acceptance.
-The workflow currently builds the pinned MISO fix for final image assembly;
-its source revision is recorded with the image evidence.
 
 The current image definitions are:
 

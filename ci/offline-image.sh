@@ -37,20 +37,8 @@ prepare() {
   mkdir -p "$work/bin" "$work/packages" "$TART_HOME/vms"
   { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; sudo -n id -u; } \
     > "$evidence/host.txt"
-  if [[ -n ${MISO_REVISION:-} ]]; then
-    [[ "$MISO_REVISION" =~ ^[0-9a-f]{40}$ ]]
-    git init "$work/miso-source"
-    git -C "$work/miso-source" fetch --depth 1 https://github.com/cocoa-xu/miso.git "$MISO_REVISION"
-    git -C "$work/miso-source" checkout --detach FETCH_HEAD
-    [[ $(git -C "$work/miso-source" rev-parse HEAD) == "$MISO_REVISION" ]]
-    make -C "$work/miso-source" build > "$evidence/miso-source-build.log" 2>&1
-    install -m 755 "$work/miso-source/.build/release/miso" "$miso"
-    printf 'Version: %s\nCommit: %s\n' "$MISO_VERSION" "$MISO_REVISION" > "$work/bin/BUILD.txt"
-    rm -r "$work/miso-source"
-  else
-    gh release download "v$MISO_VERSION" --repo cocoa-xu/miso --pattern 'miso.tar.gz*' --dir "$work/bin"
-    (cd "$work/bin" && shasum -a 256 -c miso.tar.gz.sha256 && tar -xzf miso.tar.gz)
-  fi
+  gh release download "v$MISO_VERSION" --repo cocoa-xu/miso --pattern 'miso.tar.gz*' --dir "$work/bin"
+  (cd "$work/bin" && shasum -a 256 -c miso.tar.gz.sha256 && tar -xzf miso.tar.gz)
   [[ $("$miso" --version) == "$MISO_VERSION" ]]
   codesign --verify --strict "$miso"
   cp "$work/bin/BUILD.txt" "$evidence/miso-build.txt"
