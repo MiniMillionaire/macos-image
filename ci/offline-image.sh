@@ -34,6 +34,10 @@ require_detached() {
 }
 
 prepare() {
+  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ]] || {
+    printf '%s\n' 'Runner cleanup requires a GitHub-hosted environment.' >&2
+    return 1
+  }
   mkdir -p "$work/bin" "$work/packages" "$TART_HOME/vms"
   { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; sudo -n id -u; } \
     > "$evidence/host.txt"

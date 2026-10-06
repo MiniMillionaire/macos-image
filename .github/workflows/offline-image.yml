@@ -53,6 +53,7 @@ jobs:
         timeout-minutes: 15
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: bash ci/offline-image.sh prepare
       - name: Download Command Line Tools
         timeout-minutes: 30
