@@ -8,7 +8,7 @@ verify_desktop() {
   local guest_uid
   guest_uid=$(id -u "$GUEST_USERNAME")
   while true; do
-    console_user=$(stat -f %Su /dev/console)
+    console_user=$(printf 'show State:/Users/ConsoleUser\n' | scutil | awk '$1 == "Name" { print $3; exit }')
     if [[ "$console_user" == "$GUEST_USERNAME" ]] &&
       pgrep -u "$guest_uid" -x Finder >/dev/null &&
       pgrep -u "$guest_uid" -x Dock >/dev/null; then
