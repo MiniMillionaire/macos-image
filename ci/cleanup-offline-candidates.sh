@@ -19,10 +19,11 @@ published="$repository:$tag"
 [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
 gh api --paginate "$endpoint?per_page=100" > "$scratch/versions.json"
 jq -rs --arg digest "$digest" --arg tag "$tag" --arg prefix "$prefix" '
-  add | map(select(.name == $digest and (.metadata.container.tags | index($tag)))) |
-  if length != 1 then error("Published package version is ambiguous") else .[0] end |
-  .metadata.container.tags | map(select(startswith($prefix) and
-    (ltrimstr($prefix) | test("^[0-9]+$")))) | .[]
+  add | . as $versions |
+  map(select(.name == $digest and (.metadata.container.tags | index($tag)))) |
+  if length != 1 then error("Published package version is ambiguous") else $versions end |
+  [.[].metadata.container.tags[] | select(startswith($prefix) and
+    (ltrimstr($prefix) | test("^[0-9]+$")))] | unique | .[]
 ' "$scratch/versions.json" > "$scratch/candidates.txt"
 [[ -s "$scratch/candidates.txt" ]] || exit 0
 printf '%s' "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" \
@@ -31,11 +32,19 @@ oras manifest fetch "$repository@$digest" --registry-config "$scratch/registry.j
 media_type=$(jq -er .mediaType "$scratch/original.json")
 while IFS= read -r candidate; do
   [[ "$candidate" != "$tag" ]] || exit 1
-  [[ $(oras resolve "$repository:$candidate" --registry-config "$scratch/registry.json") == "$digest" ]] || exit 1
-  jq --arg tag "$candidate" '.annotations["io.github.minimillionaire.cleanup-tag"] = $tag' \
+  candidate_digest=$(oras resolve "$repository:$candidate" --registry-config "$scratch/registry.json")
+  jq -S --arg tag "$candidate" '.annotations["io.github.minimillionaire.cleanup-tag"] = $tag' \
     "$scratch/original.json" > "$scratch/temporary.json"
-  oras manifest push "$repository:$candidate" "$scratch/temporary.json" --media-type "$media_type" \
-    --registry-config "$scratch/registry.json" >/dev/null
+  if [[ "$candidate_digest" == "$digest" ]]; then
+    oras manifest push "$repository:$candidate" "$scratch/temporary.json" --media-type "$media_type" \
+      --registry-config "$scratch/registry.json" >/dev/null
+  else
+    oras manifest fetch "$repository@$candidate_digest" --registry-config "$scratch/registry.json" | \
+      jq -S . > "$scratch/resumed.json"
+    cmp -s "$scratch/temporary.json" "$scratch/resumed.json" || {
+      printf 'Candidate differs from the accepted image: %s\n' "$candidate" >&2; exit 1;
+    }
+  fi
   temporary_digest=$(oras resolve "$repository:$candidate" --registry-config "$scratch/registry.json")
   [[ "$temporary_digest" =~ ^sha256:[0-9a-f]{64}$ && "$temporary_digest" != "$digest" ]] || exit 1
   id=
@@ -49,6 +58,7 @@ while IFS= read -r candidate; do
     sleep 2
   done
   [[ "$id" =~ ^[0-9]+$ ]] || { printf 'Cannot isolate candidate: %s\n' "$candidate" >&2; exit 1; }
+  [[ $(oras resolve "$repository:$candidate" --registry-config "$scratch/registry.json") == "$temporary_digest" ]] || exit 1
   [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
   gh api --method DELETE "$endpoint/$id"
   [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
