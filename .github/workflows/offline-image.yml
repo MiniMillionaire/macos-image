@@ -53,10 +53,10 @@ jobs:
       TARGET_VARIANT: ${{ inputs.image_type }}
       PARENT_RUN: ${{ inputs.parent_run_id }}
       VARIANT: ${{ inputs.parent_run_id != '' && inputs.image_type || 'vanilla' }}
-      MISO_VERSION: source
+      MISO_VERSION: 0.3.0
+      MISO_TRANSFER_CONCURRENCY: ${{ vars.MISO_TRANSFER_CONCURRENCY || (inputs.image_type == 'xcode' && '8' || '4') }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
-      MISO_TART_RESIZE_COMMAND: ${{ vars.MISO_TART_RESIZE_COMMAND }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -64,9 +64,9 @@ jobs:
       - uses: oras-project/setup-oras@v2
         with:
           version: 1.3.4
-      - uses: cocoa-xu/miso@main
+      - uses: cocoa-xu/miso@v0.3.0
         with:
-          version: source
+          version: 0.3.0
           xcode-base-url: ${{ inputs.image_type == 'xcode' && secrets.XCODE_BASE_URL || '' }}
       - name: Prepare build tools and workspace
         env:
@@ -84,9 +84,8 @@ jobs:
       - name: Upload Vanilla candidate
         if: inputs.parent_run_id == ''
         env:
-          TART_REGISTRY_HOSTNAME: ghcr.io
-          TART_REGISTRY_USERNAME: ${{ github.actor }}
-          TART_REGISTRY_PASSWORD: ${{ github.token }}
+          MISO_REGISTRY_USERNAME: ${{ github.actor }}
+          MISO_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Vanilla download
         if: inputs.parent_run_id == ''
@@ -126,9 +125,8 @@ jobs:
         if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
-          TART_REGISTRY_HOSTNAME: ghcr.io
-          TART_REGISTRY_USERNAME: ${{ github.actor }}
-          TART_REGISTRY_PASSWORD: ${{ github.token }}
+          MISO_REGISTRY_USERNAME: ${{ github.actor }}
+          MISO_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Base download
         if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
@@ -165,9 +163,8 @@ jobs:
         if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
-          TART_REGISTRY_HOSTNAME: ghcr.io
-          TART_REGISTRY_USERNAME: ${{ github.actor }}
-          TART_REGISTRY_PASSWORD: ${{ github.token }}
+          MISO_REGISTRY_USERNAME: ${{ github.actor }}
+          MISO_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Xcode download
         if: inputs.image_type == 'xcode'
@@ -185,3 +182,6 @@ jobs:
           name: offline-${{ inputs.macos_version }}-xcode-${{ inputs.xcode_version }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/xcode
           retention-days: 30
+      - name: Remove build workspace
+        if: always()
+        run: bash ci/offline-image.sh cleanup

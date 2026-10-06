@@ -12,17 +12,19 @@ Vanilla and Base use official Apple silicon GitHub runners. Xcode uses the exist
 M5 runner; set `xcode_version` to a configuration name such as `27.1rc` and provide
 `XCODE_BASE_URL` as a repository secret. The runner needs administrator access
 through `sudo -n` or the `MISO_ROOT_COMMAND` repository variable pointing to its
-authorized command runner. `MISO_TART_RESIZE_COMMAND` selects a Recovery-aware Tart
-executable when importing a smaller Base disk.
+authorized command runner. MISO expands smaller Base disks while preserving Recovery.
 
-Construction does not start a VM or install Rosetta. Candidates are uploaded and
+Construction does not start a VM or install Rosetta. Candidates are uploaded, then
 downloaded anonymously; numbered tags follow independent boot acceptance. The
-MISO Action currently builds `main` until these features have a released version.
+offline workflow uses MISO for upload and download, without a Tart executable.
+Transfers default to 4 concurrent requests on hosted runners and 8 on the M5;
+set the `MISO_TRANSFER_CONCURRENCY` repository variable to override this.
 
-macOS 27.0.1 Vanilla is available:
+macOS 27.0.1 Vanilla and Base are available:
 
 ```shell
 tart clone ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0.1 vanilla
+tart clone ghcr.io/minimillionaire/macos-golden-gate-base:27.0.1 base
 ```
 
 The current image definitions are:

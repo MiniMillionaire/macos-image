@@ -26,10 +26,8 @@ configuration_digest=$(jq -Sc . "$config/image.json" | shasum -a 256 | awk '{pri
 username=$(jq -er .username "$config/image.json")
 mkdir -p "$work" "$evidence"
 export PATH="$work/bin:$PATH"
-export TART_HOME="$work/tart"
-export TART_NO_AUTO_PRUNE=1
+images="$work/images"
 miso="$work/bin/miso"
-tart="$work/bin/tart.app/Contents/MacOS/tart"
 stage=${1:?Missing operation}
 
 privileged() {
@@ -69,12 +67,14 @@ prepare() {
   fi
   local installed_miso
   installed_miso=$(command -v miso)
-  mkdir -p "$work/bin" "$work/packages" "$TART_HOME/vms" "$work/common-evidence"
+  mkdir -p "$work/bin" "$work/packages" "$images" "$work/common-evidence"
   { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; privileged id -u; } \
     > "$evidence/host.txt"
   install -m 755 "$installed_miso" "$miso"
   codesign --verify --strict "$miso"
   "$miso" bundle import-tart --help >/dev/null
+  "$miso" bundle push --help >/dev/null
+  "$miso" bundle pull --help >/dev/null
   printf 'version=%s\nsource=%s\n' "$("$miso" --version)" "$MISO_VERSION" > "$evidence/miso-build.txt"
   cp "$(command -v gh)" "$work/bin/gh"
   cp "$(command -v oras)" "$work/bin/oras"
@@ -83,11 +83,7 @@ prepare() {
     printf '%s\n' 'Publication tools depend on the Homebrew directory scheduled for cleanup.' >&2
     return 1
   fi
-  fetch https://github.com/openai/tart/releases/download/2.40.1/tart.tar.gz \
-    "$work/tart.tar.gz" 22943905 363e2701154a8155cbc1bb6d845430c9b42697d2a186bc49574471ca2877db46
-  tar -xzf "$work/tart.tar.gz" -C "$work/bin"
-  codesign --verify --deep --strict "$work/bin/tart.app"
-  { "$tart" --version; oras version; "$miso" --version; } > "$evidence/tools.txt"
+  { oras version; "$miso" --version; } > "$evidence/tools.txt"
   df -k / > "$evidence/space-before-cleanup.txt"
   if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]]; then
     xcrun simctl runtime delete all || true
@@ -191,28 +187,18 @@ import_parent() {
   [[ "$reference" == "$repository-$parent_variant@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
   expected_manifest=$(jq -er .sourceManifest.sha256 "$parent/export.json")
   [[ $(shasum -a 256 "$manifest" | awk '{print $1}') == "$expected_manifest" ]] || return 1
-  export TART_HOME="$work/parent-download"
-  unset TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
-  "$tart" clone "$reference" parent --concurrency 2
+  unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
+  "$miso" bundle pull "$reference" --output "$work/parent-download" \
+    --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
   local required_bytes=0 source_bytes
-  source_bytes=$(stat -f %z "$TART_HOME/vms/parent/disk.img")
+  source_bytes=$(stat -f %z "$work/parent-download/vm/disk.img")
   if [[ "$TARGET_VARIANT" == xcode ]]; then
     required_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
   fi
-  if (( source_bytes < required_bytes )); then
-    [[ -x ${MISO_TART_RESIZE_COMMAND:-} ]] || {
-      printf '%s\n' 'Set MISO_TART_RESIZE_COMMAND to the Recovery-aware Tart executable on this runner.' >&2
-      return 1
-    }
-    swiftc -parse-as-library -O "$root/ci/import-resized-parent.swift" -o "$work/bin/import-resized-parent"
-    codesign --force --sign - "$work/bin/import-resized-parent"
-    privileged /bin/bash "$root/ci/grow-offline-parent.sh" "$TART_HOME/vms/parent" \
-      "$manifest" "$work/parent-import" "$MISO_TART_RESIZE_COMMAND" "$required_bytes" "$work/bin/import-resized-parent"
-    privileged "$miso" bundle validate "$work/parent-import/bundle" | tee "$evidence/import.json" >/dev/null
-  else
-    privileged "$miso" bundle import-tart "$TART_HOME/vms/parent" \
-      --manifest "$manifest" --output "$work/parent-import" | tee "$evidence/import.json" >/dev/null
-  fi
+  local import_options=(--manifest "$manifest" --output "$work/parent-import")
+  if (( source_bytes < required_bytes )); then import_options+=(--disk-bytes "$required_bytes"); fi
+  privileged "$miso" bundle import-tart "$work/parent-download/vm" \
+    "${import_options[@]}" | tee "$evidence/import.json" >/dev/null
   if [[ "$parent_variant" == vanilla ]]; then
     privileged mv "$work/parent-import/bundle" "$work/vanilla"
     if [[ -f "$parent/construction/boot/journal.json" &&
@@ -229,8 +215,7 @@ import_parent() {
   fi
   cp "$parent/publication.json" "$work/parent-publication.json"
   require_detached
-  rm -r "$TART_HOME"
-  if [[ -d "$work/parent-import/tart" ]]; then privileged rm -r "$work/parent-import/tart"; fi
+  rm -r "$work/parent-download/vm"
 }
 
 record() {
@@ -314,9 +299,8 @@ export_image() {
   privileged "$miso" bundle export-tart "$source" --output "$work/export-$VARIANT" | tee "$evidence/export.json" >/dev/null
   privileged cp "$source/manifest.json" "$evidence/bundle-manifest.json"
   privileged chown -R "$(id -u):$(id -g)" "$work/export-$VARIANT" "$evidence"
-  mv "$work/export-$VARIANT/vm" "$TART_HOME/vms/$VARIANT"
-  "$tart" get "$VARIANT" --format json > "$evidence/tart-config.json"
-  cp "$TART_HOME/vms/$VARIANT/config.json" "$evidence/source-config.json"
+  mv "$work/export-$VARIANT/vm" "$images/$VARIANT"
+  cp "$images/$VARIANT/config.json" "$evidence/source-config.json"
   collect
   require_detached
   if [[ "$VARIANT" == vanilla ]]; then
@@ -337,30 +321,28 @@ publish() {
   local tag="miso-$os_version" reference
   if [[ "$VARIANT" == xcode ]]; then tag="$tag-xcode-$XCODE_VERSION"; fi
   reference="$repository-$VARIANT:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-  "$tart" push "$VARIANT" "$reference" --concurrency 2 --chunk-size 2 \
+  "$miso" bundle push "$images/$VARIANT" "$reference" \
+    --output "$work/upload-$VARIANT" --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" \
     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
     --label "org.opencontainers.image.revision=$GITHUB_SHA" \
     --label "dev.macos-image.version=$os_version" --label "dev.macos-image.build=$os_build" \
-    --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION"
+    --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION" > "$evidence/upload.json"
   printf '%s\n' "$reference" > "$evidence/reference.txt"
 }
 
 verify() {
-  unset TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
-  local reference digest directory name expected
+  unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
+  local reference digest directory
   reference=$(cat "$evidence/reference.txt")
   printf '{}\n' > "$work/anonymous-registry.json"
   digest=$(oras resolve "$reference" --registry-config "$work/anonymous-registry.json")
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
   reference="${reference%:*}@$digest"
-  "$tart" delete "$VARIANT"
-  export TART_HOME="$work/download-check-$VARIANT"
-  "$tart" clone "$reference" downloaded --concurrency 2
-  directory="$TART_HOME/vms/downloaded"
-  for name in disk.img nvram.bin; do
-    expected=$(jq -er --arg name "$name" '.files[] | select(.path == $name) | .sha256' "$evidence/export.json")
-    [[ $(shasum -a 256 "$directory/$name" | awk '{print $1}') == "$expected" ]]
-  done
+  [[ $(jq -er .reference "$evidence/upload.json") == "$reference" ]]
+  rm -r "$images/$VARIANT"
+  "$miso" bundle pull "$reference" --output "$work/download-check-$VARIANT" \
+    --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/download.json"
+  directory="$work/download-check-$VARIANT/vm"
   jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
     "$evidence/source-config.json" > "$evidence/source-identity.json"
   jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
@@ -374,7 +356,7 @@ verify() {
       vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi
   require_detached
-  rm -r "$TART_HOME"
+  rm -r "$directory"
   printf 'Verified candidate: %s\n\nIndependent boot acceptance is pending.\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
 }
 
@@ -403,6 +385,12 @@ collect() {
   df -k / > "$evidence/space-final.txt"
 }
 
+cleanup() {
+  [[ "$work" == "$RUNNER_TEMP/offline-image" && ! -L "$work" ]]
+  require_detached
+  privileged rm -r "$work"
+}
+
 finish() {
   local status=$?
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" 2>/dev/null || true; fi
@@ -418,7 +406,7 @@ trap finish EXIT
 ) &
 monitor_pid=$!
 case "$stage" in
-  prepare|download|restore|software|base|publish|verify|collect) "$stage" ;;
+  prepare|download|restore|software|base|publish|verify|collect|cleanup) "$stage" ;;
   export) export_image ;;
   import) import_parent ;;
   xcode-inputs) bash "$root/ci/offline-xcode.sh" prepare ;;
