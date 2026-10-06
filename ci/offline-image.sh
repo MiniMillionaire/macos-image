@@ -1,13 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
-[[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_OS:-} == macOS && ${RUNNER_ARCH:-} == ARM64 ]]
-[[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base ]]
+[[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_OS:-} == macOS && ${RUNNER_ARCH:-} == ARM64 ]] || exit 1
+[[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 work="$RUNNER_TEMP/offline-image"
-evidence="$RUNNER_TEMP/offline-evidence"
-config="$root/config/miso/27.0.1"
+evidence="$RUNNER_TEMP/offline-evidence/$VARIANT"
+[[ ${IMAGE_PROFILE:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$IMAGE_PROFILE" != *..* ]] || exit 1
+[[ ${TARGET_VARIANT:-} == vanilla || ${TARGET_VARIANT:-} == base || ${TARGET_VARIANT:-} == xcode ]] || exit 1
+config="$root/config/miso/$IMAGE_PROFILE"
+[[ -d "$config" && ! -L "$config" ]] || exit 1
+profile="$config/profile.json"
+jq -e '.schemaVersion == 1 and
+  (.target.version | test("^[0-9]+[.][0-9]+([.][0-9]+)?$")) and
+  (.target.build | test("^[0-9]{2}[A-Z][0-9]+[a-z]?$")) and
+  (.ipsw | test("^https://updates[.]cdn-apple[.]com/[^[:space:]]+[.]ipsw$")) and
+  (.diskBytes | type == "number" and . >= 68719476736 and . <= 1099511627776 and . % 4096 == 0) and
+  (.repository | test("^ghcr[.]io/minimillionaire/[a-z0-9][a-z0-9-]+$"))' "$profile" >/dev/null
+target=$(jq -c .target "$profile")
+os_version=$(jq -r .target.version "$profile")
+os_build=$(jq -r .target.build "$profile")
+repository=$(jq -r .repository "$profile")
+configuration_digest=$(jq -Sc . "$config/image.json" | shasum -a 256 | awk '{print $1}')
+username=$(jq -er .username "$config/image.json")
 mkdir -p "$work" "$evidence"
 export PATH="$work/bin:$PATH"
 export TART_HOME="$work/tart"
@@ -15,6 +31,14 @@ export TART_NO_AUTO_PRUNE=1
 miso="$work/bin/miso"
 tart="$work/bin/tart.app/Contents/MacOS/tart"
 stage=${1:?Missing operation}
+
+privileged() {
+  if [[ -n ${MISO_ROOT_COMMAND:-} ]]; then
+    "$MISO_ROOT_COMMAND" "$@"
+  else
+    sudo -n "$@"
+  fi
+}
 
 fetch() {
   local url=$1 output=$2 bytes=$3 digest=$4
@@ -34,22 +58,28 @@ require_detached() {
 }
 
 prepare() {
-  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ]] || {
-    printf '%s\n' 'Runner cleanup requires a GitHub-hosted environment.' >&2
-    return 1
-  }
-  mkdir -p "$work/bin" "$work/packages" "$TART_HOME/vms"
-  { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; sudo -n id -u; } \
+  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ||
+    ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" == xcode ]] || return 1
+  if [[ -n ${PARENT_RUN:-} ]]; then
+    [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
+  fi
+  if [[ "$TARGET_VARIANT" == xcode ]]; then
+    [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || return 1
+    [[ -f "$config/xcode-$XCODE_VERSION.json" && -f "$config/xcode-$XCODE_VERSION-inputs.json" ]] || return 1
+  fi
+  local installed_miso
+  installed_miso=$(command -v miso)
+  mkdir -p "$work/bin" "$work/packages" "$TART_HOME/vms" "$work/common-evidence"
+  { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; privileged id -u; } \
     > "$evidence/host.txt"
-  gh release download "v$MISO_VERSION" --repo cocoa-xu/miso --pattern 'miso.tar.gz*' --dir "$work/bin"
-  (cd "$work/bin" && shasum -a 256 -c miso.tar.gz.sha256 && tar -xzf miso.tar.gz)
-  [[ $("$miso" --version) == "$MISO_VERSION" ]]
+  install -m 755 "$installed_miso" "$miso"
   codesign --verify --strict "$miso"
-  cp "$work/bin/BUILD.txt" "$evidence/miso-build.txt"
+  "$miso" bundle import-tart --help >/dev/null
+  printf 'version=%s\nsource=%s\n' "$("$miso" --version)" "$MISO_VERSION" > "$evidence/miso-build.txt"
   cp "$(command -v gh)" "$work/bin/gh"
   cp "$(command -v oras)" "$work/bin/oras"
   otool -L "$work/bin/gh" "$work/bin/oras" > "$evidence/tool-libraries.txt"
-  if grep -q '/opt/homebrew/' "$evidence/tool-libraries.txt"; then
+  if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]] && grep -q '/opt/homebrew/' "$evidence/tool-libraries.txt"; then
     printf '%s\n' 'Publication tools depend on the Homebrew directory scheduled for cleanup.' >&2
     return 1
   fi
@@ -59,24 +89,32 @@ prepare() {
   codesign --verify --deep --strict "$work/bin/tart.app"
   { "$tart" --version; oras version; "$miso" --version; } > "$evidence/tools.txt"
   df -k / > "$evidence/space-before-cleanup.txt"
-  xcrun simctl runtime delete all || true
-  local selected path
-  selected=$(cd "$DEVELOPER_DIR/../.." && pwd -P)
-  for path in /Applications/Xcode*.app; do
-    [[ -d "$path" && ! -L "$path" && "$path" != "$selected" ]] || continue
-    sudo -n rm -r "$path"
-  done
-  for path in "$HOME/Library/Android" "$HOME/.android" "$HOME/.gradle" \
-    "$HOME/.rustup" "$HOME/.cargo" "$HOME/Library/Caches/Homebrew" \
-    "$HOME/Library/Caches/org.swift.swiftpm" /opt/homebrew \
-    /usr/local/share/powershell /usr/local/share/dotnet /usr/local/lib/node_modules \
-    /System/Library/AssetsV2/com_apple_MobileAsset_AppleDeveloperDocumentation; do
-    if [[ -d "$path" && ! -L "$path" ]]; then sudo -n rm -r "$path"; fi
-  done
+  if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]]; then
+    xcrun simctl runtime delete all || true
+    local selected path
+    selected=$(cd "${DEVELOPER_DIR:-$(xcode-select -p)}/../.." && pwd -P)
+    for path in /Applications/Xcode*.app; do
+      [[ -d "$path" && ! -L "$path" && "$path" != "$selected" ]] || continue
+      privileged rm -r "$path"
+    done
+    for path in "$HOME/Library/Android" "$HOME/.android" "$HOME/.gradle" \
+      "$HOME/.rustup" "$HOME/.cargo" "$HOME/Library/Caches/Homebrew" \
+      "$HOME/Library/Caches/org.swift.swiftpm" /opt/homebrew \
+      /usr/local/share/powershell /usr/local/share/dotnet /usr/local/lib/node_modules \
+      /System/Library/AssetsV2/com_apple_MobileAsset_AppleDeveloperDocumentation; do
+      if [[ -d "$path" && ! -L "$path" ]]; then privileged rm -r "$path"; fi
+    done
+  fi
   hash -r
   df -k / | tee "$evidence/space-after-cleanup.txt"
   [[ $(df -k "$work" | awk 'NR==2 {print $4}') -ge 93323264 ]]
   "$miso" config check "$config/image.json" > "$evidence/config-check.json"
+  if [[ "$TARGET_VARIANT" != vanilla ]]; then
+    for name in security settings; do
+      jq -e --argjson target "$target" '.target == $target' "$config/$name.json" >/dev/null
+    done
+  fi
+  cp "$evidence/"{host.txt,miso-build.txt,tools.txt,config-check.json} "$work/common-evidence/"
 }
 
 download() {
@@ -87,35 +125,127 @@ download() {
 }
 
 restore() {
-  sudo -n "$miso" restore \
-    https://updates.cdn-apple.com/2026FallFCS/59241290-5d51-4ca8-9df4-31624b9a4eac/UniversalMac_27.0.1_26A434_Restore.ipsw \
+  local disk_bytes
+  disk_bytes=$(jq -r .diskBytes "$profile")
+  if [[ "$TARGET_VARIANT" == xcode ]]; then
+    disk_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
+  fi
+  privileged "$miso" restore \
+    "$(jq -r .ipsw "$profile")" \
     --packages "$work/packages" --config "$config/image.json" \
-    --disk-bytes 68719476736 --output "$work/restore" | tee "$evidence/restore.json" >/dev/null
-  jq -e '.profile.release == {version:"27.0.1",build:"26A434"}' "$evidence/restore.json" >/dev/null
+    --disk-bytes "$disk_bytes" --output "$work/restore" | tee "$evidence/restore.json" >/dev/null
+  jq -e --argjson target "$target" '.profile.release == $target' "$evidence/restore.json" >/dev/null
   collect
   require_detached
-  sudo -n mv "$work/restore/assembled/bundle" "$work/vanilla"
-  if [[ "$VARIANT" == base ]]; then
-    sudo -n mv "$work/restore/boot" "$work/boot"
-    sudo -n mv "$work/restore/policy-material" "$work/policy-material"
-  fi
-  sudo -n rm -r "$work/restore" "$work/packages"
+  privileged mv "$work/restore/assembled/bundle" "$work/vanilla"
+  mkdir "$work/boot" "$work/policy-material"
+  privileged cp "$work/restore/boot/journal.json" "$work/boot/"
+  privileged cp "$work/restore/policy-material/journal.json" "$work/policy-material/"
+  for name in key certificates payload; do
+    privileged jq -e --arg name "$name" '.result.blobs[$name].path == ($name + ".der")' \
+      "$work/policy-material/journal.json" >/dev/null
+    privileged cp "$work/restore/policy-material/$name.der" "$work/policy-material/"
+  done
+  privileged rm -r "$work/restore" "$work/packages"
 }
 
 software() {
-  "$miso" base prepare --target-version 27.0.1 --target-build 26A434 \
+  "$miso" base prepare --target-version "$os_version" --target-build "$os_build" \
     --config "$config/base.json" --jobs 2 --output "$work/software" > "$evidence/software.json"
   cp "$work/software/preparation.json" "$evidence/software-preparation.json"
 }
 
+import_parent() {
+  [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
+  local parent="$work/parent-evidence" reference attempt expected_manifest parent_variant manifest
+  parent_variant=vanilla
+  if [[ "$TARGET_VARIANT" == xcode ]]; then parent_variant=base; fi
+  gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PARENT_RUN" > "$evidence/parent-run.json"
+  jq -e '.status == "completed" and .head_branch == "main" and .event == "workflow_dispatch" and
+    .path == ".github/workflows/offline-image.yml"' "$evidence/parent-run.json" >/dev/null
+  attempt=$(jq -er .run_attempt "$evidence/parent-run.json")
+  gh run download "$PARENT_RUN" --repo "$GITHUB_REPOSITORY" \
+    -n "offline-$IMAGE_PROFILE-$parent_variant-$PARENT_RUN-$attempt" -D "$parent"
+  if [[ "$parent_variant" == vanilla ]]; then
+    manifest="$parent/construction/source-manifest.json"
+    [[ -f "$manifest" && -f "$parent/construction/boot/journal.json" &&
+      -f "$parent/construction/policy-material/journal.json" ]] || {
+      printf '%s\n' 'This Vanilla run did not retain the inputs needed to derive Base offline.' >&2
+      return 1
+    }
+  else
+    manifest="$parent/bundle-manifest.json"
+    [[ -f "$manifest" && -f "$parent/software-preparation.json" ]] || return 1
+  fi
+  local revision parent_configuration
+  revision=$(jq -er .head_sha "$evidence/parent-run.json")
+  gh api -H 'Accept: application/vnd.github.raw+json' \
+    "repos/$GITHUB_REPOSITORY/contents/config/miso/$IMAGE_PROFILE/image.json?ref=$revision" \
+    > "$evidence/parent-image-config.json"
+  parent_configuration=$(jq -Sc . "$evidence/parent-image-config.json" | shasum -a 256 | awk '{print $1}')
+  [[ "$parent_configuration" == "$configuration_digest" ]] || return 1
+  jq -e --argjson target "$target" --arg variant "$parent_variant" \
+    --arg configuration "$configuration_digest" --arg run "$PARENT_RUN-$attempt" --arg revision "$revision" '
+    .variant == $variant and .target == $target and .run == $run and .revision == $revision and
+    (.imageConfigurationSHA256 // $configuration) == $configuration and
+    .anonymousDownloadVerified == true and .vmStarted == false and .runtimeVerified == false' \
+    "$parent/publication.json" >/dev/null
+  reference=$(jq -er .reference "$parent/publication.json")
+  [[ "$reference" == "$repository-$parent_variant@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  expected_manifest=$(jq -er .sourceManifest.sha256 "$parent/export.json")
+  [[ $(shasum -a 256 "$manifest" | awk '{print $1}') == "$expected_manifest" ]] || return 1
+  export TART_HOME="$work/parent-download"
+  unset TART_REGISTRY_HOSTNAME TART_REGISTRY_USERNAME TART_REGISTRY_PASSWORD
+  "$tart" clone "$reference" parent --concurrency 2
+  local required_bytes=0 source_bytes
+  source_bytes=$(stat -f %z "$TART_HOME/vms/parent/disk.img")
+  if [[ "$TARGET_VARIANT" == xcode ]]; then
+    required_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
+  fi
+  if (( source_bytes < required_bytes )); then
+    [[ -x ${MISO_TART_RESIZE_COMMAND:-} ]] || {
+      printf '%s\n' 'Set MISO_TART_RESIZE_COMMAND to the Recovery-aware Tart executable on this runner.' >&2
+      return 1
+    }
+    swiftc -parse-as-library -O "$root/ci/import-resized-parent.swift" -o "$work/bin/import-resized-parent"
+    codesign --force --sign - "$work/bin/import-resized-parent"
+    privileged /bin/bash "$root/ci/grow-offline-parent.sh" "$TART_HOME/vms/parent" \
+      "$manifest" "$work/parent-import" "$MISO_TART_RESIZE_COMMAND" "$required_bytes" "$work/bin/import-resized-parent"
+    privileged "$miso" bundle validate "$work/parent-import/bundle" | tee "$evidence/import.json" >/dev/null
+  else
+    privileged "$miso" bundle import-tart "$TART_HOME/vms/parent" \
+      --manifest "$manifest" --output "$work/parent-import" | tee "$evidence/import.json" >/dev/null
+  fi
+  if [[ "$parent_variant" == vanilla ]]; then
+    privileged mv "$work/parent-import/bundle" "$work/vanilla"
+    cp -R "$parent/construction/boot" "$parent/construction/policy-material" "$work/"
+  else
+    mkdir -p "$work/base/11-cleanup" "$RUNNER_TEMP/offline-evidence/base"
+    privileged mv "$work/parent-import/bundle" "$work/base/11-cleanup/bundle"
+    cp "$parent/software-preparation.json" "$RUNNER_TEMP/offline-evidence/base/"
+  fi
+  cp "$parent/publication.json" "$work/parent-publication.json"
+  require_detached
+  rm -r "$TART_HOME"
+  if [[ -d "$work/parent-import/tart" ]]; then privileged rm -r "$work/parent-import/tart"; fi
+}
+
 record() {
   local path=$1
-  jq -n --arg path "$path" --argjson bytes "$(stat -f %z "$work/$path")" \
-    --arg sha256 "$(shasum -a 256 "$work/$path" | awk '{print $1}')" \
+  jq -n --arg path "$path" --argjson bytes "$(privileged stat -f %z "$work/$path")" \
+    --arg sha256 "$(privileged shasum -a 256 "$work/$path" | awk '{print $1}')" \
     '{path:$path,bytes:$bytes,sha256:$sha256}'
 }
 
 base() {
+  privileged test -f "$work/vanilla/manifest.json"
+  [[ -f "$work/boot/journal.json" && -f "$work/policy-material/journal.json" ]]
+  privileged jq -e --argjson target "$target" '.target == $target and .construction_vm_started == false and
+    .runtime_verified == false and (.base_complete != true) and (.xcode_stages == null)' \
+    "$work/vanilla/manifest.json" >/dev/null
+  jq -n --argjson manifest "$(record vanilla/manifest.json)" --argjson target "$target" \
+    --arg reference "$(jq -er .reference "$work/parent-publication.json")" \
+    '{target:$target,sourceManifest:$manifest,reference:$reference,vmStarted:false}' > "$evidence/parent.json"
   mkdir "$work/plans"
   cp "$root/data/github_known_hosts" "$work/plans/github_known_hosts"
   cp "$config/trust-snapshot.json" "$work/plans/trust-snapshot.json"
@@ -133,7 +263,7 @@ base() {
     sort_by(split("@")[1]|split(".")|map(tonumber)) | last' "$work/software/core/resolution.json")
   jq -n --argjson snapshot "$(jq '.path = "trust-snapshot.json"' <<< "$snapshot")" \
     --argjson classification "$(jq '.path = "trust-classification.json"' <<< "$classification")" \
-    --arg python "$python" '{schemaVersion:1,target:{version:"27.0.1",build:"26A434"},
+    --arg python "$python" --argjson target "$target" '{schemaVersion:1,target:$target,
       snapshot:$snapshot,classification:$classification,pythonFormula:$python,
       pythonExecutable:($python|sub("@";""))}' > "$work/plans/certificates.json"
   runner=$(jq -er '.runner.path' "$work/software/runner/resolution.json")
@@ -149,8 +279,9 @@ base() {
     --argjson security "$(record plans/security.json)" \
     --argjson settings "$(record plans/settings.json)" \
     --argjson certificates "$(record plans/certificates.json)" \
+    --argjson target "$target" --arg username "$username" \
     --argjson formulae "$(jq '[.selectedRoots[]]|unique' "$work/software/core/resolution.json")" '
-    {schemaVersion:1,target:{version:"27.0.1",build:"26A434"},username:"admin",steps:[
+    {schemaVersion:1,target:$target,username:$username,steps:[
       {stage:"static",files:{runner:$runner,"runner-release":$release,"known-hosts":$hosts},directories:{}},
       {stage:"bootstrap",files:{archive:$bootstrap},directories:{}},
       {stage:"bottles",files:{resolution:$bottles},directories:{bottles:"software/bottles"},formulae:$formulae},
@@ -163,33 +294,44 @@ base() {
       {stage:"certificates",files:{plan:$certificates},directories:{inputs:"plans"}}
     ]}' > "$work/recipe.json"
   cp "$work/recipe.json" "$evidence/recipe.json"
-  sudo -n "$miso" base build --source "$work/vanilla" --recipe "$work/recipe.json" \
+  privileged "$miso" base build --source "$work/vanilla" --recipe "$work/recipe.json" \
     --inputs "$work" --output "$work/base" | tee "$evidence/base.json" >/dev/null
 }
 
 export_image() {
   local source="$work/vanilla"
   if [[ "$VARIANT" == base ]]; then source="$work/base/11-cleanup/bundle"; fi
-  sudo -n "$miso" bundle export-tart "$source" --output "$work/export" | tee "$evidence/export.json" >/dev/null
-  sudo -n cp "$source/manifest.json" "$evidence/bundle-manifest.json"
-  sudo -n chown -R "$(id -u):$(id -g)" "$work/export" "$evidence"
-  mv "$work/export/vm" "$TART_HOME/vms/$VARIANT"
+  if [[ "$VARIANT" == xcode ]]; then source="$work/xcode/final/image/bundle"; fi
+  privileged "$miso" bundle export-tart "$source" --output "$work/export-$VARIANT" | tee "$evidence/export.json" >/dev/null
+  privileged cp "$source/manifest.json" "$evidence/bundle-manifest.json"
+  privileged chown -R "$(id -u):$(id -g)" "$work/export-$VARIANT" "$evidence"
+  mv "$work/export-$VARIANT/vm" "$TART_HOME/vms/$VARIANT"
   "$tart" get "$VARIANT" --format json > "$evidence/tart-config.json"
   cp "$TART_HOME/vms/$VARIANT/config.json" "$evidence/source-config.json"
   collect
   require_detached
+  if [[ "$VARIANT" == vanilla ]]; then
+    mkdir -p "$evidence/construction"
+    privileged cp "$source/manifest.json" "$evidence/construction/source-manifest.json"
+    privileged cp -R "$work/boot" "$work/policy-material" "$evidence/construction/"
+    privileged chown -R "$(id -u):$(id -g)" "$evidence/construction"
+    [[ "$TARGET_VARIANT" == vanilla ]] || return 0
+  fi
   local path
-  for path in vanilla base software boot policy-material plans; do
-    if [[ -d "$work/$path" ]]; then sudo -n rm -r "$work/$path"; fi
+  if [[ "$VARIANT" == base && "$TARGET_VARIANT" == xcode ]]; then return 0; fi
+  for path in vanilla base software boot policy-material plans xcode-inputs xcode; do
+    if [[ -d "$work/$path" ]]; then privileged rm -r "$work/$path"; fi
   done
 }
 
 publish() {
-  local reference="ghcr.io/minimillionaire/macos-golden-gate-$VARIANT:miso-27.0.1-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+  local tag="miso-$os_version" reference
+  if [[ "$VARIANT" == xcode ]]; then tag="$tag-xcode-$XCODE_VERSION"; fi
+  reference="$repository-$VARIANT:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
   "$tart" push "$VARIANT" "$reference" --concurrency 2 --chunk-size 2 \
     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
     --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-    --label dev.macos-image.version=27.0.1 --label dev.macos-image.build=26A434 \
+    --label "dev.macos-image.version=$os_version" --label "dev.macos-image.build=$os_build" \
     --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION"
   printf '%s\n' "$reference" > "$evidence/reference.txt"
 }
@@ -203,7 +345,7 @@ verify() {
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
   reference="${reference%:*}@$digest"
   "$tart" delete "$VARIANT"
-  export TART_HOME="$work/download-check"
+  export TART_HOME="$work/download-check-$VARIANT"
   "$tart" clone "$reference" downloaded --concurrency 2
   directory="$TART_HOME/vms/downloaded"
   for name in disk.img nvram.bin; do
@@ -216,31 +358,36 @@ verify() {
     "$directory/config.json" > "$evidence/downloaded-identity.json"
   cmp "$evidence/source-identity.json" "$evidence/downloaded-identity.json"
   jq -n --arg reference "$reference" --arg revision "$GITHUB_SHA" --arg variant "$VARIANT" \
-    --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" \
+    --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
+    --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
-      target:{version:"27.0.1",build:"26A434"},anonymousDownloadVerified:true,
-      vmStarted:false,runtimeVerified:false}' > "$evidence/publication.json"
+      target:$target,profile:$profile,imageConfigurationSHA256:$configuration,anonymousDownloadVerified:true,
+      vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end)}' > "$evidence/publication.json"
+  if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi
+  require_detached
+  rm -r "$TART_HOME"
   printf 'Verified candidate: %s\n\nIndependent boot acceptance is pending.\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
 }
 
 collect() {
+  if [[ -f "$work/common-evidence/host.txt" ]]; then cp "$work/common-evidence/"* "$evidence/"; fi
   local directory path
-  for directory in restore base software; do
+  for directory in restore base software xcode-inputs xcode; do
     [[ -d "$work/$directory" ]] || continue
-    sudo -n find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
+    privileged find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
       while IFS= read -r -d '' path; do
-        sudo -n cat "$path" | jq -c \
+        privileged cat "$path" | jq -c \
           '{operation,status,error,vmStarted,stage:.metadata.stage,
             downloadedIPSWRemoved:.metadata.downloadedIPSWRemoved,
             commands:[.commands[]|{name,startedAt,finishedAt,error,result}]}'
       done > "$evidence/$directory-journals.jsonl"
-    sudo -n find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
+    privileged find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
       while IFS= read -r -d '' path; do
-        sudo -n cat "$path" | jq -r '.commands[]|select(.error != null or .result == null)|.stdout,.stderr' |
+        privileged cat "$path" | jq -r '.commands[]|select(.error != null or .result == null)|.stdout,.stderr' |
           while IFS= read -r log; do
             [[ "$log" == logs/* && "$log" != *..* ]] || continue
             printf '\n%s/%s\n' "${path%/journal.json}" "$log"
-            sudo -n tail -c 8192 "${path%/journal.json}/$log"
+            privileged tail -c 8192 "${path%/journal.json}/$log"
           done
       done > "$evidence/$directory-failed-commands.txt"
   done
@@ -264,5 +411,8 @@ monitor_pid=$!
 case "$stage" in
   prepare|download|restore|software|base|publish|verify|collect) "$stage" ;;
   export) export_image ;;
+  import) import_parent ;;
+  xcode-inputs) bash "$root/ci/offline-xcode.sh" prepare ;;
+  xcode) bash "$root/ci/offline-xcode.sh" build ;;
   *) printf 'Unknown operation: %s\n' "$stage" >&2; exit 2 ;;
 esac

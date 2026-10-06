@@ -2,12 +2,23 @@
 
 This repository builds macOS virtual machine images for Tart. It supports local builds and OCI publication.
 
-For macOS 27.0.1, the **Build offline macOS 27.0.1** workflow uses
-[MISO 0.2.2](https://github.com/cocoa-xu/miso/releases/tag/v0.2.2) on official
-Apple silicon GitHub runners. Select `both`, `vanilla`, or `base`. Construction
-does not start a VM. Base includes the native development tools and no Rosetta.
-The workflow uploads candidate images and verifies an anonymous download;
-numbered tags follow independent boot acceptance.
+The **Build offline macOS images** workflow uses [MISO](https://github.com/cocoa-xu/miso).
+Select a profile under `config/miso` (currently `27.0.1`) and the final variant:
+`vanilla`, `base`, or `xcode`. Missing parents are built once in order,
+**Vanilla → Base → Xcode**, on the same runner. Set `parent_run` to reuse a previous
+Vanilla run for Base, or a Base run for Xcode. Parent artifacts expire after 30 days.
+Old Vanilla runs without construction inputs cannot be reused for offline Base.
+
+Vanilla and Base use official Apple silicon GitHub runners. Xcode uses the existing
+M5 runner; set `xcode_version` to a configuration name such as `27.1rc` and provide
+`XCODE_BASE_URL` as a repository secret. The runner needs administrator access
+through `sudo -n` or the `MISO_ROOT_COMMAND` repository variable pointing to its
+authorized command runner. `MISO_TART_RESIZE_COMMAND` selects a Recovery-aware Tart
+executable when importing a smaller Base disk.
+
+Construction does not start a VM or install Rosetta. Candidates are uploaded and
+downloaded anonymously; numbered tags follow independent boot acceptance. The
+MISO Action currently builds `main` until these features have a released version.
 
 The current image definitions are:
 
