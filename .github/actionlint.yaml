@@ -1,3 +1,4 @@
 self-hosted-runner:
   labels:
     - xcode-27
+    - miso-xcode-m5
