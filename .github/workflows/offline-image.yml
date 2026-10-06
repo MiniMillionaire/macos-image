@@ -41,7 +41,8 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.app/Contents/Developer
       VARIANT: ${{ matrix.variant }}
-      MISO_VERSION: 0.2.1
+      MISO_VERSION: 0.2.2
+      MISO_REVISION: 78ec39e5780e083ea20c142497b791d6e70253a4
     steps:
       - uses: actions/checkout@v7
         with:
