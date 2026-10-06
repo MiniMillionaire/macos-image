@@ -20,6 +20,12 @@ Construction does not start a VM or install Rosetta. Candidates are uploaded and
 downloaded anonymously; numbered tags follow independent boot acceptance. The
 MISO Action currently builds `main` until these features have a released version.
 
+macOS 27.0.1 Vanilla is available:
+
+```shell
+tart clone ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0.1 vanilla
+```
+
 The current image definitions are:
 
 | Configuration | macOS source | Local build host |

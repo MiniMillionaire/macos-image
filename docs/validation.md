@@ -29,6 +29,13 @@ the original publication records in the following sections.
 | `macos-golden-gate-vanilla:27.0` | `sha256:87454d0fb763c927fe48c6d9f5ea2c3ca78f6b17f4045c076415e75da5d059ce` | [35425118964](https://github.com/MiniMillionaire/macos-image/actions/runs/35425118964) | [35425561558](https://github.com/MiniMillionaire/macos-image/actions/runs/35425561558) |
 | `macos-golden-gate-base:27.0` | `sha256:d7e70edc6b76c25ce8e70a3a0d74073daf8e3051377c005ed0dc9caf2d642f51` | [35424191336](https://github.com/MiniMillionaire/macos-image/actions/runs/35424191336) | [35424711364](https://github.com/MiniMillionaire/macos-image/actions/runs/35424711364) |
 | `macos-golden-gate-xcode:27.0-xcode27` | `sha256:54357dbc67aeb8d8c8a3fff6ed19e8e98ffdd00fe427222c34e81fb18673b095` | [35432153645](https://github.com/MiniMillionaire/macos-image/actions/runs/35432153645) | [35433109696](https://github.com/MiniMillionaire/macos-image/actions/runs/35433109696) |
+| `macos-golden-gate-vanilla:27.0.1` | `sha256:347e3de9cfeb71a577f4734d2a37c454a01bf06615d10410ff4b8b9ba9a77d30` | [37457965081](https://github.com/MiniMillionaire/macos-image/actions/runs/37457965081) | [37488418673](https://github.com/MiniMillionaire/macos-image/actions/runs/37488418673) |
+
+The 27.0.1 Vanilla image was constructed offline with MISO, downloaded anonymously,
+and accepted on an independent M5 clone. System/account checks, CLT C/Swift
+compilation, SSH/VNC authentication and input, and the absence of Rosetta passed.
+The clone was stopped and the source remained unchanged. See the
+[acceptance record](../config/miso/27.0.1/acceptance-vanilla.json).
 
 ## Sequoia upgrade builds
 
