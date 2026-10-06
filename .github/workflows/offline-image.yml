@@ -69,25 +69,20 @@ jobs:
           version: source
           xcode-base-url: ${{ inputs.variant == 'xcode' && secrets.XCODE_BASE_URL || '' }}
       - name: Prepare build tools and workspace
-        timeout-minutes: 15
         env:
           BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: bash ci/offline-image.sh prepare
       - name: Download Command Line Tools
         if: inputs.parent_run == ''
-        timeout-minutes: 30
         run: bash ci/offline-image.sh download
       - name: Install macOS from IPSW (Vanilla)
         if: inputs.parent_run == ''
-        timeout-minutes: 150
         run: bash ci/offline-image.sh restore
       - name: Export Vanilla and preserve Base inputs
         if: inputs.parent_run == ''
-        timeout-minutes: 30
         run: bash ci/offline-image.sh export
       - name: Upload Vanilla candidate
         if: inputs.parent_run == ''
-        timeout-minutes: 90
         env:
           TART_REGISTRY_HOSTNAME: ghcr.io
           TART_REGISTRY_USERNAME: ${{ github.actor }}
@@ -95,11 +90,9 @@ jobs:
         run: bash ci/offline-image.sh publish
       - name: Verify Vanilla download
         if: inputs.parent_run == ''
-        timeout-minutes: 60
         run: bash ci/offline-image.sh verify
       - name: Collect Vanilla status
         if: always() && inputs.parent_run == ''
-        timeout-minutes: 5
         env:
           VARIANT: vanilla
         run: bash ci/offline-image.sh collect
@@ -111,31 +104,26 @@ jobs:
           retention-days: 30
       - name: Download existing parent image
         if: inputs.parent_run != ''
-        timeout-minutes: 90
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash ci/offline-image.sh import
       - name: Prepare Base software
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 60
         env:
           VARIANT: base
         run: bash ci/offline-image.sh software
       - name: Install Base software and settings on a Vanilla clone
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 270
         env:
           VARIANT: base
         run: bash ci/offline-image.sh base
       - name: Export Base and retire build inputs
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 30
         env:
           VARIANT: base
         run: bash ci/offline-image.sh export
       - name: Upload Base candidate
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 90
         env:
           VARIANT: base
           TART_REGISTRY_HOSTNAME: ghcr.io
@@ -144,13 +132,11 @@ jobs:
         run: bash ci/offline-image.sh publish
       - name: Verify Base download
         if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
-        timeout-minutes: 60
         env:
           VARIANT: base
         run: bash ci/offline-image.sh verify
       - name: Collect Base status
         if: always() && (inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base')
-        timeout-minutes: 5
         env:
           VARIANT: base
         run: bash ci/offline-image.sh collect
@@ -162,25 +148,21 @@ jobs:
           retention-days: 30
       - name: Prepare Xcode and developer tools
         if: inputs.variant == 'xcode'
-        timeout-minutes: 120
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode-inputs
       - name: Install Xcode and developer tools on a Base clone
         if: inputs.variant == 'xcode'
-        timeout-minutes: 360
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode
       - name: Export Xcode and retire build inputs
         if: inputs.variant == 'xcode'
-        timeout-minutes: 30
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh export
       - name: Upload Xcode candidate
         if: inputs.variant == 'xcode'
-        timeout-minutes: 120
         env:
           VARIANT: xcode
           TART_REGISTRY_HOSTNAME: ghcr.io
@@ -189,13 +171,11 @@ jobs:
         run: bash ci/offline-image.sh publish
       - name: Verify Xcode download
         if: inputs.variant == 'xcode'
-        timeout-minutes: 120
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh verify
       - name: Collect Xcode status
         if: always() && inputs.variant == 'xcode'
-        timeout-minutes: 5
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh collect
