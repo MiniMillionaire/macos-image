@@ -3,11 +3,10 @@
 This repository builds macOS virtual machine images for Tart. It supports local builds and OCI publication.
 
 The **Build offline macOS images** workflow uses [MISO](https://github.com/cocoa-xu/miso).
-Select a profile under `config/miso` (currently `27.0.1`) and the final variant:
+Select `macos_version` (currently `27.0.1`) and `image_type`:
 `vanilla`, `base`, or `xcode`. Missing parents are built once in order,
-**Vanilla → Base → Xcode**, on the same runner. Set `parent_run` to reuse a previous
+**Vanilla → Base → Xcode**, on the same runner. Set `parent_run_id` to reuse a previous
 Vanilla run for Base, or a Base run for Xcode. Parent artifacts expire after 30 days.
-Old Vanilla runs without construction inputs cannot be reused for offline Base.
 
 Vanilla and Base use official Apple silicon GitHub runners. Xcode uses the existing
 M5 runner; set `xcode_version` to a configuration name such as `27.1rc` and provide

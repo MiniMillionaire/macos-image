@@ -1,21 +1,21 @@
 name: Publish accepted offline macOS images
-run-name: Publish macOS ${{ inputs.profile }} ${{ inputs.variant }}
+run-name: Publish macOS ${{ inputs.macos_version }} ${{ inputs.image_type }}
 
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: Configuration directory under config/miso
+      macos_version:
+        description: macOS version
         type: string
         default: '27.0.1'
         required: true
-      variant:
-        description: Accepted image to publish
+      image_type:
+        description: Image type
         type: choice
         options: [vanilla, base, xcode]
         required: true
       xcode_version:
-        description: Xcode configuration name, required for Xcode
+        description: Xcode version
         type: string
         default: ''
 
@@ -48,7 +48,7 @@ jobs:
       - name: Publish accepted digest
         env:
           GH_TOKEN: ${{ github.token }}
-          IMAGE_PROFILE: ${{ inputs.profile }}
-          VARIANT: ${{ inputs.variant }}
+          IMAGE_PROFILE: ${{ inputs.macos_version }}
+          VARIANT: ${{ inputs.image_type }}
           XCODE_VERSION: ${{ inputs.xcode_version }}
         run: bash ci/promote-offline-image.sh

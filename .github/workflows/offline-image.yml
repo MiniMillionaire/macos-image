@@ -1,25 +1,25 @@
 name: Build offline macOS images
-run-name: MISO macOS ${{ inputs.profile }} ${{ inputs.variant }}
+run-name: MISO macOS ${{ inputs.macos_version }} ${{ inputs.image_type }}
 
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: Configuration directory under config/miso
+      macos_version:
+        description: macOS version
         type: string
         default: '27.0.1'
         required: true
-      variant:
-        description: Final image to build; missing parents are built in order
+      image_type:
+        description: Image type
         type: choice
         options: [vanilla, base, xcode]
         default: base
-      parent_run:
-        description: Existing parent run ID (Vanilla for Base, Base for Xcode); blank builds parents
+      parent_run_id:
+        description: Parent build run ID
         type: string
         default: ''
       xcode_version:
-        description: Xcode configuration name under the selected profile (for example 27.1rc)
+        description: Xcode version
         type: string
         default: ''
 
@@ -31,7 +31,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: offline-macos-${{ inputs.profile }}-${{ inputs.variant }}
+  group: offline-macos-${{ inputs.macos_version }}-${{ inputs.image_type }}
   cancel-in-progress: false
 
 jobs:
@@ -41,21 +41,21 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
       github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
-    name: Offline macOS ${{ inputs.profile }} (${{ inputs.variant }})
-    runs-on: ${{ inputs.variant == 'xcode' && fromJSON('["self-hosted","macOS","ARM64","macos-image-secondary"]') || fromJSON('["xcode-27"]') }}
-    timeout-minutes: ${{ inputs.variant == 'xcode' && 720 || 360 }}
+    name: Offline macOS ${{ inputs.macos_version }} (${{ inputs.image_type }})
+    runs-on: ${{ inputs.image_type == 'xcode' && fromJSON('["self-hosted","macOS","ARM64","macos-image-secondary"]') || fromJSON('["xcode-27"]') }}
+    timeout-minutes: ${{ inputs.image_type == 'xcode' && 720 || 360 }}
     permissions:
       actions: read
       contents: read
       packages: write
     env:
-      IMAGE_PROFILE: ${{ inputs.profile }}
-      TARGET_VARIANT: ${{ inputs.variant }}
-      PARENT_RUN: ${{ inputs.parent_run }}
-      VARIANT: ${{ inputs.parent_run != '' && inputs.variant || 'vanilla' }}
+      IMAGE_PROFILE: ${{ inputs.macos_version }}
+      TARGET_VARIANT: ${{ inputs.image_type }}
+      PARENT_RUN: ${{ inputs.parent_run_id }}
+      VARIANT: ${{ inputs.parent_run_id != '' && inputs.image_type || 'vanilla' }}
       MISO_VERSION: source
       XCODE_VERSION: ${{ inputs.xcode_version }}
-      MISO_ROOT_COMMAND: ${{ inputs.variant == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
+      MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
       MISO_TART_RESIZE_COMMAND: ${{ vars.MISO_TART_RESIZE_COMMAND }}
     steps:
       - uses: actions/checkout@v7
@@ -67,63 +67,63 @@ jobs:
       - uses: cocoa-xu/miso@main
         with:
           version: source
-          xcode-base-url: ${{ inputs.variant == 'xcode' && secrets.XCODE_BASE_URL || '' }}
+          xcode-base-url: ${{ inputs.image_type == 'xcode' && secrets.XCODE_BASE_URL || '' }}
       - name: Prepare build tools and workspace
         env:
           BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: bash ci/offline-image.sh prepare
       - name: Download Command Line Tools
-        if: inputs.parent_run == ''
+        if: inputs.parent_run_id == ''
         run: bash ci/offline-image.sh download
       - name: Install macOS from IPSW (Vanilla)
-        if: inputs.parent_run == ''
+        if: inputs.parent_run_id == ''
         run: bash ci/offline-image.sh restore
       - name: Export Vanilla and preserve Base inputs
-        if: inputs.parent_run == ''
+        if: inputs.parent_run_id == ''
         run: bash ci/offline-image.sh export
       - name: Upload Vanilla candidate
-        if: inputs.parent_run == ''
+        if: inputs.parent_run_id == ''
         env:
           TART_REGISTRY_HOSTNAME: ghcr.io
           TART_REGISTRY_USERNAME: ${{ github.actor }}
           TART_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Vanilla download
-        if: inputs.parent_run == ''
+        if: inputs.parent_run_id == ''
         run: bash ci/offline-image.sh verify
       - name: Collect Vanilla status
-        if: always() && inputs.parent_run == ''
+        if: always() && inputs.parent_run_id == ''
         env:
           VARIANT: vanilla
         run: bash ci/offline-image.sh collect
       - uses: actions/upload-artifact@v7
-        if: always() && inputs.parent_run == ''
+        if: always() && inputs.parent_run_id == ''
         with:
-          name: offline-${{ inputs.profile }}-vanilla-${{ github.run_id }}-${{ github.run_attempt }}
+          name: offline-${{ inputs.macos_version }}-vanilla-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/vanilla
           retention-days: 30
       - name: Download existing parent image
-        if: inputs.parent_run != ''
+        if: inputs.parent_run_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash ci/offline-image.sh import
       - name: Prepare Base software
-        if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
+        if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
         run: bash ci/offline-image.sh software
       - name: Install Base software and settings on a Vanilla clone
-        if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
+        if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
         run: bash ci/offline-image.sh base
       - name: Export Base and retire build inputs
-        if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
+        if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
         run: bash ci/offline-image.sh export
       - name: Upload Base candidate
-        if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
+        if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
           TART_REGISTRY_HOSTNAME: ghcr.io
@@ -131,38 +131,38 @@ jobs:
           TART_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Base download
-        if: inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base'
+        if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
         env:
           VARIANT: base
         run: bash ci/offline-image.sh verify
       - name: Collect Base status
-        if: always() && (inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base')
+        if: always() && (inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base')
         env:
           VARIANT: base
         run: bash ci/offline-image.sh collect
       - uses: actions/upload-artifact@v7
-        if: always() && (inputs.variant != 'vanilla' && inputs.parent_run == '' || inputs.variant == 'base')
+        if: always() && (inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base')
         with:
-          name: offline-${{ inputs.profile }}-base-${{ github.run_id }}-${{ github.run_attempt }}
+          name: offline-${{ inputs.macos_version }}-base-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/base
           retention-days: 30
       - name: Prepare Xcode and developer tools
-        if: inputs.variant == 'xcode'
+        if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode-inputs
       - name: Install Xcode and developer tools on a Base clone
-        if: inputs.variant == 'xcode'
+        if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode
       - name: Export Xcode and retire build inputs
-        if: inputs.variant == 'xcode'
+        if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh export
       - name: Upload Xcode candidate
-        if: inputs.variant == 'xcode'
+        if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
           TART_REGISTRY_HOSTNAME: ghcr.io
@@ -170,18 +170,18 @@ jobs:
           TART_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/offline-image.sh publish
       - name: Verify Xcode download
-        if: inputs.variant == 'xcode'
+        if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh verify
       - name: Collect Xcode status
-        if: always() && inputs.variant == 'xcode'
+        if: always() && inputs.image_type == 'xcode'
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh collect
       - uses: actions/upload-artifact@v7
-        if: always() && inputs.variant == 'xcode'
+        if: always() && inputs.image_type == 'xcode'
         with:
-          name: offline-${{ inputs.profile }}-xcode-${{ inputs.xcode_version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: offline-${{ inputs.macos_version }}-xcode-${{ inputs.xcode_version }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/xcode
           retention-days: 30
