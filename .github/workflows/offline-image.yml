@@ -1,0 +1,93 @@
+name: Build offline macOS 27.0.1
+run-name: MISO macOS 27.0.1 ${{ inputs.variant }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Images to build without starting a VM
+        type: choice
+        options: [both, vanilla, base]
+        default: both
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: offline-macos-27.0.1-${{ inputs.variant }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.repository == 'MiniMillionaire/macos-image' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
+      github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJSON(inputs.variant == 'both' && '["vanilla","base"]' || format('["{0}"]', inputs.variant)) }}
+    name: Offline ${{ matrix.variant }}
+    runs-on: xcode-27
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.app/Contents/Developer
+      VARIANT: ${{ matrix.variant }}
+      MISO_VERSION: 0.2.1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+      - name: Install MISO and prepare runner
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ci/offline-image.sh prepare
+      - name: Download Command Line Tools
+        timeout-minutes: 30
+        run: bash ci/offline-image.sh download
+      - name: Restore Vanilla without a VM
+        timeout-minutes: 150
+        run: bash ci/offline-image.sh restore
+      - name: Prepare Base software
+        if: matrix.variant == 'base'
+        timeout-minutes: 60
+        run: bash ci/offline-image.sh software
+      - name: Build Base without a VM
+        if: matrix.variant == 'base'
+        timeout-minutes: 180
+        run: bash ci/offline-image.sh base
+      - name: Export Tart bundle and retire build inputs
+        timeout-minutes: 30
+        run: bash ci/offline-image.sh export
+      - name: Upload candidate OCI image
+        timeout-minutes: 60
+        env:
+          TART_REGISTRY_HOSTNAME: ghcr.io
+          TART_REGISTRY_USERNAME: ${{ github.actor }}
+          TART_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/offline-image.sh publish
+      - name: Verify fresh anonymous download
+        timeout-minutes: 60
+        run: bash ci/offline-image.sh verify
+      - name: Collect status
+        if: always()
+        timeout-minutes: 5
+        run: bash ci/offline-image.sh collect
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: offline-27.0.1-${{ matrix.variant }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/offline-evidence
+          retention-days: 30
