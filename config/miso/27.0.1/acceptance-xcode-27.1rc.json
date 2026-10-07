@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:d7bedeef3b9d8b11a6b895a9c7a7966d8ae8a9631d711a478d4abb5796621595",
+  "sourceRevision": "9a31707d0c360970f005719e72f8b3cda3aa7653",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37556760720",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-07T05:35:10Z",
+  "runtime": {
+    "exitCode": 1,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "macOS version and build",
+      "account and passwordless sudo",
+      "locale, keyboard and timezone",
+      "Gatekeeper and FileVault configuration",
+      "C and Swift compile and execution",
+      "SSH positive and negative authentication",
+      "VNC password positive and negative authentication",
+      "ARD positive and negative authentication",
+      "VNC screenshot, mouse and keyboard input",
+      "no Rosetta",
+      "stopped disposable clone and unchanged source",
+      "Homebrew missing dependencies and linkage",
+      "Ruby, OpenSSL, Psych, zlib and Bundler",
+      "Node, npm, Yarn and pnpm",
+      "Tart guest agent and Git credential tools",
+      "SIP disabled and authenticated root enabled",
+      "Developer authorization and automation mode",
+      "Time Machine and Spotlight configuration",
+      "Python certificate store (192 CAs)",
+      "TCC UI scripting, file save and screen capture",
+      "Safari WebDriver session and DOM interaction",
+      "automatic login and unlocked desktop; informational Xcode notification accepted",
+      "one boot during main acceptance; a second boot for supplemental mobile checks",
+      "Xcode 27.1 build 27A9275, developer selection and original Apple signatures",
+      "all nine SDKs: version, path and C compilation",
+      "three Swift XCTest cases and Metal compilation/linking",
+      "iOS 27.1 and watchOS, tvOS, visionOS 27.0 arm64 simulator boot and compiled program execution",
+      "developer disk images, DeviceHub and first-launch completion",
+      "Tuist, xcodes, applesimutils, Carthage, CocoaPods, fastlane and xcpretty",
+      "Codex, Claude and Kiro command-line tools",
+      "installed Android SDK packages and their local license marker",
+      "Flutter 3.47.6 and Dart 3.13.5; interpreted and compiled Dart execution",
+      "Android Debug Bridge and NDK arm64 shared-library compilation",
+      "guest audio output device"
+    ],
+    "review": {
+      "accepted": true,
+      "approvedBy": "cocoa-xu",
+      "failedChecks": [
+        "notification-center"
+      ],
+      "reason": "Cocoa explicitly accepted the informational Xcode extensions-added notification after the functional checks. Original failed runtime receipt is preserved.",
+      "supplementalExitCode": 0,
+      "supplement": "Flutter, Dart and NDK checks were rerun from a file with closed stdin after sdkmanager consumed the original streamed script. No guest repair."
+    },
+    "observations": [
+      "flutter doctor reports unaccepted remote-catalog Android licenses; installed packages and local license were verified, no additional licenses were accepted during testing.",
+      "Chrome is not installed; Flutter web-browser warning is expected."
+    ],
+    "diagnostics": {
+      "reports": 24,
+      "simulatorShutdownTimeouts": 16,
+      "simulatorAppIntentsAssertions": 3,
+      "simulatorUsageTrackingShutdownAssertions": 2,
+      "watchOSSpotlightAbort": 1,
+      "webdriverIconCacheUserFault": 1,
+      "jetsam": {
+        "process": "PromotedContentJetService",
+        "reason": "per-process-limit",
+        "states": [
+
+        ]
+      },
+      "review": "Functional probes completed. Simulator/service diagnostics are retained and are not claimed fixed. No host restart, guest panic, or manual guest repair."
+    }
+  },
+  "xcodeConfiguration": {
+    "schemaVersion": 1,
+    "version": "27.1",
+    "build": "27A9275",
+    "platforms": [
+      "iOS",
+      "watchOS",
+      "tvOS",
+      "visionOS"
+    ],
+    "components": [
+      "MetalToolchain"
+    ],
+    "runtimeArchitecture": "arm64"
+  }
+}

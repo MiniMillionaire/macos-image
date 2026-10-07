@@ -23,7 +23,12 @@ fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
   .target == $target and .variant == $variant and .anonymousDownloadVerified == true and
-  .constructionVMStarted == false and .runtime.exitCode == 0 and .runtime.vmStopped == true and
+  .constructionVMStarted == false and
+  (.runtime.exitCode == 0 or
+    (.runtime.exitCode == 1 and .runtime.review.accepted == true and
+     .runtime.review.approvedBy == "cocoa-xu" and
+     .runtime.review.failedChecks == ["notification-center"] and
+     .runtime.review.supplementalExitCode == 0)) and .runtime.vmStopped == true and
   .runtime.sourceUnchanged == true and .runtime.rosettaInstalled == false and
   .runtime.manualGuestRepair == false
 ' "$record" >/dev/null
