@@ -4,6 +4,7 @@ set -euo pipefail
 [[ ${IMAGE_PROFILE:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$IMAGE_PROFILE" != *..* ]] || exit 1
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
 [[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
+[[ ${REPLACE_EXISTING:-false} == true || ${REPLACE_EXISTING:-false} == false ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$root/config/miso/$IMAGE_PROFILE"
 [[ -d "$config" && ! -L "$config" ]] || exit 1
@@ -52,14 +53,22 @@ printf '{}\n' > "$scratch/anonymous.json"
 printf '{}\n' > "$scratch/registry.json"
 [[ $(oras resolve "$reference" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
 published="$repository:$tag"
+existing=
 if existing=$(oras resolve "$published" --registry-config "$scratch/anonymous.json" 2> "$scratch/existing.log"); then
-  [[ "$existing" == "$digest" ]] || { printf 'Refusing to replace existing tag: %s\n' "$published" >&2; exit 1; }
-else
+  if [[ "$existing" != "$digest" && ${REPLACE_EXISTING:-false} != true ]]; then
+    printf 'Refusing to replace existing tag without replace_existing: %s\n' "$published" >&2
+    exit 1
+  fi
+fi
+if [[ "$existing" != "$digest" ]]; then
   printf '%s' "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" \
     --password-stdin --registry-config "$scratch/registry.json"
   oras tag "$reference" "$tag" --registry-config "$scratch/registry.json"
 fi
 [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
+if [[ -n "$existing" && "$existing" != "$digest" ]]; then
+  printf 'Replaced %s: %s -> %s.\n\n' "$published" "$existing" "$digest" >> "$GITHUB_STEP_SUMMARY"
+fi
 build_run=$(jq -er '.buildRun | split("/") | last' "$record")
 [[ "$build_run" =~ ^[0-9]+$ ]] || exit 1
 candidate_prefix="miso-$(jq -er .target.version "$profile")"

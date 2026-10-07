@@ -14,6 +14,10 @@ on:
         type: choice
         options: [vanilla, base, xcode]
         required: true
+      replace_existing:
+        description: Replace an existing image tag
+        type: boolean
+        default: false
       xcode_version:
         description: Xcode version
         type: string
@@ -57,4 +61,5 @@ jobs:
           VARIANT: ${{ inputs.image_type }}
           XCODE_VERSION: ${{ inputs.xcode_version }}
           XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
+          REPLACE_EXISTING: ${{ inputs.replace_existing }}
         run: bash ci/promote-offline-image.sh
