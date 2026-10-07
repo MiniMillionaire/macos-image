@@ -4,7 +4,7 @@ osascript -l JavaScript <<'JAVASCRIPT'
 const events = Application('System Events');
 const center = events.processes.byName('NotificationCenter');
 if (center.exists()) {
-    for (let attempt = 0; attempt < 5 && center.windows.length; attempt++) {
+    for (let attempt = 0; attempt < 5 && center.windows().length; attempt++) {
         const pending = center.windows();
         let examined = 0;
         let dismissed = false;
