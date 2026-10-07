@@ -9,8 +9,9 @@ work=${ACCEPTANCE_WORKSPACE:?}
 [[ "$XCODE_FLAVOR" == full || "$XCODE_FLAVOR" == slim ]]
 mkdir -p "$work/cloud" "$work/tools" "$work/tart/vms" "$work/evidence"
 gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" \
-  --json conclusion,headBranch,headSha,workflowName,url > "$work/evidence/build-run.json"
-jq -e '.conclusion == "success" and .headBranch == "main" and .workflowName == "Build offline macOS images"' \
+  --json status,conclusion,headBranch,headSha,workflowName,url > "$work/evidence/build-run.json"
+jq -e '.status == "completed" and (.conclusion == "success" or .conclusion == "failure") and
+  .headBranch == "main" and .workflowName == "Build offline macOS images"' \
   "$work/evidence/build-run.json" >/dev/null
 attempt=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .run_attempt)
 [[ "$attempt" =~ ^[0-9]+$ ]]
@@ -20,6 +21,12 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
   pattern="offline-$MACOS_VERSION-xcode-$XCODE_VERSION-$XCODE_FLAVOR-$BUILD_RUN-$attempt"
 fi
 gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name "$pattern" --dir "$work/cloud"
+for step in export publish; do
+  [[ $(cat "$work/cloud/$step.status") == exit=0 ]] || {
+    printf 'Candidate %s did not finish successfully.\n' "$step" >&2
+    exit 1
+  }
+done
 publication="$work/cloud/publication.json"
 package=$IMAGE_TYPE
 if [[ "$IMAGE_TYPE" == xcode && "$XCODE_FLAVOR" == slim ]]; then package=slim-xcode; fi
