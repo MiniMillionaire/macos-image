@@ -19,7 +19,7 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
   [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]]
   pattern="offline-$MACOS_VERSION-xcode-$XCODE_VERSION-$XCODE_FLAVOR-$BUILD_RUN-$attempt"
 fi
-gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern "$pattern" --dir "$work/cloud"
+gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name "$pattern" --dir "$work/cloud"
 publication="$work/cloud/publication.json"
 package=$IMAGE_TYPE
 if [[ "$IMAGE_TYPE" == xcode && "$XCODE_FLAVOR" == slim ]]; then package=slim-xcode; fi
