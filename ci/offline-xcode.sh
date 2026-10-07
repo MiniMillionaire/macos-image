@@ -92,7 +92,7 @@ build() {
     privileged "$miso" xcode prepare-runtime --platform "$platform" --runtime-version "$version" \
       --runtime-build "$runtime_build" --config "$xcode" --output "$inputs/$runtime_name" \
       | tee "$evidence/prepare-$runtime_name.json" >/dev/null
-    install_stage "$runtime_name" image/bundle install-runtime --prepared "$inputs/$runtime_name" --config "$xcode" --username "$username"
+    install_stage "$runtime_name" image/bundle install-runtime --prepared "$inputs/$runtime_name" --config "$xcode"
     privileged rm -r "$inputs/$runtime_name"
   done < <(jq -r '.runtimes[] | [.platform,.version,.build] | @tsv' "$requirements")
   install_stage final image/bundle complete --config "$xcode" --username "$username"
