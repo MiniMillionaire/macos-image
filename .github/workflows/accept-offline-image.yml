@@ -18,6 +18,10 @@ on:
         type: choice
         options: [vanilla, base, xcode]
         required: true
+      keep_source_image:
+        description: Keep source image for the next build
+        type: boolean
+        default: false
       xcode_version:
         description: Xcode version
         type: string
@@ -52,6 +56,7 @@ jobs:
       IMAGE_TYPE: ${{ inputs.image_type }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
+      KEEP_SOURCE_IMAGE: ${{ inputs.keep_source_image }}
       TART_VERSION: 2.40.1
     steps:
       - name: Set workspace

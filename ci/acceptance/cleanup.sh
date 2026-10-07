@@ -16,8 +16,10 @@ if [[ -f "$work/evidence/source-cache.txt" ]]; then
   cache=$(cat "$work/evidence/source-cache.txt")
   reference=$(jq -er .reference "$work/cloud/publication.json")
   [[ "$cache" == "$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]]
-  if [[ -f "$work/evidence/acceptance.json" ]]; then
+  if [[ -f "$work/evidence/acceptance.json" && ${KEEP_SOURCE_IMAGE:-false} != true ]]; then
     rm -r "${cache:?}"
+  elif [[ -f "$work/evidence/acceptance.json" ]]; then
+    printf 'Retained the unchanged source for the next build.\n'
   else
     printf 'Retained the downloaded source for another VM acceptance attempt.\n'
   fi

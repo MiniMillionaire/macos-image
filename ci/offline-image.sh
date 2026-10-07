@@ -227,8 +227,10 @@ import_parent() {
     jq -n --arg reference "$reference" '{reference:$reference,reused:true}' > "$evidence/parent-download.json"
   else
     unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
-    "$miso" bundle pull "$reference" --output "$work/parent-download" \
-      --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
+    if ! take_acceptance_source "$reference"; then
+      "$miso" bundle pull "$reference" --output "$work/parent-download" \
+        --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
+    fi
     source_bytes=$(stat -f %z "$work/parent-download/vm/disk.img")
     local import_options=(--manifest "$manifest" --output "$work/parent-import")
     if (( source_bytes < required_bytes )); then import_options+=(--disk-bytes "$required_bytes"); fi
@@ -265,6 +267,23 @@ import_parent() {
   printf '%s\n' "$parent_source" > "$work/parent-source.txt"
   require_detached
   if [[ -d "$work/parent-download/vm" ]]; then rm -r "$work/parent-download/vm"; fi
+}
+
+take_acceptance_source() {
+  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted ]] || return 1
+  local reference=$1 cache="$HOME/.cache/macos-image/acceptance/${1##*@sha256:}" file
+  [[ -d "$cache" ]] || return 1
+  [[ ! -L "$cache" && ! -L "$cache/vm" && $(cat "$cache/reference.txt") == "$reference" ]] || exit 1
+  for file in disk.img nvram.bin config.json; do
+    [[ -f "$cache/vm/$file" && ! -L "$cache/vm/$file" ]] || exit 1
+  done
+  stat -f '%i %z %b %m %c' "$cache/vm/"{disk.img,nvram.bin,config.json} > "$evidence/acceptance-source-state.txt"
+  cmp "$cache/state.txt" "$evidence/acceptance-source-state.txt" || exit 1
+  mkdir "$work/parent-download" || exit 1
+  cp "$cache/download.json" "$evidence/parent-download.json" || exit 1
+  mv "$cache/vm" "$work/parent-download/vm" || exit 1
+  rm -r "$cache" || exit 1
+  printf 'Reusing the unchanged source from VM acceptance: %s\n' "$reference"
 }
 
 parent_cache_directory() {
