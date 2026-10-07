@@ -28,12 +28,13 @@ It uses a disposable clone on the M5, displays download and test progress, and
 retains its results as an artifact. The `image-acceptance` environment requires
 Cocoa or a repository administrator to approve the job before it starts.
 
-macOS 27.0.1 Vanilla, Base and Xcode 27.1 RC are available:
+macOS 27.0.1 Vanilla, Base and Xcode 27.1 RC (full or Slim) are available:
 
 ```shell
 tart clone ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0.1 vanilla
 tart clone ghcr.io/minimillionaire/macos-golden-gate-base:27.0.1 base
 tart clone ghcr.io/minimillionaire/macos-golden-gate-xcode:27.0.1-xcode27.1-rc xcode
+tart clone ghcr.io/minimillionaire/macos-golden-gate-slim-xcode:27.0.1-xcode27.1-rc xcode-slim
 ```
 
 See [Publishing](docs/releases.md) for the build, acceptance and publication steps.

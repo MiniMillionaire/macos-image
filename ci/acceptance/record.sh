@@ -31,5 +31,11 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
     > "$work/evidence/acceptance-xcode.json"
   mv "$work/evidence/acceptance-xcode.json" "$work/evidence/acceptance.json"
 fi
+if [[ -f "$work/cloud/inherited-xcode.json" ]]; then
+  jq --slurpfile parent "$work/cloud/inherited-xcode.json" \
+    '.supersededCandidate = ($parent[0] | {reference,run})' "$work/evidence/acceptance.json" \
+    > "$work/evidence/acceptance-derived.json"
+  mv "$work/evidence/acceptance-derived.json" "$work/evidence/acceptance.json"
+fi
 printf 'Runtime acceptance passed for `%s`. The disposable VM is stopped and the source is unchanged.\n' \
   "$(jq -r .reference "$work/evidence/acceptance.json")" >> "$GITHUB_STEP_SUMMARY"

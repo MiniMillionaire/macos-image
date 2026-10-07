@@ -65,4 +65,12 @@ build_run=$(jq -er '.buildRun | split("/") | last' "$record")
 candidate_prefix="miso-$(jq -er .target.version "$profile")"
 if [[ "$VARIANT" == xcode ]]; then candidate_prefix="$candidate_prefix-xcode-$XCODE_VERSION"; fi
 bash "$root/ci/cleanup-offline-candidates.sh" "$repository" "$tag" "$digest" "$candidate_prefix-$build_run-"
+if jq -e '.supersededCandidate != null' "$record" >/dev/null; then
+  previous=$(jq -er .supersededCandidate.reference "$record")
+  previous_run=$(jq -er .supersededCandidate.run "$record")
+  previous_digest=${previous##*@}
+  [[ "$previous" == "$repository@$previous_digest" && "$previous_run" =~ ^[0-9]+-[0-9]+$ ]] || exit 1
+  bash "$root/ci/cleanup-offline-candidates.sh" "$repository" "$tag" "$digest" \
+    "$candidate_prefix-${previous_run%-*}-" "$previous_digest"
+fi
 printf 'Published %s at %s.\n\n' "$published" "$digest" >> "$GITHUB_STEP_SUMMARY"

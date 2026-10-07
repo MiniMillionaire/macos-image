@@ -18,6 +18,26 @@ endpoint="orgs/$owner/packages/container/$package/versions"
 published="$repository:$tag"
 [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
 gh api --paginate "$endpoint?per_page=100" > "$scratch/versions.json"
+if [[ -n ${5:-} ]]; then
+  superseded=$5
+  [[ "$superseded" =~ ^sha256:[0-9a-f]{64}$ && "$superseded" != "$digest" ]] || exit 1
+  jq -rs --arg digest "$superseded" --arg prefix "$prefix" '
+    add | map(select(.name == $digest and (.metadata.container.tags | length > 0))) |
+    .[] | if all(.metadata.container.tags[]; startswith($prefix) and
+      (ltrimstr($prefix) | test("^[0-9]+$"))) then .id
+      else error("Superseded image still has tags outside this build") end
+  ' "$scratch/versions.json" > "$scratch/superseded.txt"
+  while IFS= read -r id; do
+    [[ "$id" =~ ^[0-9]+$ ]] || exit 1
+    [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
+    gh api --method DELETE "$endpoint/$id"
+    [[ $(oras resolve "$published" --registry-config "$scratch/anonymous.json") == "$digest" ]] || exit 1
+    gh api --paginate "$endpoint?per_page=100" | jq -es --arg digest "$superseded" \
+      'add | all(.[]; .name != $digest or (.metadata.container.tags | length == 0))' >/dev/null
+    printf 'Removed superseded candidate: %s\n' "$superseded"
+  done < "$scratch/superseded.txt"
+  exit 0
+fi
 jq -rs --arg digest "$digest" --arg tag "$tag" --arg prefix "$prefix" '
   add | . as $versions |
   map(select(.name == $digest and (.metadata.container.tags | index($tag)))) |
@@ -48,7 +68,7 @@ while IFS= read -r candidate; do
   temporary_digest=$(oras resolve "$repository:$candidate" --registry-config "$scratch/registry.json")
   [[ "$temporary_digest" =~ ^sha256:[0-9a-f]{64}$ && "$temporary_digest" != "$digest" ]] || exit 1
   id=
-  for attempt in 1 2 3 4 5 6; do
+  for _attempt in 1 2 3 4 5 6; do
     gh api --paginate "$endpoint?per_page=100" > "$scratch/current.json"
     id=$(jq -rs --arg digest "$temporary_digest" --arg candidate "$candidate" '
       add | map(select(.name == $digest)) |

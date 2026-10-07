@@ -78,5 +78,9 @@
     "runtimeArchitecture": "arm64",
     "schemaVersion": 1,
     "version": "27.1"
+  },
+  "supersededCandidate": {
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:be1e8e52a92bda6cf2a782aa5b67fc34b1334a077d5bc980943c505d90b03cc5",
+    "run": "37579538945-1"
   }
 }
