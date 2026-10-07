@@ -21,23 +21,23 @@
   "runtimes": [
     {
       "platform": "iOS",
-      "version": "27.1",
-      "build": "24A94232"
+      "version": "27.0",
+      "build": "24A5370g"
     },
     {
       "platform": "watchOS",
       "version": "27.0",
-      "build": "24R362"
+      "build": "24R5305f"
     },
     {
       "platform": "tvOS",
       "version": "27.0",
-      "build": "24J360"
+      "build": "24J5305f"
     },
     {
       "platform": "visionOS",
       "version": "27.0",
-      "build": "24M362"
+      "build": "24M5306g"
     }
   ]
 }
