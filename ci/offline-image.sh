@@ -3,6 +3,7 @@ set -euo pipefail
 
 [[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_OS:-} == macOS && ${RUNNER_ARCH:-} == ARM64 ]] || exit 1
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
+[[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 work="$RUNNER_TEMP/offline-image"
@@ -22,6 +23,8 @@ target=$(jq -c .target "$profile")
 os_version=$(jq -r .target.version "$profile")
 os_build=$(jq -r .target.build "$profile")
 repository=$(jq -r .repository "$profile")
+package_variant=$VARIANT
+if [[ "$VARIANT" == xcode && ${XCODE_FLAVOR:-full} == slim ]]; then package_variant=slim-xcode; fi
 configuration_digest=$(jq -Sc . "$config/image.json" | shasum -a 256 | awk '{print $1}')
 username=$(jq -er .username "$config/image.json")
 mkdir -p "$work" "$evidence"
@@ -320,7 +323,7 @@ export_image() {
 publish() {
   local tag="miso-$os_version" reference
   if [[ "$VARIANT" == xcode ]]; then tag="$tag-xcode-$XCODE_VERSION"; fi
-  reference="$repository-$VARIANT:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+  reference="$repository-$package_variant:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
   "$miso" bundle push "$images/$VARIANT" "$reference" \
     --output "$work/upload-$VARIANT" --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" \
     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
@@ -351,9 +354,11 @@ verify() {
   jq -n --arg reference "$reference" --arg revision "$GITHUB_SHA" --arg variant "$VARIANT" \
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
+    --arg flavor "${XCODE_FLAVOR:-full}" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
       target:$target,profile:$profile,imageConfigurationSHA256:$configuration,anonymousDownloadVerified:true,
-      vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end)}' > "$evidence/publication.json"
+      vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
+      xcodeFlavor:(if $variant == "xcode" then $flavor else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi
   require_detached
   rm -r "$directory"

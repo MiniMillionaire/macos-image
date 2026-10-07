@@ -1,5 +1,5 @@
 name: Build offline macOS images
-run-name: MISO macOS ${{ inputs.macos_version }} ${{ inputs.image_type }}
+run-name: MISO macOS ${{ inputs.macos_version }} ${{ inputs.image_type }} ${{ inputs.image_type == 'xcode' && inputs.xcode_flavor || '' }}
 
 on:
   workflow_dispatch:
@@ -22,6 +22,11 @@ on:
         description: Xcode version
         type: string
         default: ''
+      xcode_flavor:
+        description: Xcode flavor
+        type: choice
+        options: [full, slim]
+        default: full
 
 permissions:
   contents: read
@@ -31,7 +36,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: offline-macos-${{ inputs.macos_version }}-${{ inputs.image_type }}
+  group: offline-macos-${{ inputs.macos_version }}-${{ inputs.image_type }}-${{ inputs.xcode_flavor }}
   cancel-in-progress: false
 
 jobs:
@@ -53,9 +58,10 @@ jobs:
       TARGET_VARIANT: ${{ inputs.image_type }}
       PARENT_RUN: ${{ inputs.parent_run_id }}
       VARIANT: ${{ inputs.parent_run_id != '' && inputs.image_type || 'vanilla' }}
-      MISO_VERSION: 0.3.1
+      MISO_VERSION: source
       MISO_TRANSFER_CONCURRENCY: ${{ vars.MISO_TRANSFER_CONCURRENCY || (inputs.image_type == 'xcode' && '8' || '4') }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
+      XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
       MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
     steps:
       - uses: actions/checkout@v7
@@ -64,9 +70,9 @@ jobs:
       - uses: oras-project/setup-oras@v2
         with:
           version: 1.3.4
-      - uses: cocoa-xu/miso@v0.3.1
+      - uses: cocoa-xu/miso@main
         with:
-          version: 0.3.1
+          version: source
           xcode-base-url: ${{ inputs.image_type == 'xcode' && secrets.XCODE_BASE_URL || '' }}
       - name: Prepare build tools and workspace
         env:
@@ -179,7 +185,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always() && inputs.image_type == 'xcode'
         with:
-          name: offline-${{ inputs.macos_version }}-xcode-${{ inputs.xcode_version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: offline-${{ inputs.macos_version }}-xcode-${{ inputs.xcode_version }}-${{ inputs.xcode_flavor }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/xcode
           retention-days: 30
       - name: Remove build workspace

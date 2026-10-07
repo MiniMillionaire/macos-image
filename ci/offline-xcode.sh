@@ -8,14 +8,24 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 work="$RUNNER_TEMP/offline-image"
 evidence="$RUNNER_TEMP/offline-evidence/xcode"
 config="$root/config/miso/$IMAGE_PROFILE"
-xcode="$config/xcode-$XCODE_VERSION.json"
-requirements="$config/xcode-$XCODE_VERSION-inputs.json"
+xcode="$evidence/xcode-$XCODE_VERSION.json"
+requirements="$evidence/xcode-$XCODE_VERSION-inputs.json"
 inputs="$work/xcode-inputs"
 miso="$work/bin/miso"
 target_version=$(jq -er .target.version "$config/profile.json")
 target_build=$(jq -er .target.build "$config/profile.json")
 username=$(jq -er .username "$config/image.json")
 mkdir -p "$evidence"
+[[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
+if [[ ${1:-} == prepare ]]; then
+  profile_options=()
+  if [[ ${XCODE_FLAVOR:-full} == slim ]]; then profile_options+=(--slim); fi
+  "$miso" xcode defaults --config "$config/xcode-$XCODE_VERSION.json" \
+    "${profile_options[@]}" > "$xcode"
+  jq --argjson platforms "$(jq .platforms "$xcode")" \
+    '.runtimes |= map(select(.platform as $platform | $platforms | index($platform)))' \
+    "$config/xcode-$XCODE_VERSION-inputs.json" > "$requirements"
+fi
 jq -e --argjson platforms "$(jq .platforms "$xcode")" '.schemaVersion == 1 and
   (.diskBytes | type == "number" and . >= 64000000000 and . <= 2000000000000 and . % 1000000000 == 0) and
   (.runtimes | map(.platform) | sort) == ($platforms | sort) and
@@ -27,7 +37,6 @@ privileged() {
 
 prepare() {
   mkdir "$inputs"
-  cp "$xcode" "$requirements" "$evidence/"
   "$miso" xcode prepare-archive --target-version "$target_version" --target-build "$target_build" \
     --config "$xcode" --output "$inputs/archive" > "$evidence/archive.json"
   local formula arguments=()
