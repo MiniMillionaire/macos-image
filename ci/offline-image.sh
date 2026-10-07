@@ -4,6 +4,7 @@ set -euo pipefail
 [[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_OS:-} == macOS && ${RUNNER_ARCH:-} == ARM64 ]] || exit 1
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
 [[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
+[[ ${KEEP_PARENT_IMAGE:-false} == true || ${KEEP_PARENT_IMAGE:-false} == false ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 work="$RUNNER_TEMP/offline-image"
@@ -31,6 +32,7 @@ mkdir -p "$work" "$evidence"
 export PATH="$work/bin:$PATH"
 images="$work/images"
 miso="$work/bin/miso"
+parent_cache="$HOME/.cache/macos-image/offline-parent"
 stage=${1:?Missing operation}
 
 privileged() {
@@ -63,6 +65,12 @@ prepare() {
     ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" == xcode ]] || return 1
   if [[ -n ${PARENT_RUN:-} ]]; then
     [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
+  fi
+  if [[ ${KEEP_PARENT_IMAGE:-false} == true ]]; then
+    if [[ $BUILD_RUNNER_ENVIRONMENT != self-hosted || -z ${PARENT_RUN:-} ]]; then
+      printf '%s\n' 'Keeping a parent image requires a parent build on a self-hosted runner.' >&2
+      return 1
+    fi
   fi
   if [[ "$TARGET_VARIANT" == xcode ]]; then
     [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || return 1
@@ -208,19 +216,28 @@ import_parent() {
   [[ "$reference" == "$repository-$parent_package@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
   expected_manifest=$(jq -er .sourceManifest.sha256 "$parent/export.json")
   [[ $(shasum -a 256 "$manifest" | awk '{print $1}') == "$expected_manifest" ]] || return 1
-  unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
-  "$miso" bundle pull "$reference" --output "$work/parent-download" \
-    --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
   local required_bytes=0 source_bytes
-  source_bytes=$(stat -f %z "$work/parent-download/vm/disk.img")
   if [[ "$TARGET_VARIANT" == xcode ]]; then
     required_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
   fi
-  local import_options=(--manifest "$manifest" --output "$work/parent-import")
-  if (( source_bytes < required_bytes )); then import_options+=(--disk-bytes "$required_bytes"); fi
-  privileged "$miso" bundle import-tart "$work/parent-download/vm" \
-    "${import_options[@]}" | tee "$evidence/import.json" >/dev/null
+  jq -n --arg reference "$reference" --arg manifest "$expected_manifest" --argjson bytes "$required_bytes" \
+    '{reference:$reference,sourceManifest:$manifest,diskBytes:$bytes}' > "$work/parent-identity.json"
+  if restore_parent_cache; then
+    printf 'Reusing retained parent image: %s\n' "$reference"
+    jq -n --arg reference "$reference" '{reference:$reference,reused:true}' > "$evidence/parent-download.json"
+  else
+    unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
+    "$miso" bundle pull "$reference" --output "$work/parent-download" \
+      --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
+    source_bytes=$(stat -f %z "$work/parent-download/vm/disk.img")
+    local import_options=(--manifest "$manifest" --output "$work/parent-import")
+    if (( source_bytes < required_bytes )); then import_options+=(--disk-bytes "$required_bytes"); fi
+    privileged "$miso" bundle import-tart "$work/parent-download/vm" \
+      "${import_options[@]}" | tee "$evidence/import.json" >/dev/null
+  fi
+  local parent_source
   if [[ "$parent_variant" == vanilla ]]; then
+    parent_source=vanilla
     privileged mv "$work/parent-import/bundle" "$work/vanilla"
     if [[ -f "$parent/construction/boot/journal.json" &&
       -f "$parent/construction/policy-material/journal.json" ]]; then
@@ -230,10 +247,12 @@ import_parent() {
         --output "$work/parent-boot" | tee "$evidence/parent-boot.json" >/dev/null
     fi
   elif [[ "$parent_variant" == base ]]; then
+    parent_source=base/11-cleanup/bundle
     mkdir -p "$work/base/11-cleanup" "$RUNNER_TEMP/offline-evidence/base"
     privileged mv "$work/parent-import/bundle" "$work/base/11-cleanup/bundle"
     cp "$parent/software-preparation.json" "$RUNNER_TEMP/offline-evidence/base/"
   else
+    parent_source=xcode-parent/bundle
     mkdir "$work/xcode-parent"
     privileged mv "$work/parent-import/bundle" "$work/xcode-parent/bundle"
     local receipt
@@ -243,8 +262,61 @@ import_parent() {
     cp "$parent/publication.json" "$evidence/inherited-xcode.json"
   fi
   cp "$parent/publication.json" "$work/parent-publication.json"
+  printf '%s\n' "$parent_source" > "$work/parent-source.txt"
   require_detached
-  rm -r "$work/parent-download/vm"
+  if [[ -d "$work/parent-download/vm" ]]; then rm -r "$work/parent-download/vm"; fi
+}
+
+parent_cache_directory() {
+  local directory="$parent_cache"
+  while [[ "$directory" != / ]]; do
+    [[ ! -L "$directory" ]] || { printf 'Parent cache is a symbolic link: %s\n' "$directory" >&2; exit 1; }
+    directory=$(dirname "$directory")
+  done
+  (umask 077; mkdir -p "$parent_cache") || exit 1
+  [[ $(stat -f %u "$parent_cache") == "$(id -u)" ]] || exit 1
+  [[ $(stat -f %d "$parent_cache") == "$(stat -f %d "$work")" ]] || {
+    printf '%s\n' 'Parent cache and build workspace must be on the same volume.' >&2
+    exit 1
+  }
+}
+
+restore_parent_cache() {
+  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted ]] || return 1
+  parent_cache_directory
+  if [[ ! -f "$parent_cache/identity.json" ]] ||
+    ! cmp -s "$work/parent-identity.json" "$parent_cache/identity.json"; then
+    privileged rm -r "$parent_cache" || exit 1
+    return 1
+  fi
+  local file
+  [[ ! -L "$parent_cache/bundle" ]] || exit 1
+  for file in disk.img aux.bin hardware-model.bin machine-identifier.bin manifest.json; do
+    privileged test ! -L "$parent_cache/bundle/$file" || exit 1
+    if ! privileged test -f "$parent_cache/bundle/$file"; then
+      printf '%s\n' 'Discarding incomplete parent cache.' >&2
+      privileged rm -r "$parent_cache" || exit 1
+      return 1
+    fi
+  done
+  mkdir "$work/parent-import" || exit 1
+  cp "$parent_cache/import.json" "$evidence/import.json" || exit 1
+  privileged mv "$parent_cache/bundle" "$work/parent-import/bundle" || exit 1
+  privileged rm -r "$parent_cache" || exit 1
+}
+
+retain_parent_image() {
+  [[ ${KEEP_PARENT_IMAGE:-false} == true && -f "$work/parent-source.txt" ]] || return 0
+  local source
+  source=$(cat "$work/parent-source.txt")
+  case "$source" in vanilla|base/11-cleanup/bundle|xcode-parent/bundle) ;; *) return 1 ;; esac
+  privileged test -d "$work/$source" || return 0
+  parent_cache_directory
+  [[ ! -e "$parent_cache/bundle" && ! -L "$parent_cache/bundle" ]]
+  cp "$work/parent-identity.json" "$parent_cache/identity.json"
+  cp "$evidence/import.json" "$parent_cache/import.json"
+  privileged mv "$work/$source" "$parent_cache/bundle"
+  printf 'Retained parent image: %s\n' "$parent_cache"
 }
 
 record() {
@@ -343,6 +415,7 @@ export_image() {
   fi
   local path
   if [[ "$VARIANT" == base && "$TARGET_VARIANT" == xcode ]]; then return 0; fi
+  retain_parent_image
   for path in vanilla base software boot policy-material parent-boot plans xcode-inputs xcode-parent xcode; do
     if [[ -d "$work/$path" ]]; then privileged rm -r "$work/$path"; fi
   done
@@ -404,6 +477,7 @@ collect() {
 cleanup() {
   [[ "$work" == "$RUNNER_TEMP/offline-image" && ! -L "$work" ]]
   require_detached
+  retain_parent_image
   privileged rm -r "$work"
 }
 

@@ -18,6 +18,13 @@ Missing parents are built in order: Vanilla → Base → Xcode. Set `parent_run_
 to reuse a published Vanilla build for Base, or a Base build for Xcode. Its build
 artifact must still be available; retention is 30 days.
 
+For consecutive Xcode builds on the same self-hosted runner, set
+`keep_parent_image: true` to retain the imported parent. The next build with the
+same parent and disk size reuses it without downloading it again. Leave the
+option off on the last build to use and then remove that parent. Only one parent
+is retained, outside the runner's temporary directory; changing the parent or
+disk size replaces it. Other build files are cleaned normally.
+
 For Xcode, select a configured `xcode_version`, such as `27.1rc`, and
 `xcode_flavor: full` or `slim`. Set the repository secret `XCODE_BASE_URL` to the
 private download base URL. The configured Apple archive filename is appended.

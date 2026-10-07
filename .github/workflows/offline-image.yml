@@ -18,6 +18,10 @@ on:
         description: Parent build run ID
         type: string
         default: ''
+      keep_parent_image:
+        description: Keep parent image on this runner
+        type: boolean
+        default: false
       xcode_version:
         description: Xcode version
         type: string
@@ -61,6 +65,7 @@ jobs:
       IMAGE_PROFILE: ${{ inputs.macos_version }}
       TARGET_VARIANT: ${{ inputs.image_type }}
       PARENT_RUN: ${{ inputs.parent_run_id }}
+      KEEP_PARENT_IMAGE: ${{ inputs.keep_parent_image }}
       VARIANT: ${{ inputs.parent_run_id != '' && inputs.image_type || 'vanilla' }}
       MISO_VERSION: source
       MISO_TRANSFER_CONCURRENCY: ${{ vars.MISO_TRANSFER_CONCURRENCY || (inputs.image_type == 'xcode' && '8' || '4') }}
@@ -106,10 +111,11 @@ jobs:
           name: offline-${{ inputs.macos_version }}-vanilla-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/offline-evidence/vanilla
           retention-days: 30
-      - name: Download existing parent image
+      - name: Load parent image
         if: inputs.parent_run_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: bash ci/offline-image.sh import
       - name: Prepare Base software
         if: inputs.image_type != 'vanilla' && inputs.parent_run_id == '' || inputs.image_type == 'base'
