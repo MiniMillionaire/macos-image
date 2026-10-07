@@ -68,6 +68,10 @@ prepare() {
     [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || return 1
     [[ -f "$config/xcode-$XCODE_VERSION.json" && -f "$config/xcode-$XCODE_VERSION-inputs.json" ]] || return 1
   fi
+  if [[ -n ${XCODE_TOOLS:-} ]]; then
+    [[ "$TARGET_VARIANT" == xcode && -n ${PARENT_RUN:-} ]] || return 1
+    [[ "$XCODE_TOOLS" == android ]] || return 1
+  fi
   local installed_miso
   installed_miso=$(command -v miso)
   mkdir -p "$work/bin" "$work/packages" "$images" "$work/common-evidence"
@@ -155,22 +159,37 @@ software() {
 
 import_parent() {
   [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
-  local parent="$work/parent-evidence" reference attempt expected_manifest parent_variant manifest
+  local parent="$work/parent-evidence" reference attempt expected_manifest parent_variant manifest artifact parent_package
   parent_variant=vanilla
   if [[ "$TARGET_VARIANT" == xcode ]]; then parent_variant=base; fi
+  if [[ -n ${XCODE_TOOLS:-} ]]; then parent_variant=xcode; fi
   gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PARENT_RUN" > "$evidence/parent-run.json"
   jq -e '.status == "completed" and .head_branch == "main" and .event == "workflow_dispatch" and
     .path == ".github/workflows/offline-image.yml"' "$evidence/parent-run.json" >/dev/null
   attempt=$(jq -er .run_attempt "$evidence/parent-run.json")
+  artifact="offline-$IMAGE_PROFILE-$parent_variant-$PARENT_RUN-$attempt"
+  parent_package=$parent_variant
+  if [[ "$parent_variant" == xcode ]]; then
+    artifact="offline-$IMAGE_PROFILE-xcode-$XCODE_VERSION-$XCODE_FLAVOR-$PARENT_RUN-$attempt"
+    if [[ "$XCODE_FLAVOR" == slim ]]; then parent_package=slim-xcode; fi
+  fi
   gh run download "$PARENT_RUN" --repo "$GITHUB_REPOSITORY" \
-    -n "offline-$IMAGE_PROFILE-$parent_variant-$PARENT_RUN-$attempt" -D "$parent"
+    -n "$artifact" -D "$parent"
   if [[ "$parent_variant" == vanilla ]]; then
     manifest="$parent/construction/source-manifest.json"
     if [[ ! -f "$manifest" ]]; then manifest="$parent/bundle-manifest.json"; fi
     [[ -f "$manifest" ]] || return 1
   else
     manifest="$parent/bundle-manifest.json"
-    [[ -f "$manifest" && -f "$parent/software-preparation.json" ]] || return 1
+    [[ -f "$manifest" ]] || return 1
+    if [[ "$parent_variant" == base ]]; then [[ -f "$parent/software-preparation.json" ]] || return 1; fi
+    if [[ "$parent_variant" == xcode ]]; then
+      local profile_options=(--config "$config/xcode-$XCODE_VERSION.json")
+      if [[ "$XCODE_FLAVOR" == slim ]]; then profile_options+=(--slim); fi
+      "$miso" xcode defaults "${profile_options[@]}" > "$evidence/parent-expected-xcode.json"
+      jq -e --slurpfile expected "$evidence/parent-expected-xcode.json" \
+        '.xcode_complete == true and .xcode_configuration == $expected[0]' "$manifest" >/dev/null
+    fi
   fi
   local revision parent_configuration
   revision=$(jq -er .head_sha "$evidence/parent-run.json")
@@ -186,7 +205,7 @@ import_parent() {
     (.uploaded == true or .anonymousDownloadVerified == true) and .vmStarted == false and .runtimeVerified == false' \
     "$parent/publication.json" >/dev/null
   reference=$(jq -er .reference "$parent/publication.json")
-  [[ "$reference" == "$repository-$parent_variant@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  [[ "$reference" == "$repository-$parent_package@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
   expected_manifest=$(jq -er .sourceManifest.sha256 "$parent/export.json")
   [[ $(shasum -a 256 "$manifest" | awk '{print $1}') == "$expected_manifest" ]] || return 1
   unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
@@ -210,10 +229,18 @@ import_parent() {
       privileged "$miso" base prepare-parent --source "$work/vanilla" \
         --output "$work/parent-boot" | tee "$evidence/parent-boot.json" >/dev/null
     fi
-  else
+  elif [[ "$parent_variant" == base ]]; then
     mkdir -p "$work/base/11-cleanup" "$RUNNER_TEMP/offline-evidence/base"
     privileged mv "$work/parent-import/bundle" "$work/base/11-cleanup/bundle"
     cp "$parent/software-preparation.json" "$RUNNER_TEMP/offline-evidence/base/"
+  else
+    mkdir "$work/xcode-parent"
+    privileged mv "$work/parent-import/bundle" "$work/xcode-parent/bundle"
+    local receipt
+    for receipt in archive.json gems.json prepare-casks.json prepare-tuist.json prepare-simulator-tools.json prepare-flutter.json; do
+      cp "$parent/$receipt" "$evidence/$receipt"
+    done
+    cp "$parent/publication.json" "$evidence/inherited-xcode.json"
   fi
   cp "$parent/publication.json" "$work/parent-publication.json"
   require_detached
@@ -316,7 +343,7 @@ export_image() {
   fi
   local path
   if [[ "$VARIANT" == base && "$TARGET_VARIANT" == xcode ]]; then return 0; fi
-  for path in vanilla base software boot policy-material parent-boot plans xcode-inputs xcode; do
+  for path in vanilla base software boot policy-material parent-boot plans xcode-inputs xcode-parent xcode; do
     if [[ -d "$work/$path" ]]; then privileged rm -r "$work/$path"; fi
   done
 }

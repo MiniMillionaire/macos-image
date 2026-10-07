@@ -36,6 +36,14 @@ privileged() {
 
 prepare() {
   mkdir "$inputs"
+  if [[ -n ${XCODE_TOOLS:-} ]]; then
+    local selected
+    for selected in ${XCODE_TOOLS//,/ }; do
+      "$miso" xcode "prepare-$selected" --target-version "$target_version" --target-build "$target_build" \
+        --output "$inputs/$selected" > "$evidence/prepare-$selected.json"
+    done
+    return
+  fi
   "$miso" xcode prepare-archive --target-version "$target_version" --target-build "$target_build" \
     --config "$xcode" --output "$inputs/archive" > "$evidence/archive.json"
   local formula arguments=()
@@ -75,6 +83,16 @@ install_stage() {
 build() {
   local previous="$work/base/11-cleanup/bundle" platform version runtime_build runtime_name
   mkdir "$work/xcode"
+  if [[ -n ${XCODE_TOOLS:-} ]]; then
+    previous="$work/xcode-parent/bundle"
+    local selected
+    for selected in ${XCODE_TOOLS//,/ }; do
+      install_stage "$selected" image/bundle "install-$selected" --prepared "$inputs/$selected" --config "$xcode" --username "$username" --replace-existing
+      rm -r "${inputs:?}/$selected"
+    done
+    finalize
+    return
+  fi
   install_stage application bundle install-application --prepared "$inputs/archive"
   install_stage packages bundle install-packages --prepared "$inputs/archive"
   rm -r "$inputs/archive"
@@ -103,6 +121,10 @@ build() {
     install_stage "$runtime_name" image/bundle install-runtime --prepared "$inputs/$runtime_name" --config "$xcode"
     privileged rm -r "$inputs/$runtime_name"
   done < <(jq -r '.runtimes[] | [.platform,.version,.build] | @tsv' "$requirements")
+  finalize
+}
+
+finalize() {
   install_stage final image/bundle complete --config "$xcode" --username "$username"
   privileged jq -e --argjson configuration "$(cat "$xcode")" \
     '.xcode_complete == true and .xcode_configuration == $configuration' "$previous/manifest.json" >/dev/null

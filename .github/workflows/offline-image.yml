@@ -27,6 +27,10 @@ on:
         type: choice
         options: [full, slim]
         default: full
+      xcode_tools:
+        description: Tools to reinstall
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -62,6 +66,7 @@ jobs:
       MISO_TRANSFER_CONCURRENCY: ${{ vars.MISO_TRANSFER_CONCURRENCY || (inputs.image_type == 'xcode' && '8' || '4') }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
+      XCODE_TOOLS: ${{ inputs.xcode_tools }}
       MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
     steps:
       - uses: actions/checkout@v7
@@ -144,7 +149,7 @@ jobs:
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode-inputs
-      - name: Install Xcode and developer tools on a Base clone
+      - name: Install Xcode and developer tools on a parent clone
         if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode

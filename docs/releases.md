@@ -22,6 +22,11 @@ For Xcode, select a configured `xcode_version`, such as `27.1rc`, and
 `xcode_flavor: full` or `slim`. Set the repository secret `XCODE_BASE_URL` to the
 private download base URL. The configured Apple archive filename is appended.
 
+To replace Android in an existing Xcode image, set its build as `parent_run_id`
+and set `xcode_tools: android`. Only Android and final image optimization run;
+the existing Xcode, other tools and simulators are reused. The resulting image
+still requires VM acceptance before publication.
+
 Vanilla and Base use hosted Apple silicon runners. Xcode uses the M5 runner with
 administrator access through `sudo -n` or the authorized `MISO_ROOT_COMMAND`
 repository variable. Registry transfers use 4 concurrent requests on hosted
