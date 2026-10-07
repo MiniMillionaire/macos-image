@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:bf40a3e127372b90ca3e4378ca843e327414f02254ee70e24d3e03b4241fe8a2",
+  "sourceRevision": "50ffca9a7e9d64f0cb27ad48e958361e3e120308",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37600686735",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37605875255",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-07T10:26:00Z",
+  "xcodeFlavor": "slim",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "original-requirements",
+      "xcode-tools",
+      "compile",
+      "mobile-tools",
+      "simulator-ios",
+      "simulator-watchos",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "dismiss-notifications",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Retained in the acceptance artifact",
+    "diagnosticsReview": {
+      "reportCount": 16,
+      "kernelPanics": 0,
+      "simulatorShutdownTimeouts": 9,
+      "simulatorAssertions": 4,
+      "simulatorAborts": 1,
+      "webdriverIconCacheUserFaults": 1,
+      "jetsamEvents": 1,
+      "jetsamProcess": "filederivatived",
+      "jetsamReason": "per-process-limit",
+      "conclusion": "Required functional checks passed. Diagnostic reports are retained; no claim of crash-free simulator services."
+    }
+  },
+  "xcodeConfiguration": {
+    "build": "27A9275",
+    "components": [
+      "MetalToolchain"
+    ],
+    "platforms": [
+      "iOS",
+      "watchOS"
+    ],
+    "profile": {
+      "cleanup": true,
+      "platforms": [
+        "iOS",
+        "watchOS"
+      ],
+      "sparsify": true,
+      "transparentCompression": true,
+      "trimIntel": true
+    },
+    "runtimeArchitecture": "arm64",
+    "schemaVersion": 1,
+    "version": "27.1"
+  }
+}
