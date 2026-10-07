@@ -18,10 +18,9 @@ username=$(jq -er .username "$config/image.json")
 mkdir -p "$evidence"
 [[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
 if [[ ${1:-} == prepare ]]; then
-  profile_options=()
+  profile_options=(--config "$config/xcode-$XCODE_VERSION.json")
   if [[ ${XCODE_FLAVOR:-full} == slim ]]; then profile_options+=(--slim); fi
-  "$miso" xcode defaults --config "$config/xcode-$XCODE_VERSION.json" \
-    "${profile_options[@]}" > "$xcode"
+  "$miso" xcode defaults "${profile_options[@]}" > "$xcode"
   jq --argjson platforms "$(jq .platforms "$xcode")" \
     '.runtimes |= map(select(.platform as $platform | $platforms | index($platform)))' \
     "$config/xcode-$XCODE_VERSION-inputs.json" > "$requirements"

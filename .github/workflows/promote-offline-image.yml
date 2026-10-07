@@ -18,6 +18,11 @@ on:
         description: Xcode version
         type: string
         default: ''
+      xcode_flavor:
+        description: Xcode flavor
+        type: choice
+        options: [full, slim]
+        default: full
 
 permissions:
   contents: read
@@ -51,4 +56,5 @@ jobs:
           IMAGE_PROFILE: ${{ inputs.macos_version }}
           VARIANT: ${{ inputs.image_type }}
           XCODE_VERSION: ${{ inputs.xcode_version }}
+          XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
         run: bash ci/promote-offline-image.sh

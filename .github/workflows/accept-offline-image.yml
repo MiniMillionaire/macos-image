@@ -1,0 +1,82 @@
+name: Verify offline macOS images
+run-name: Verify macOS ${{ inputs.macos_version }} ${{ inputs.image_type }} ${{ inputs.xcode_flavor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Build run ID
+        type: string
+        required: true
+      macos_version:
+        description: macOS version
+        type: string
+        default: '27.0.1'
+        required: true
+      image_type:
+        description: Image type
+        type: choice
+        options: [vanilla, base, xcode]
+        required: true
+      xcode_version:
+        description: Xcode version
+        type: string
+        default: ''
+      xcode_flavor:
+        description: Xcode flavor
+        type: choice
+        options: [full, slim]
+        default: full
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: m5-image-acceptance
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'MiniMillionaire/macos-image' && github.ref == 'refs/heads/main'
+    environment: image-acceptance
+    runs-on: [self-hosted, macOS, ARM64, macos-image-secondary]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN: ${{ inputs.build_run_id }}
+      MACOS_VERSION: ${{ inputs.macos_version }}
+      IMAGE_TYPE: ${{ inputs.image_type }}
+      XCODE_VERSION: ${{ inputs.xcode_version }}
+      XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
+      TART_VERSION: 2.40.1
+    steps:
+      - name: Set workspace
+        run: printf 'ACCEPTANCE_WORKSPACE=%s/acceptance-%s-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: cocoa-xu/miso@v0.3.1
+        with:
+          version: 0.3.1
+      - name: Download candidate and prepare verification tools
+        run: bash ci/acceptance/prepare.sh
+      - name: Verify a disposable VM clone
+        run: bash ci/acceptance/run.sh
+      - name: Record acceptance
+        run: bash ci/acceptance/record.sh
+      - name: Stop VM and remove image data
+        if: always()
+        run: bash ci/acceptance/cleanup.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: acceptance-${{ inputs.macos_version }}-${{ inputs.image_type }}-${{ inputs.xcode_flavor }}-${{ github.run_id }}
+          path: |
+            ${{ env.ACCEPTANCE_WORKSPACE }}/evidence
+            ${{ env.ACCEPTANCE_WORKSPACE }}/runtime
+            ${{ env.ACCEPTANCE_WORKSPACE }}/cloud
+          retention-days: 30

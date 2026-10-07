@@ -3,17 +3,27 @@ set -euo pipefail
 
 [[ ${IMAGE_PROFILE:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$IMAGE_PROFILE" != *..* ]] || exit 1
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
+[[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$root/config/miso/$IMAGE_PROFILE"
 [[ -d "$config" && ! -L "$config" ]] || exit 1
 profile="$config/profile.json"
 record="$config/acceptance-$VARIANT.json"
+package_variant=$VARIANT
 tag=$(jq -er .target.version "$profile")
 if [[ "$VARIANT" == xcode ]]; then
   [[ ${XCODE_VERSION:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
   record="$config/acceptance-xcode-$XCODE_VERSION.json"
-  jq -e --argjson configuration "$(cat "$config/xcode-$XCODE_VERSION.json")" \
-    '.xcodeConfiguration == $configuration' "$record" >/dev/null
+  configuration=$(cat "$config/xcode-$XCODE_VERSION.json")
+  if [[ ${XCODE_FLAVOR:-full} == slim ]]; then
+    package_variant=slim-xcode
+    record="$config/acceptance-slim-xcode-$XCODE_VERSION.json"
+    configuration=$(jq '.platforms = ["iOS","watchOS"] |
+      .profile = {platforms:.platforms,trimIntel:true,transparentCompression:true,cleanup:true,sparsify:true}' \
+      <<< "$configuration")
+  fi
+  jq -e --argjson configuration "$configuration" --arg flavor "${XCODE_FLAVOR:-full}" \
+    '.xcodeConfiguration == $configuration and (.xcodeFlavor // "full") == $flavor' "$record" >/dev/null
   xcode_tag=$XCODE_VERSION
   if [[ "$xcode_tag" =~ ^([0-9]+(\.[0-9]+)*)(beta|rc)([0-9]*)$ ]]; then
     xcode_tag="${BASH_REMATCH[1]}-${BASH_REMATCH[3]}${BASH_REMATCH[4]}"
@@ -33,7 +43,7 @@ jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
   .runtime.manualGuestRepair == false
 ' "$record" >/dev/null
 reference=$(jq -er .reference "$record")
-repository="$(jq -er .repository "$profile")-$VARIANT"
+repository="$(jq -er .repository "$profile")-$package_variant"
 digest=${reference##*@}
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$reference" == "$repository@$digest" ]] || exit 1
 scratch=$(mktemp -d)

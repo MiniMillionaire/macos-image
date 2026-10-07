@@ -13,6 +13,8 @@ M5 runner; set `xcode_version` to a configuration name such as `27.1rc` and prov
 `XCODE_BASE_URL` as a repository secret. The runner needs administrator access
 through `sudo -n` or the `MISO_ROOT_COMMAND` repository variable pointing to its
 authorized command runner. MISO expands smaller Base disks while preserving Recovery.
+Choose `xcode_flavor: slim` to keep iOS/watchOS and apply native Intel trimming,
+compression, cache cleanup and sparse compaction.
 
 Construction does not start a VM or install Rosetta. Candidates are uploaded, then
 downloaded anonymously; numbered tags follow independent boot acceptance. The
@@ -20,11 +22,17 @@ offline workflow uses MISO for upload and download, without a Tart executable.
 Transfers default to 4 concurrent requests on hosted runners and 8 on the M5;
 set the `MISO_TRANSFER_CONCURRENCY` repository variable to override this.
 
-macOS 27.0.1 Vanilla and Base are available:
+For VM acceptance, dispatch **Verify offline macOS images** with the build run ID.
+It uses a disposable clone on the M5, displays download and test progress, and
+retains its results as an artifact. The `image-acceptance` environment requires
+Cocoa or a repository administrator to approve the job before it starts.
+
+macOS 27.0.1 Vanilla, Base and Xcode 27.1 RC are available:
 
 ```shell
 tart clone ghcr.io/minimillionaire/macos-golden-gate-vanilla:27.0.1 vanilla
 tart clone ghcr.io/minimillionaire/macos-golden-gate-base:27.0.1 base
+tart clone ghcr.io/minimillionaire/macos-golden-gate-xcode:27.0.1-xcode27.1-rc xcode
 ```
 
 The current image definitions are:
