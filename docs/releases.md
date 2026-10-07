@@ -25,7 +25,7 @@ option off on the last build to use and then remove that parent. Only one parent
 is retained, outside the runner's temporary directory; changing the parent or
 disk size replaces it. Other build files are cleaned normally.
 
-For Xcode, select a configured `xcode_version`, such as `27.1rc`, and
+For Xcode, select a configured `xcode_version`, such as `27.1-rc`, and
 `xcode_flavor: full` or `slim`. Set the repository secret `XCODE_BASE_URL` to the
 private download base URL. The configured Apple archive filename is appended.
 

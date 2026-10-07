@@ -9,7 +9,7 @@ Select `macos_version` (currently `27.0.1`) and `image_type`:
 Vanilla run for Base, or a Base run for Xcode. Parent artifacts expire after 30 days.
 
 Vanilla and Base use official Apple silicon GitHub runners. Xcode uses the existing
-M5 runner; set `xcode_version` to a configuration name such as `27.1rc` and provide
+M5 runner; set `xcode_version` to a configuration name such as `27.1-rc` and provide
 `XCODE_BASE_URL` as a repository secret. The runner needs administrator access
 through `sudo -n` or the `MISO_ROOT_COMMAND` repository variable pointing to its
 authorized command runner. MISO expands smaller Base disks while preserving Recovery.
