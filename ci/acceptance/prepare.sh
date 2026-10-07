@@ -27,7 +27,7 @@ repository="$(jq -er .repository "$root/config/miso/$MACOS_VERSION/profile.json"
 jq -e --arg revision "$(jq -r .headSha "$work/evidence/build-run.json")" \
   --arg repository "$repository" --arg version "$MACOS_VERSION" --arg variant "$IMAGE_TYPE" '
   .revision == $revision and .variant == $variant and .target.version == $version and
-  .anonymousDownloadVerified == true and .vmStarted == false and .runtimeVerified == false and
+  (.uploaded == true or .anonymousDownloadVerified == true) and .vmStarted == false and .runtimeVerified == false and
   (.reference | startswith($repository + "@sha256:")) and
   (.reference | test("@sha256:[0-9a-f]{64}$"))' "$publication" >/dev/null
 if [[ "$IMAGE_TYPE" == xcode ]]; then
@@ -35,7 +35,8 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
     '.xcodeVersion == $version and (.xcodeFlavor // "full") == $flavor' "$publication" >/dev/null
 fi
 { sw_vers; sysctl hw.model hw.memsize; miso --version; } > "$work/evidence/host.txt"
-printf 'Downloading candidate for independent acceptance.\n'
+unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
+printf 'Downloading candidate for VM acceptance.\n'
 miso bundle pull "$(jq -er .reference "$publication")" --output "$work/download" \
   --concurrency 8 > "$work/evidence/download.json"
 mv "$work/download/vm" "$work/tart/vms/source"

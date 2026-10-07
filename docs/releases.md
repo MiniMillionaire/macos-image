@@ -34,7 +34,7 @@ After a successful build, run **Verify offline macOS images** with its
 `image-acceptance` environment requires Cocoa or a repository administrator to
 approve the M5 job.
 
-The job downloads the candidate, boots a disposable clone, runs functional
+The job downloads the candidate once, boots a disposable clone, runs functional
 checks, stops the VM and uploads logs and an acceptance record. Download progress
 and test output are visible in CI. Construction itself never starts a VM.
 

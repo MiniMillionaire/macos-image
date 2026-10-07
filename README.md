@@ -16,8 +16,9 @@ authorized command runner. MISO expands smaller Base disks while preserving Reco
 Choose `xcode_flavor: slim` to keep iOS/watchOS and apply native Intel trimming,
 compression, cache cleanup and sparse compaction.
 
-Construction does not start a VM or install Rosetta. Candidates are uploaded, then
-downloaded anonymously; numbered tags follow independent boot acceptance. The
+Construction does not start a VM or install Rosetta. After upload, acceptance
+downloads the candidate once and boots a disposable clone. Numbered tags follow
+successful VM acceptance. The
 offline workflow uses MISO for upload and download, without a Tart executable.
 Transfers default to 4 concurrent requests on hosted runners and 8 on the M5;
 set the `MISO_TRANSFER_CONCURRENCY` repository variable to override this.

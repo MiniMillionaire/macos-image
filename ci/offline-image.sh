@@ -80,13 +80,12 @@ prepare() {
   "$miso" bundle pull --help >/dev/null
   printf 'version=%s\nsource=%s\n' "$("$miso" --version)" "$MISO_VERSION" > "$evidence/miso-build.txt"
   cp "$(command -v gh)" "$work/bin/gh"
-  cp "$(command -v oras)" "$work/bin/oras"
-  otool -L "$work/bin/gh" "$work/bin/oras" > "$evidence/tool-libraries.txt"
+  otool -L "$work/bin/gh" > "$evidence/tool-libraries.txt"
   if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]] && grep -q '/opt/homebrew/' "$evidence/tool-libraries.txt"; then
     printf '%s\n' 'Publication tools depend on the Homebrew directory scheduled for cleanup.' >&2
     return 1
   fi
-  { oras version; "$miso" --version; } > "$evidence/tools.txt"
+  "$miso" --version > "$evidence/tools.txt"
   df -k / > "$evidence/space-before-cleanup.txt"
   if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]]; then
     xcrun simctl runtime delete all || true
@@ -184,7 +183,7 @@ import_parent() {
     --arg configuration "$configuration_digest" --arg run "$PARENT_RUN-$attempt" --arg revision "$revision" '
     .variant == $variant and .target == $target and .run == $run and .revision == $revision and
     (.imageConfigurationSHA256 // $configuration) == $configuration and
-    .anonymousDownloadVerified == true and .vmStarted == false and .runtimeVerified == false' \
+    (.uploaded == true or .anonymousDownloadVerified == true) and .vmStarted == false and .runtimeVerified == false' \
     "$parent/publication.json" >/dev/null
   reference=$(jq -er .reference "$parent/publication.json")
   [[ "$reference" == "$repository-$parent_variant@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
@@ -304,6 +303,8 @@ export_image() {
   privileged chown -R "$(id -u):$(id -g)" "$work/export-$VARIANT" "$evidence"
   mv "$work/export-$VARIANT/vm" "$images/$VARIANT"
   cp "$images/$VARIANT/config.json" "$evidence/source-config.json"
+  jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
+    "$evidence/source-config.json" > "$evidence/source-identity.json"
   collect
   require_detached
   if [[ "$VARIANT" == vanilla ]]; then
@@ -331,38 +332,21 @@ publish() {
     --label "dev.macos-image.version=$os_version" --label "dev.macos-image.build=$os_build" \
     --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION" > "$evidence/upload.json"
   printf '%s\n' "$reference" > "$evidence/reference.txt"
-}
-
-verify() {
-  unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
-  local reference digest directory
-  reference=$(cat "$evidence/reference.txt")
-  printf '{}\n' > "$work/anonymous-registry.json"
-  digest=$(oras resolve "$reference" --registry-config "$work/anonymous-registry.json")
-  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-  reference="${reference%:*}@$digest"
-  [[ $(jq -er .reference "$evidence/upload.json") == "$reference" ]]
-  rm -r "$images/$VARIANT"
-  "$miso" bundle pull "$reference" --output "$work/download-check-$VARIANT" \
-    --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/download.json"
-  directory="$work/download-check-$VARIANT/vm"
-  jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
-    "$evidence/source-config.json" > "$evidence/source-identity.json"
-  jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
-    "$directory/config.json" > "$evidence/downloaded-identity.json"
-  cmp "$evidence/source-identity.json" "$evidence/downloaded-identity.json"
+  local candidate="$reference"
+  reference=$(jq -er .reference "$evidence/upload.json")
+  [[ "$reference" == "${candidate%:*}@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]]
   jq -n --arg reference "$reference" --arg revision "$GITHUB_SHA" --arg variant "$VARIANT" \
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
     --arg flavor "${XCODE_FLAVOR:-full}" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
-      target:$target,profile:$profile,imageConfigurationSHA256:$configuration,anonymousDownloadVerified:true,
+      target:$target,profile:$profile,imageConfigurationSHA256:$configuration,uploaded:true,anonymousDownloadVerified:false,
       vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
       xcodeFlavor:(if $variant == "xcode" then $flavor else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi
   require_detached
-  rm -r "$directory"
-  printf 'Verified candidate: %s\n\nIndependent boot acceptance is pending.\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
+  rm -r "${images:?}/${VARIANT:?}"
+  printf 'Uploaded candidate: %s\n\nDownload and VM acceptance are pending.\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
 }
 
 collect() {
@@ -411,7 +395,7 @@ trap finish EXIT
 ) &
 monitor_pid=$!
 case "$stage" in
-  prepare|download|restore|software|base|publish|verify|collect|cleanup) "$stage" ;;
+  prepare|download|restore|software|base|publish|collect|cleanup) "$stage" ;;
   export) export_image ;;
   import) import_parent ;;
   xcode-inputs) bash "$root/ci/offline-xcode.sh" prepare ;;
