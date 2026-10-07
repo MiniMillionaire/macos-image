@@ -21,7 +21,7 @@ verify_desktop() {
   pgrep -u "$guest_uid" -x Finder >/dev/null
   pgrep -u "$guest_uid" -x Dock >/dev/null
   ! pgrep -x 'Setup Assistant' >/dev/null || { echo 'Setup Assistant is still running' >&2; exit 1; }
-  osascript -l JavaScript - "$GUEST_USERNAME" <<'JAVASCRIPT'
+  osascript -l JavaScript - "$GUEST_USERNAME" "${ALLOW_NOTIFICATION_CENTER:-false}" <<'JAVASCRIPT'
 ObjC.import("AppKit");
 ObjC.import("CoreGraphics");
 
@@ -55,6 +55,10 @@ function run(arguments) {
         if (owner === "Dock" && (level === dockLevel || name.indexOf("Wallpaper-") === 0)) return false;
         return level !== statusLevel || statusOwners.indexOf(owner) === -1;
     });
+    if (arguments[1] === "true" && visible.length === 1 &&
+        visible[0].kCGWindowOwnerName === "Notification Center") {
+        return "Verified desktop with one permitted Notification Center window: " + JSON.stringify(visible[0]);
+    }
     if (visible.length) {
         throw new Error("Unexpected desktop windows: " + visible.map(function(window) {
             return window.kCGWindowOwnerName;

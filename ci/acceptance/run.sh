@@ -12,7 +12,7 @@ log="$run/runtime"
 export TART_HOME="$run/tart" TART_NO_AUTO_PRUNE=1
 export SSH_ASKPASS="$helpers/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0
 export PATH="$run/tools/tart.app/Contents/MacOS:$PATH"
-[[ -f "$TART_HOME/vms/source/disk.img" ]]
+[[ -f "$TART_HOME/vms/source/disk.img" ]] || exit 1
 mkdir "$log"
 expected_version=$(jq -er .target.version "$run/cloud/publication.json")
 expected_build=$(jq -er .target.build "$run/cloud/publication.json")
@@ -26,7 +26,7 @@ if [[ "$variant" == xcode ]]; then
 else
   tart set "$vm" --cpu 4 --memory 8192
 fi
-[[ $(stat -f %i "$TART_HOME/vms/source/disk.img") != "$(stat -f %i "$TART_HOME/vms/$vm/disk.img")" ]]
+[[ $(stat -f %i "$TART_HOME/vms/source/disk.img") != "$(stat -f %i "$TART_HOME/vms/$vm/disk.img")" ]] || exit 1
 vm_pid=
 watchdog_pid=
 finish() {
@@ -65,7 +65,7 @@ vm_pid=$!
 printf '%s\n' "$vm_pid" > "$log/vm.pid"
 tart ip "$vm" --wait 300 > "$log/ip.txt"
 ip=$(cat "$log/ip.txt")
-[[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+[[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 options=(-F /dev/null -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$log/known_hosts" -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o PreferredAuthentications=password)
 remote() { ssh "${options[@]}" "admin@$ip" "$@"; }
 remote_script() {
@@ -87,10 +87,10 @@ for attempt in {1..40}; do
   if remote 'test "$(stat -f %Su /dev/console)" = admin' </dev/null > "$log/ready.log" 2>&1; then ready=true; break; fi
   sleep 5
 done
-[[ "$ready" == true ]]
+[[ "$ready" == true ]] || exit 1
 printf "::notice::VM started; waiting for the guest desktop.\n"
 scp "${options[@]}" "$root/scripts/guest/user-tcc-database.sh" "admin@$ip:/tmp/macos-image-user-tcc-database.sh" > "$log/scp.log" 2>&1
-remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin
+remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 if [[ "$variant" == xcode ]]; then
   /bin/bash "$root/ci/acceptance/xcode-config.sh" "$run/cloud" > "$log/xcode-config.json"
   scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
@@ -111,7 +111,7 @@ session_state before-vnc
 session_state after-vnc
 negative=0
 "$run/tools/vnc-smoke" "$ip" wrong-password > "$log/vnc-negative.json" || negative=$?
-[[ "$negative" == 2 ]]
+[[ "$negative" == 2 ]] || exit 1
 session_state after-negative
 remote 'if pkgutil --pkg-info com.apple.pkg.RosettaUpdateAuto; then exit 1; fi; test ! -e /Library/Apple/usr/libexec/oah/libRosettaRuntime' > "$log/no-rosetta.log" 2>&1
 if [[ "$variant" != vanilla ]]; then
@@ -144,7 +144,7 @@ jq -e --arg nonce "$nonce" '.nonce == $nonce and .clicks == 1 and .text == $nonc
 session_state after-input
 negative=0
 VNC_AUTH=ard "$run/tools/vnc-smoke" "$ip" wrong-password > "$log/ard-negative.json" || negative=$?
-[[ "$negative" == 2 ]]
+[[ "$negative" == 2 ]] || exit 1
 session_state after-ard-negative
 witness_pid=$(jq -er '.pid | select(. > 1)' "$log/witness-after.json")
 remote "kill $witness_pid; rm -rf /private/tmp/InputWitness.app; rm $witness"
@@ -153,5 +153,5 @@ remote 'stat -f %Su /dev/console; ps -axo pid,ppid,etime,comm | egrep "(Finder|D
 remote_script health "$helpers/health.sh"
 grep -qx 'BOOT_EVENTS=1' "$log/health.log"
 if [[ "$variant" == xcode ]]; then remote_script dismiss-notifications "$helpers/dismiss-notifications.sh"; fi
-remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin
+remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 printf 'RUNTIME_ACCEPTANCE_PASSED\n'

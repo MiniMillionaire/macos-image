@@ -21,6 +21,7 @@ jq -n --slurpfile publication "$work/cloud/publication.json" \
    anonymousDownloadVerified:true,constructionVMStarted:false,acceptedAt:$date,
    xcodeFlavor:$p.xcodeFlavor,
    runtime:($runtime[0] + {rosettaInstalled:false,manualGuestRepair:false,
+     desktopPolicy:{allowedNotificationCenterWindows:1,otherApplicationWindows:0},
      host:{model:$model,macOS:$macos,build:$os_build,tart:$tart},
      checks:($checks | split("\n") | map(select(length > 0) | split(" ")[0])),
      authenticationAndInputVerified:true,diagnostics:"Retained in the acceptance artifact"})}' \
