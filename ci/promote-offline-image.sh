@@ -14,7 +14,11 @@ if [[ "$VARIANT" == xcode ]]; then
   record="$config/acceptance-xcode-$XCODE_VERSION.json"
   jq -e --argjson configuration "$(cat "$config/xcode-$XCODE_VERSION.json")" \
     '.xcodeConfiguration == $configuration' "$record" >/dev/null
-  tag="$tag-xcode$XCODE_VERSION"
+  xcode_tag=$XCODE_VERSION
+  if [[ "$xcode_tag" =~ ^([0-9]+(\.[0-9]+)*)(beta|rc)([0-9]*)$ ]]; then
+    xcode_tag="${BASH_REMATCH[1]}-${BASH_REMATCH[3]}${BASH_REMATCH[4]}"
+  fi
+  tag="$tag-xcode$xcode_tag"
 fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
