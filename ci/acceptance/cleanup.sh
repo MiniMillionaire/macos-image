@@ -15,7 +15,7 @@ hdiutil info -plist | plutil -convert json -o - - | jq -e --arg path "$work/" \
 if [[ -f "$work/evidence/source-cache.txt" ]]; then
   cache=$(cat "$work/evidence/source-cache.txt")
   reference=$(jq -er .reference "$work/cloud/publication.json")
-  [[ "$cache" == "$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]]
+  [[ "$cache" == "$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]] || exit 1
   if [[ -f "$work/evidence/acceptance.json" && ${KEEP_SOURCE_IMAGE:-false} != true ]]; then
     rm -r "${cache:?}"
   elif [[ -f "$work/evidence/acceptance.json" ]]; then

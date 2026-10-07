@@ -2,11 +2,11 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
 work=${ACCEPTANCE_WORKSPACE:?}
-[[ "$work" == "$RUNNER_TEMP/"* && ! -e "$work" ]]
-[[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
-[[ "$MACOS_VERSION" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]]
-[[ "$IMAGE_TYPE" == vanilla || "$IMAGE_TYPE" == base || "$IMAGE_TYPE" == xcode ]]
-[[ "$XCODE_FLAVOR" == full || "$XCODE_FLAVOR" == slim ]]
+[[ "$work" == "$RUNNER_TEMP/"* && ! -e "$work" ]] || exit 1
+[[ "$BUILD_RUN" =~ ^[0-9]+$ ]] || exit 1
+[[ "$MACOS_VERSION" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]] || exit 1
+[[ "$IMAGE_TYPE" == vanilla || "$IMAGE_TYPE" == base || "$IMAGE_TYPE" == xcode ]] || exit 1
+[[ "$XCODE_FLAVOR" == full || "$XCODE_FLAVOR" == slim ]] || exit 1
 mkdir -p "$work/cloud" "$work/tools" "$work/tart/vms" "$work/evidence"
 gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" \
   --json status,conclusion,headBranch,headSha,workflowName,url > "$work/evidence/build-run.json"
@@ -14,10 +14,10 @@ jq -e '.status == "completed" and (.conclusion == "success" or .conclusion == "f
   .headBranch == "main" and .workflowName == "Build offline macOS images"' \
   "$work/evidence/build-run.json" >/dev/null
 attempt=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .run_attempt)
-[[ "$attempt" =~ ^[0-9]+$ ]]
+[[ "$attempt" =~ ^[0-9]+$ ]] || exit 1
 pattern="offline-$MACOS_VERSION-$IMAGE_TYPE-$BUILD_RUN-$attempt"
 if [[ "$IMAGE_TYPE" == xcode ]]; then
-  [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]]
+  [[ "$XCODE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
   pattern="offline-$MACOS_VERSION-xcode-$XCODE_VERSION-$XCODE_FLAVOR-$BUILD_RUN-$attempt"
 fi
 gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name "$pattern" --dir "$work/cloud"
@@ -45,9 +45,9 @@ fi
 unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
 reference=$(jq -er .reference "$publication")
 cache="$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}"
-[[ ! -L "$cache" ]]
+[[ ! -L "$cache" ]] || exit 1
 if [[ -d "$cache" ]]; then
-  [[ $(cat "$cache/reference.txt") == "$reference" ]]
+  [[ $(cat "$cache/reference.txt") == "$reference" ]] || exit 1
   stat -f '%i %z %b %m %c' "$cache/vm/"{disk.img,nvram.bin,config.json} > "$work/evidence/cache-state.txt"
   cmp "$cache/state.txt" "$work/evidence/cache-state.txt"
   printf 'Reusing the unchanged candidate downloaded for the previous VM attempt.\n'
@@ -65,7 +65,7 @@ cp "$cache/download.json" "$work/evidence/download.json"
 printf '%s\n' "$cache" > "$work/evidence/source-cache.txt"
 mkdir "$work/tart/vms/source"
 for file in disk.img nvram.bin config.json; do
-  [[ -f "$cache/vm/$file" && ! -L "$cache/vm/$file" ]]
+  [[ -f "$cache/vm/$file" && ! -L "$cache/vm/$file" ]] || exit 1
   cp -c "$cache/vm/$file" "$work/tart/vms/source/$file"
 done
 jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \

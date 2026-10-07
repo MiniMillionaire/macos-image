@@ -45,12 +45,12 @@ privileged() {
 
 fetch() {
   local url=$1 output=$2 bytes=$3 digest=$4
-  [[ ! -e "$output" ]]
+  [[ ! -e "$output" ]] || exit 1
   curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
     --connect-timeout 30 --max-time 3600 --retry 2 --retry-max-time 3900 \
     --max-filesize "$bytes" --output "$output.partial" "$url"
-  [[ $(stat -f %z "$output.partial") == "$bytes" ]]
-  [[ $(shasum -a 256 "$output.partial" | awk '{print $1}') == "$digest" ]]
+  [[ $(stat -f %z "$output.partial") == "$bytes" ]] || exit 1
+  [[ $(shasum -a 256 "$output.partial" | awk '{print $1}') == "$digest" ]] || exit 1
   mv "$output.partial" "$output"
 }
 
@@ -117,7 +117,7 @@ prepare() {
   fi
   hash -r
   df -k / | tee "$evidence/space-after-cleanup.txt"
-  [[ $(df -k "$work" | awk 'NR==2 {print $4}') -ge 93323264 ]]
+  [[ $(df -k "$work" | awk 'NR==2 {print $4}') -ge 93323264 ]] || exit 1
   "$miso" config check "$config/image.json" > "$evidence/config-check.json"
   if [[ "$TARGET_VARIANT" != vanilla ]]; then
     for name in security settings; do
@@ -331,7 +331,7 @@ retain_parent_image() {
   case "$source" in vanilla|base/11-cleanup/bundle|xcode-parent/bundle) ;; *) return 1 ;; esac
   privileged test -d "$work/$source" || return 0
   parent_cache_directory
-  [[ ! -e "$parent_cache/bundle" && ! -L "$parent_cache/bundle" ]]
+  [[ ! -e "$parent_cache/bundle" && ! -L "$parent_cache/bundle" ]] || exit 1
   cp "$work/parent-identity.json" "$parent_cache/identity.json"
   cp "$evidence/import.json" "$parent_cache/import.json"
   privileged mv "$work/$source" "$parent_cache/bundle"
@@ -453,7 +453,7 @@ publish() {
   printf '%s\n' "$reference" > "$evidence/reference.txt"
   local candidate="$reference"
   reference=$(jq -er .reference "$evidence/upload.json")
-  [[ "$reference" == "${candidate%:*}@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]]
+  [[ "$reference" == "${candidate%:*}@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
   jq -n --arg reference "$reference" --arg revision "$GITHUB_SHA" --arg variant "$VARIANT" \
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
@@ -494,7 +494,7 @@ collect() {
 }
 
 cleanup() {
-  [[ "$work" == "$RUNNER_TEMP/offline-image" && ! -L "$work" ]]
+  [[ "$work" == "$RUNNER_TEMP/offline-image" && ! -L "$work" ]] || exit 1
   require_detached
   retain_parent_image
   privileged rm -r "$work"
