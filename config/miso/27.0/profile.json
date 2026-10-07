@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0",
+    "build": "26A428"
+  },
+  "ipsw": "https://updates.cdn-apple.com/2026FallFCS/afcfc88e-bbe6-44bf-a5da-07c56eebc06c/UniversalMac_27.0_26A428_Restore.ipsw",
+  "diskBytes": 68719476736,
+  "repository": "ghcr.io/minimillionaire/macos-golden-gate"
+}
