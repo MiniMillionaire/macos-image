@@ -12,6 +12,16 @@ if [[ -x "$tart" && -d "$TART_HOME/vms/acceptance" ]]; then
 fi
 hdiutil info -plist | plutil -convert json -o - - | jq -e --arg path "$work/" \
   '[.images[]? | select(."image-path" | startswith($path))] | length == 0' >/dev/null
+if [[ -f "$work/evidence/source-cache.txt" ]]; then
+  cache=$(cat "$work/evidence/source-cache.txt")
+  reference=$(jq -er .reference "$work/cloud/publication.json")
+  [[ "$cache" == "$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]]
+  if [[ -f "$work/evidence/acceptance.json" ]]; then
+    rm -r "${cache:?}"
+  else
+    printf 'Retained the downloaded source for another VM acceptance attempt.\n'
+  fi
+fi
 for path in tart download tools; do
   if [[ -d "$work/$path" ]]; then rm -r "${work:?}/$path"; fi
 done

@@ -36,10 +36,31 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
 fi
 { sw_vers; sysctl hw.model hw.memsize; miso --version; } > "$work/evidence/host.txt"
 unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
-printf 'Downloading candidate for VM acceptance.\n'
-miso bundle pull "$(jq -er .reference "$publication")" --output "$work/download" \
-  --concurrency 8 > "$work/evidence/download.json"
-mv "$work/download/vm" "$work/tart/vms/source"
+reference=$(jq -er .reference "$publication")
+cache="$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}"
+[[ ! -L "$cache" ]]
+if [[ -d "$cache" ]]; then
+  [[ $(cat "$cache/reference.txt") == "$reference" ]]
+  stat -f '%i %z %b %m %c' "$cache/vm/"{disk.img,nvram.bin,config.json} > "$work/evidence/cache-state.txt"
+  cmp "$cache/state.txt" "$work/evidence/cache-state.txt"
+  printf 'Reusing the unchanged candidate downloaded for the previous VM attempt.\n'
+else
+  printf 'Downloading candidate for VM acceptance.\n'
+  miso bundle pull "$reference" --output "$work/download" \
+    --concurrency 8 > "$work/evidence/download.json"
+  mkdir -p "$cache"
+  mv "$work/download/vm" "$cache/vm"
+  cp "$work/evidence/download.json" "$cache/download.json"
+  printf '%s\n' "$reference" > "$cache/reference.txt"
+  stat -f '%i %z %b %m %c' "$cache/vm/"{disk.img,nvram.bin,config.json} > "$cache/state.txt"
+fi
+cp "$cache/download.json" "$work/evidence/download.json"
+printf '%s\n' "$cache" > "$work/evidence/source-cache.txt"
+mkdir "$work/tart/vms/source"
+for file in disk.img nvram.bin config.json; do
+  [[ -f "$cache/vm/$file" && ! -L "$cache/vm/$file" ]]
+  cp -c "$cache/vm/$file" "$work/tart/vms/source/$file"
+done
 jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
   "$work/tart/vms/source/config.json" > "$work/evidence/downloaded-identity.json"
 cmp "$work/cloud/source-identity.json" "$work/evidence/downloaded-identity.json"
