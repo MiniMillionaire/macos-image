@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0",
+    "build": "26A428"
+  },
+  "variant": "vanilla",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-vanilla@sha256:4efc9eb735f22246e4c050324cf95405ed2a3ca14b111fc3a27a4d9de1682146",
+  "sourceRevision": "128d1c3b45cde15cf0215fc49461a01cf33c0aa8",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37661244284",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37684216807",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-07T20:47:04Z",
+  "xcodeFlavor": null,
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "original-requirements",
+      "compile",
+      "health",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Health and boot checks retained; crash archive not collected."
+  }
+}

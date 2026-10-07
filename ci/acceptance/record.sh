@@ -3,7 +3,9 @@ set -euo pipefail
 work=${ACCEPTANCE_WORKSPACE:?}
 runtime="$work/runtime/runtime-status.json"
 jq -e '.exitCode == 0 and .vmStopped and .sourceUnchanged' "$runtime" >/dev/null
+diagnostics='Health and boot checks retained; crash archive not collected.'
 if [[ -s "$work/runtime/diagnostics.tar" ]]; then
+  diagnostics='Crash archive and health checks retained in the acceptance artifact.'
   tar -tf "$work/runtime/diagnostics.tar" > "$work/evidence/diagnostic-files.txt"
   if grep -Eq '[.]panic$' "$work/evidence/diagnostic-files.txt"; then exit 1; fi
 fi
@@ -13,6 +15,7 @@ jq -n --slurpfile publication "$work/cloud/publication.json" \
   --arg date "$(date -u +%FT%TZ)" --arg model "$(sysctl -n hw.model)" \
   --arg macos "$(sw_vers -productVersion)" --arg os_build "$(sw_vers -buildVersion)" \
   --arg tart "$TART_VERSION" \
+  --arg diagnostics "$diagnostics" \
   --arg run "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
   --rawfile checks "$work/runtime/checks.tsv" '
   $publication[0] as $p |
@@ -24,7 +27,7 @@ jq -n --slurpfile publication "$work/cloud/publication.json" \
      desktopPolicy:{allowedNotificationCenterWindows:1,otherApplicationWindows:0},
      host:{model:$model,macOS:$macos,build:$os_build,tart:$tart},
      checks:($checks | split("\n") | map(select(length > 0) | split(" ")[0])),
-     authenticationAndInputVerified:true,diagnostics:"Retained in the acceptance artifact"})}' \
+     authenticationAndInputVerified:true,diagnostics:$diagnostics})}' \
   > "$work/evidence/acceptance.json"
 if [[ "$IMAGE_TYPE" == xcode ]]; then
   jq --slurpfile xcode "$work/runtime/xcode-config.json" \
