@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0",
+    "build": "26A428"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3eae8bffbdb11ed858f9478496312f2bced536549fd11ad9a3ef7cd98cddfe4a",
+  "sourceRevision": "4d03ae9ba43c9d1780dfb4f3e5f3144b0614a288",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37736692736",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37755378573",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-08T09:23:17Z",
+  "xcodeFlavor": "slim",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "original-requirements",
+      "xcode-tools",
+      "compile",
+      "mobile-tools",
+      "simulator-ios",
+      "simulator-watchos",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "dismiss-notifications",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+  },
+  "xcodeConfiguration": {
+    "build": "27A9275",
+    "components": [
+      "MetalToolchain"
+    ],
+    "platforms": [
+      "iOS",
+      "watchOS"
+    ],
+    "profile": {
+      "cleanup": true,
+      "platforms": [
+        "iOS",
+        "watchOS"
+      ],
+      "sparsify": true,
+      "transparentCompression": true,
+      "trimIntel": true
+    },
+    "runtimeArchitecture": "arm64",
+    "schemaVersion": 1,
+    "version": "27.1"
+  }
+}
