@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "version": "27.1",
+  "build": "27A9269",
+  "platforms": [
+    "iOS",
+    "watchOS",
+    "tvOS",
+    "visionOS"
+  ],
+  "components": [
+    "MetalToolchain"
+  ],
+  "runtimeArchitecture": "arm64"
+}

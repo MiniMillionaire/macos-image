@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "diskBytes": 160000000000,
+  "formulae": [
+    "carthage",
+    "gnupg",
+    "graphicsmagick",
+    "ideviceinstaller",
+    "imagemagick",
+    "ios-deploy",
+    "libimobiledevice",
+    "licenseplist",
+    "mint",
+    "openjdk@17",
+    "swiftformat",
+    "swiftgen",
+    "swiftlint",
+    "xcbeautify",
+    "xcodes"
+  ],
+  "runtimes": [
+    {
+      "platform": "iOS",
+      "version": "27.2",
+      "build": "24B5089g"
+    },
+    {
+      "platform": "watchOS",
+      "version": "27.2",
+      "build": "24S5091f"
+    },
+    {
+      "platform": "tvOS",
+      "version": "27.2",
+      "build": "24K5093g"
+    },
+    {
+      "platform": "visionOS",
+      "version": "27.2",
+      "build": "24N5093f"
+    }
+  ]
+}
