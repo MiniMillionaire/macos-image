@@ -50,6 +50,13 @@ prepare() {
   while IFS= read -r formula; do arguments+=(--formula "$formula"); done < <(jq -er '.formulae[]' "$requirements")
   "$miso" base resolve --target-version "$target_version" --target-build "$target_build" \
     --xcode-config "$xcode" "${arguments[@]}" --output "$inputs/resolution" > "$evidence/bottle-resolution.json"
+  local core_revision
+  core_revision=$(jq -er '[.formulae[].sourceURL | split("/")[5]] | unique |
+    if length == 1 then .[0] else error("Formula sources use different core revisions") end' \
+    "$evidence/bottle-resolution.json")
+  "$miso" base bootstrap resolve --target-version "$target_version" --target-build "$target_build" \
+    --core-revision "$core_revision" --sources "$root/config/miso/homebrew-sources.json" \
+    --output "$inputs/homebrew" > "$evidence/prepare-homebrew.json"
   "$miso" base bottles download --resolution "$inputs/resolution" --output "$inputs/bottles" > "$evidence/bottles.json"
   local versions="$RUNNER_TEMP/offline-evidence/base/software-preparation.json"
   "$miso" xcode prepare-gems --ruby-version "$(jq -er .versions.ruby "$versions")" \
@@ -93,6 +100,8 @@ build() {
     finalize
     return
   fi
+  install_stage homebrew bundle install-homebrew --prepared "$inputs/homebrew" --username "$username"
+  rm -r "$inputs/homebrew"
   install_stage application bundle install-application --prepared "$inputs/archive"
   install_stage packages bundle install-packages --prepared "$inputs/archive"
   rm -r "$inputs/archive"

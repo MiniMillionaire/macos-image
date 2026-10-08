@@ -162,7 +162,8 @@ restore() {
 
 software() {
   "$miso" base prepare --target-version "$os_version" --target-build "$os_build" \
-    --config "$config/base.json" --jobs 2 --output "$work/software" > "$evidence/software.json"
+    --config "$config/base.json" --sources "$root/config/miso/homebrew-sources.json" \
+    --jobs 2 --output "$work/software" > "$evidence/software.json"
   cp "$work/software/preparation.json" "$evidence/software-preparation.json"
 }
 
