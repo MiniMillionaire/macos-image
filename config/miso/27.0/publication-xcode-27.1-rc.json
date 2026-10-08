@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0",
+    "build": "26A428"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:523ba4460a3b54b4d983598ad71bfa43a6a542848bebad0855ca57e1aff6d7a2",
+  "sourceRevision": "09e435f4905a44d6f65b998853967d32b908eab0",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37716310767",
+  "uploaded": true,
+  "constructionVMStarted": false,
+  "anonymousDownloadVerified": false,
+  "runtimeVerified": false,
+  "acceptanceStatus": "pending",
+  "xcodeFlavor": "full",
+  "publicationApproval": {
+    "approvedBy": "cocoa-xu",
+    "beforeAcceptance": true,
+    "requestedAt": "2026-10-08",
+    "reason": "Publish the formal tag now; keep the matrix paused and VM acceptance pending."
+  },
+  "xcodeConfiguration": {
+    "schemaVersion": 1,
+    "version": "27.1",
+    "build": "27A9275",
+    "platforms": ["iOS", "watchOS", "tvOS", "visionOS"],
+    "components": ["MetalToolchain"],
+    "runtimeArchitecture": "arm64"
+  }
+}

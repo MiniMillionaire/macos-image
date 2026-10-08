@@ -5,20 +5,23 @@ set -euo pipefail
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
 [[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
 [[ ${REPLACE_EXISTING:-false} == true || ${REPLACE_EXISTING:-false} == false ]] || exit 1
+[[ ${BEFORE_ACCEPTANCE:-false} == true || ${BEFORE_ACCEPTANCE:-false} == false ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config="$root/config/miso/$IMAGE_PROFILE"
 [[ -d "$config" && ! -L "$config" ]] || exit 1
 profile="$config/profile.json"
-record="$config/acceptance-$VARIANT.json"
+record_kind=acceptance
+if [[ ${BEFORE_ACCEPTANCE:-false} == true ]]; then record_kind=publication; fi
+record="$config/$record_kind-$VARIANT.json"
 package_variant=$VARIANT
 tag=$(jq -er .target.version "$profile")
 if [[ "$VARIANT" == xcode ]]; then
   [[ ${XCODE_VERSION:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
-  record="$config/acceptance-xcode-$XCODE_VERSION.json"
+  record="$config/$record_kind-xcode-$XCODE_VERSION.json"
   configuration=$(cat "$config/xcode-$XCODE_VERSION.json")
   if [[ ${XCODE_FLAVOR:-full} == slim ]]; then
     package_variant=slim-xcode
-    record="$config/acceptance-slim-xcode-$XCODE_VERSION.json"
+    record="$config/$record_kind-slim-xcode-$XCODE_VERSION.json"
     configuration=$(jq '.platforms = ["iOS","watchOS"] |
       .profile = {platforms:.platforms,trimIntel:true,transparentCompression:true,cleanup:true,sparsify:true}' \
       <<< "$configuration")
@@ -33,8 +36,16 @@ if [[ "$VARIANT" == xcode ]]; then
 fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
-  .target == $target and .variant == $variant and .anonymousDownloadVerified == true and
-  .constructionVMStarted == false and
+  .target == $target and .variant == $variant and .constructionVMStarted == false
+' "$record" >/dev/null
+if [[ ${BEFORE_ACCEPTANCE:-false} == true ]]; then
+  jq -e --arg actor "$GITHUB_ACTOR" '
+    .uploaded == true and .runtimeVerified == false and .acceptanceStatus == "pending" and
+    .publicationApproval.approvedBy == $actor and .publicationApproval.beforeAcceptance == true
+  ' "$record" >/dev/null
+else
+  jq -e '
+  .anonymousDownloadVerified == true and
   (.runtime.exitCode == 0 or
     (.runtime.exitCode == 1 and .runtime.review.accepted == true and
      .runtime.review.approvedBy == "cocoa-xu" and
@@ -43,6 +54,7 @@ jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
   .runtime.sourceUnchanged == true and .runtime.rosettaInstalled == false and
   .runtime.manualGuestRepair == false
 ' "$record" >/dev/null
+fi
 reference=$(jq -er .reference "$record")
 repository="$(jq -er .repository "$profile")-$package_variant"
 digest=${reference##*@}
@@ -83,3 +95,6 @@ if jq -e '.supersededCandidate != null' "$record" >/dev/null; then
     "$candidate_prefix-${previous_run%-*}-" "$previous_digest"
 fi
 printf 'Published %s at %s.\n\n' "$published" "$digest" >> "$GITHUB_STEP_SUMMARY"
+if [[ ${BEFORE_ACCEPTANCE:-false} == true ]]; then
+  printf 'Published at the recorded owner request. VM acceptance is pending.\n' >> "$GITHUB_STEP_SUMMARY"
+fi
