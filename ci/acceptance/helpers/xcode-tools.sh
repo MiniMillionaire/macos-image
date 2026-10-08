@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 source "$HOME/.zprofile"
+if [[ -n ${TOOLCHAINS:-} || -n $(launchctl getenv TOOLCHAINS) ]] ||
+  ! /bin/zsh -lc '[[ -z ${TOOLCHAINS:-} ]]'; then
+  printf 'Global TOOLCHAINS overrides are not allowed in the image.\n' >&2
+  exit 1
+fi
 configuration=/private/tmp/offline-xcode-config.json
 version=$(jq -er .configuration.version "$configuration")
 build=$(jq -er .configuration.build "$configuration")
@@ -17,7 +22,11 @@ codesign "${signature_options[@]}" "$application"
 xcodebuild -showsdks
 [[ $(xcrun --find swift) == "$application/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" ]] || exit 1
 xcrun swift --version
-xcrun --find metal
+xcodebuild -showComponent metalToolchain -json | tee /private/tmp/miso-metal-component.json
+jq -e '.status == "installed"' /private/tmp/miso-metal-component.json >/dev/null
+metal=$(xcrun --find metal)
+printf 'METAL_PATH=%s\n' "$metal"
+codesign --verify --strict '-R=anchor apple' "$metal"
 xcrun metal --version
 for platform in iOS watchOS tvOS xrOS; do
   root="/Library/Developer/DeveloperDiskImages/${platform}_DDI"

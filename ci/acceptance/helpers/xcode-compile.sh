@@ -53,6 +53,11 @@ final class AnswerTests: XCTestCase {
   func testNegative() { XCTAssertEqual(multiply(-3, 14), -42) }
 }
 SWIFT
+cat > "$work/SwiftSmoke/Tests/MisoSmokeTests/MacroTests.swift" <<'SWIFT'
+import Testing
+@testable import MisoSmoke
+@Test func multiplication() { #expect(multiply(6, 7) == 42) }
+SWIFT
 xcrun swift test --package-path "$work/SwiftSmoke" --scratch-path "$work/swift-build" --jobs 2
 cat > "$work/probe.metal" <<'METAL'
 #include <metal_stdlib>
@@ -62,7 +67,7 @@ METAL
 xcrun --sdk macosx metal -c "$work/probe.metal" -o "$work/probe.air"
 xcrun --sdk macosx metallib "$work/probe.air" -o "$work/probe.metallib"
 test -s "$work/probe.metallib"
-printf 'SDK_COMPILES=%s SWIFT_TESTS=3 METAL_LINK=passed\n' "$compiled"
+printf 'SDK_COMPILES=%s XCTEST_TESTS=3 SWIFT_TESTING_TESTS=1 METAL_LINK=passed\n' "$compiled"
 cat > "$work/audio.c" <<'C'
 #include <CoreAudio/CoreAudio.h>
 #include <stdio.h>
