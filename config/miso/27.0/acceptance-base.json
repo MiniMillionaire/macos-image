@@ -5,13 +5,13 @@
     "build": "26A428"
   },
   "variant": "base",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-base@sha256:e671b20aad3457f84376e883afe853bf831153eb89655cb76f936c5d5ac3d22a",
-  "sourceRevision": "b7aa06d36d76974a39790de84fd0983cb4f7eae9",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37693017491",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37705257970",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-base@sha256:4db12d669a8fc0c8d6efaa37e6433d1c21cc542530c0bdec38b2119c34e7f875",
+  "sourceRevision": "ce6d650d2d9c2c887983d27fd9f2a1ba8ee2f7bc",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37761617816",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37787456677",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-08T00:06:26Z",
+  "acceptedAt": "2026-10-08T13:56:04Z",
   "xcodeFlavor": null,
   "runtime": {
     "exitCode": 0,
