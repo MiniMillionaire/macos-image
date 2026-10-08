@@ -32,7 +32,8 @@ mkdir -p "$work" "$evidence"
 export PATH="$work/bin:$PATH"
 images="$work/images"
 miso="$work/bin/miso"
-parent_cache="$HOME/.cache/macos-image/offline-parent"
+parent_cache_root="$HOME/.cache/macos-image/offline-parents"
+legacy_parent_cache="$HOME/.cache/macos-image/offline-parent"
 stage=${1:?Missing operation}
 
 privileged() {
@@ -287,11 +288,25 @@ take_acceptance_source() {
 }
 
 parent_cache_directory() {
-  local directory="$parent_cache"
+  local digest bytes directory
+  digest=$(jq -er '.reference | split("@sha256:") | last' "$work/parent-identity.json")
+  bytes=$(jq -er .diskBytes "$work/parent-identity.json")
+  [[ "$digest" =~ ^[0-9a-f]{64}$ && "$bytes" =~ ^[0-9]+$ ]] || exit 1
+  parent_cache="$parent_cache_root/sha256-$digest-$bytes"
+  directory="$parent_cache"
   while [[ "$directory" != / ]]; do
     [[ ! -L "$directory" ]] || { printf 'Parent cache is a symbolic link: %s\n' "$directory" >&2; exit 1; }
     directory=$(dirname "$directory")
   done
+  (umask 077; mkdir -p "$parent_cache_root") || exit 1
+  [[ $(stat -f %u "$parent_cache_root") == "$(id -u)" ]] || exit 1
+  if [[ ! -e "$parent_cache" && -d "$legacy_parent_cache" && ! -L "$legacy_parent_cache" &&
+        -f "$legacy_parent_cache/identity.json" && ! -L "$legacy_parent_cache/identity.json" ]] &&
+    cmp -s "$work/parent-identity.json" "$legacy_parent_cache/identity.json"; then
+    [[ $(stat -f %u "$legacy_parent_cache") == "$(id -u)" ]] || exit 1
+    privileged mv "$legacy_parent_cache" "$parent_cache" || exit 1
+    printf 'Migrated retained parent image: %s\n' "$parent_cache"
+  fi
   (umask 077; mkdir -p "$parent_cache") || exit 1
   [[ $(stat -f %u "$parent_cache") == "$(id -u)" ]] || exit 1
   [[ $(stat -f %d "$parent_cache") == "$(stat -f %d "$work")" ]] || {
