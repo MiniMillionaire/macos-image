@@ -3,28 +3,39 @@ set -euo pipefail
 osascript -l JavaScript <<'JAVASCRIPT'
 const events = Application('System Events');
 const center = events.processes.byName('NotificationCenter');
+function readElement(operation, fallback) {
+    try { return operation(); }
+    catch (error) {
+        if (error.errorNumber !== -1728) throw error;
+        return fallback;
+    }
+}
 if (center.exists()) {
-    for (let attempt = 0; attempt < 5 && center.windows().length; attempt++) {
-        const pending = center.windows();
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const pending = readElement(() => center.windows(), []);
         let examined = 0;
         let dismissed = false;
         while (pending.length && examined++ < 512 && !dismissed) {
             const element = pending.shift();
-            const actions = element.actions();
+            const actions = readElement(() => element.actions(), []);
             for (const action of actions) {
-                const description = action.description();
+                const description = readElement(() => action.description(), '');
                 if (/^(Close|Clear All|Dismiss)$/i.test(description)) {
-                    action.perform();
-                    dismissed = true;
-                    break;
+                    dismissed = readElement(() => {
+                        action.perform();
+                        return true;
+                    }, false);
+                    if (dismissed) break;
                 }
             }
-            if (!dismissed && element.role() === 'AXButton' &&
-                /^(Close|Clear All|Dismiss)$/i.test(element.description() || element.name())) {
-                element.click();
-                dismissed = true;
+            if (!dismissed && readElement(() => element.role(), '') === 'AXButton' &&
+                /^(Close|Clear All|Dismiss)$/i.test(readElement(() => element.description() || element.name(), ''))) {
+                dismissed = readElement(() => {
+                    element.click();
+                    return true;
+                }, false);
             }
-            if (!dismissed) pending.push(...element.uiElements());
+            if (!dismissed) pending.push(...readElement(() => element.uiElements(), []));
         }
         if (!dismissed) break;
         delay(0.5);
