@@ -149,7 +149,12 @@ read -r x y focus_x width height < <(jq -r '[.target[0] + .target[2]/2, .target[
 chmod 700 "$log/observe-pointer.sh"
 VNC_AUTH=ard VNC_POINTER_COMMAND="$log/observe-pointer.sh" VNC_CAPTURE_PATH="$log/frame.ppm" vnc "$ip" admin "$x" "$y" "$focus_x" "$width" "$height" "$nonce" > "$log/vnc-input.json"
 remote "cat $witness" > "$log/witness-after.json"
-jq -e --arg nonce "$nonce" '.nonce == $nonce and .clicks == 1 and .text == $nonce and .window_is_key and .application_active' "$log/witness-after.json" >/dev/null
+jq -e --arg nonce "$nonce" '
+  .nonce == $nonce and .clicks == 1 and .text == $nonce and
+  ([.observed_events[] | select(.type == 10)] as $keys |
+    ($keys | length) == ($nonce | length) and
+    all($keys[]; .window_is_key and .application_active))
+' "$log/witness-after.json" >/dev/null
 session_state after-input
 negative=0
 VNC_AUTH=ard vnc "$ip" wrong-password > "$log/ard-negative.json" || negative=$?
