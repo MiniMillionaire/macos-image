@@ -60,12 +60,6 @@ limit=1500
 if [[ "$variant" == xcode ]]; then limit=3600; fi
 (sleep "$limit"; kill -TERM "$controller_pid") &
 watchdog_pid=$!
-tart run "$vm" --no-graphics --no-audio --no-clipboard > "$log/vm.log" 2>&1 &
-vm_pid=$!
-printf '%s\n' "$vm_pid" > "$log/vm.pid"
-tart ip "$vm" --wait 300 > "$log/ip.txt"
-ip=$(cat "$log/ip.txt")
-[[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 options=(-F /dev/null -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$log/known_hosts" -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o PreferredAuthentications=password)
 remote() { ssh "${options[@]}" "admin@$ip" "$@"; }
 vnc() {
@@ -91,12 +85,69 @@ remote_script() {
 session_state() {
   remote 'osascript -l JavaScript -e '\''ObjC.import("CoreGraphics"); JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.CGSessionCopyCurrentDictionary())))'\''' > "$log/session-$1.json"
 }
-ready=false
-for attempt in {1..40}; do
-  if remote 'test "$(stat -f %Su /dev/console)" = admin' </dev/null > "$log/ready.log" 2>&1; then ready=true; break; fi
-  sleep 5
+system_policy() {
+  local label=$1
+  if remote 'test -f "/Library/Application Support/MISO/system-policy.json"' </dev/null; then
+    local binary=${MISO_SYSTEM_POLICY_BINARY:-$(command -v miso)}
+    scp "${options[@]}" "$binary" "admin@$ip:/private/tmp/miso-policy-verifier" >> "$log/scp.log" 2>&1
+    local status=0
+    remote "sudo -n /private/tmp/miso-policy-verifier bundle verify-system-policy --output /private/tmp/miso-policy-$label" \
+      > "$log/system-policy-$label.json" 2> "$log/system-policy-$label.log" || status=$?
+    remote "sudo -n tar -czf - -C /private/tmp miso-policy-$label" \
+      > "$log/system-policy-$label.tar.gz" 2>> "$log/system-policy-$label.log" || status=1
+    printf 'system-policy-%s %s\n' "$label" "$status" >> "$log/checks.tsv"
+    return "$status"
+  else
+    local status=$?
+    [[ "$status" == 1 ]] || return "$status"
+  fi
+}
+boot_cycles=${MISO_BOOT_CYCLES:-1}
+[[ "$boot_cycles" == 1 || "$boot_cycles" == 2 ]] || exit 1
+monotonic() { /usr/bin/perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e 'printf "%.6f\n", clock_gettime(CLOCK_MONOTONIC)'; }
+for ((boot=1; boot<=boot_cycles; boot++)); do
+  started=$(monotonic)
+  tart run "$vm" --no-graphics --no-audio --no-clipboard > "$log/vm-$boot.log" 2>&1 &
+  vm_pid=$!
+  printf '%s\n' "$vm_pid" > "$log/vm.pid"
+  tart ip "$vm" --wait 300 > "$log/ip.txt"
+  ip=$(cat "$log/ip.txt")
+  [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+  ready=false
+  for attempt in {1..120}; do
+    if remote true </dev/null > "$log/ssh-ready-$boot.log" 2>&1; then ready=true; break; fi
+    kill -0 "$vm_pid" || exit 1
+    sleep 0.25
+  done
+  [[ "$ready" == true ]] || exit 1
+  elapsed=$(awk -v start="$started" -v end="$(monotonic)" 'BEGIN {printf "%.3f", end-start}')
+  printf '%s\t%s\n' "$boot" "$elapsed" >> "$log/boot-times.tsv"
+  printf '::notice::Boot %s: SSH ready after %s seconds.\n' "$boot" "$elapsed"
+  ready=false
+  for attempt in {1..40}; do
+    if remote 'test "$(stat -f %Su /dev/console)" = admin' </dev/null > "$log/ready.log" 2>&1; then ready=true; break; fi
+    sleep 5
+  done
+  [[ "$ready" == true ]] || exit 1
+  system_policy "boot-$boot"
+  if ((boot < boot_cycles)); then
+    shutdown_status=0
+    remote 'sudo -n /sbin/shutdown -h now' </dev/null > "$log/shutdown-$boot.log" 2>&1 || shutdown_status=$?
+    [[ "$shutdown_status" == 0 || "$shutdown_status" == 255 ]] || exit "$shutdown_status"
+    for attempt in {1..120}; do
+      kill -0 "$vm_pid" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$vm_pid" 2>/dev/null; then printf 'Guest did not shut down normally.\n' >&2; exit 1; fi
+    wait "$vm_pid"
+    vm_pid=
+    tart get "$vm" --format json > "$log/shutdown-state-$boot.json"
+    jq -e '.State == "stopped" and .Running == false' "$log/shutdown-state-$boot.json" >/dev/null
+    sleep 10
+  fi
 done
-[[ "$ready" == true ]] || exit 1
+jq -Rn '[inputs | split("\t") | {boot:(.[0]|tonumber),sshSeconds:(.[1]|tonumber)}]' \
+  < "$log/boot-times.tsv" > "$log/boot-times.json"
 printf "::notice::VM started; waiting for the guest desktop.\n"
 scp "${options[@]}" "$root/scripts/guest/user-tcc-database.sh" "admin@$ip:/tmp/macos-image-user-tcc-database.sh" > "$log/scp.log" 2>&1
 remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
@@ -165,7 +216,8 @@ remote "kill $witness_pid; rm -rf /private/tmp/InputWitness.app; rm $witness"
 session_state after-witness
 remote 'stat -f %Su /dev/console; ps -axo pid,ppid,etime,comm | egrep "(Finder|Dock|screensharing|loginwindow)"' > "$log/desktop-processes.txt"
 remote_script health "$helpers/health.sh"
-grep -qx 'BOOT_EVENTS=1' "$log/health.log"
+grep -qx "BOOT_EVENTS=$boot_cycles" "$log/health.log"
 if [[ "$variant" == xcode ]]; then remote_script dismiss-notifications "$helpers/dismiss-notifications.sh"; fi
 remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
+system_policy final
 printf 'RUNTIME_ACCEPTANCE_PASSED\n'
