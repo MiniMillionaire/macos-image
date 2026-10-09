@@ -5,13 +5,13 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:2b9438e3d835a7fab6c64011a6a5f453edcd252d22a789ed6ca51457a659cf94",
-  "sourceRevision": "7fd245bbecb3fd15a55b407e9bed4bba4972c23b",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37865174517",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37882277588",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:118cda20c9678caa95b7190cd81e9676baf8e7a59c480e29cedefc03138cd0a3",
+  "sourceRevision": "83fc422d9efc723bffcb50494a7bda2ae5f7beec",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37917884347",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37934834725",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-09T04:11:46Z",
+  "acceptedAt": "2026-10-09T13:22:07Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -32,6 +32,8 @@
       "tart": "2.40.1"
     },
     "checks": [
+      "system-policy-boot-1",
+      "system-policy-boot-2",
       "original-requirements",
       "xcode-tools",
       "compile",
@@ -43,10 +45,27 @@
       "safari",
       "health",
       "dismiss-notifications",
-      "final-desktop"
+      "final-desktop",
+      "system-policy-final"
     ],
     "authenticationAndInputVerified": true,
-    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact.",
+    "systemPolicy": {
+      "absentServices": 0,
+      "configuredServices": 104,
+      "preferences": 15,
+      "runtimeVerified": true
+    },
+    "bootTimes": [
+      {
+        "boot": 1,
+        "sshSeconds": 9.703
+      },
+      {
+        "boot": 2,
+        "sshSeconds": 6.174
+      }
+    ]
   },
   "xcodeConfiguration": {
     "build": "27A9275",
@@ -63,7 +82,32 @@
         "iOS",
         "watchOS"
       ],
+      "preset": "slim",
       "sparsify": true,
+      "system": {
+        "features": {
+          "advertising": "disabled",
+          "appleIntelligence": "disabled",
+          "cloudSync": "disabled",
+          "continuity": "disabled",
+          "home": "disabled",
+          "messages": "disabled",
+          "personalApps": "disabled",
+          "photoAnalysis": "disabled",
+          "siri": "disabled",
+          "telemetryUpload": "disabled"
+        },
+        "services": {
+        },
+        "settings": {
+          "automaticAppUpdates": false,
+          "automaticBackups": false,
+          "automaticOSUpdates": false,
+          "securityDataUpdates": true,
+          "sessionRestore": false,
+          "spotlightIndexing": false
+        }
+      },
       "transparentCompression": true,
       "trimIntel": true
     },
