@@ -35,6 +35,13 @@ if [[ "$IMAGE_TYPE" == xcode ]]; then
     > "$work/evidence/acceptance-xcode.json"
   mv "$work/evidence/acceptance-xcode.json" "$work/evidence/acceptance.json"
 fi
+if [[ -f "$work/runtime/system-policy-final.json" ]]; then
+  jq --slurpfile policy "$work/runtime/system-policy-final.json" \
+    --slurpfile boots "$work/runtime/boot-times.json" \
+    '.runtime += {systemPolicy:$policy[0],bootTimes:$boots[0]}' "$work/evidence/acceptance.json" \
+    > "$work/evidence/acceptance-policy.json"
+  mv "$work/evidence/acceptance-policy.json" "$work/evidence/acceptance.json"
+fi
 if [[ -f "$work/cloud/inherited-xcode.json" ]]; then
   jq --slurpfile parent "$work/cloud/inherited-xcode.json" \
     '.supersededCandidate = ($parent[0] | {reference,run})' "$work/evidence/acceptance.json" \

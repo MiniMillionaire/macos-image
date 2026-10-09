@@ -14,6 +14,13 @@ export SSH_ASKPASS="$helpers/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0
 export PATH="$run/tools/tart.app/Contents/MacOS:$PATH"
 [[ -f "$TART_HOME/vms/source/disk.img" ]] || exit 1
 mkdir "$log"
+policy_required=false
+if [[ "$variant" == xcode ]]; then
+  /bin/bash "$root/ci/acceptance/xcode-config.sh" "$run/cloud" > "$log/xcode-config.json"
+  if jq -e '.configuration.profile.system // {} | any(.[]; length > 0)' "$log/xcode-config.json" >/dev/null; then
+    policy_required=true
+  fi
+fi
 expected_version=$(jq -er .target.version "$run/cloud/publication.json")
 expected_build=$(jq -er .target.build "$run/cloud/publication.json")
 source_state() {
@@ -88,6 +95,12 @@ session_state() {
 system_policy() {
   local label=$1
   if remote 'test -f "/Library/Application Support/MISO/system-policy.json"' </dev/null; then
+    printf '\n::group::Verify system policy (%s)\n' "$label"
+    remote 'cat "/Library/Application Support/MISO/system-policy.json"' > "$log/system-policy-$label-receipt.json"
+    if [[ "$policy_required" == true ]]; then
+      jq -e --slurpfile expected "$log/xcode-config.json" \
+        '.policy == $expected[0].configuration.profile.system' "$log/system-policy-$label-receipt.json" >/dev/null
+    fi
     local binary=${MISO_SYSTEM_POLICY_BINARY:-$(command -v miso)}
     scp "${options[@]}" "$binary" "admin@$ip:/private/tmp/miso-policy-verifier" >> "$log/scp.log" 2>&1
     local status=0
@@ -95,11 +108,18 @@ system_policy() {
       > "$log/system-policy-$label.json" 2> "$log/system-policy-$label.log" || status=$?
     remote "sudo -n tar -czf - -C /private/tmp miso-policy-$label" \
       > "$log/system-policy-$label.tar.gz" 2>> "$log/system-policy-$label.log" || status=1
+    cat "$log/system-policy-$label.json"
+    if [[ "$status" != 0 ]]; then tail -n 12 "$log/system-policy-$label.log" >&2; fi
+    printf '::endgroup::\n'
     printf 'system-policy-%s %s\n' "$label" "$status" >> "$log/checks.tsv"
     return "$status"
   else
     local status=$?
     [[ "$status" == 1 ]] || return "$status"
+    if [[ "$policy_required" == true ]]; then
+      printf 'Required system policy receipt is missing from the guest.\n' >&2
+      return 1
+    fi
   fi
 }
 boot_cycles=${MISO_BOOT_CYCLES:-1}
@@ -152,7 +172,6 @@ printf "::notice::VM started; waiting for the guest desktop.\n"
 scp "${options[@]}" "$root/scripts/guest/user-tcc-database.sh" "admin@$ip:/tmp/macos-image-user-tcc-database.sh" > "$log/scp.log" 2>&1
 remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 if [[ "$variant" == xcode ]]; then
-  /bin/bash "$root/ci/acceptance/xcode-config.sh" "$run/cloud" > "$log/xcode-config.json"
   scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
   remote_script xcode-tools "$helpers/xcode-tools.sh"
   remote_script compile "$helpers/xcode-compile.sh"
