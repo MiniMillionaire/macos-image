@@ -158,7 +158,11 @@ int main(int argc, char **argv) {
     require(setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == 0, "Send timeout failed");
     struct sockaddr_in address = {.sin_family = AF_INET, .sin_port = htons(5900)};
     require(inet_pton(AF_INET, argv[1], &address.sin_addr) == 1, "Invalid IP");
-    require(connect(fd, (struct sockaddr *)&address, sizeof(address)) == 0, "Connect failed");
+    if (connect(fd, (struct sockaddr *)&address, sizeof(address)) != 0) {
+        perror("VNC connect");
+        close(fd);
+        return 1;
+    }
     uint8_t banner[12];
     transfer(fd, banner, sizeof(banner), 0);
     require(memcmp(banner, "RFB 003.", 8) == 0, "Unexpected RFB version");

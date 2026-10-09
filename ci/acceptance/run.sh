@@ -68,6 +68,15 @@ ip=$(cat "$log/ip.txt")
 [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 options=(-F /dev/null -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$log/known_hosts" -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o PreferredAuthentications=password)
 remote() { ssh "${options[@]}" "admin@$ip" "$@"; }
+vnc() {
+  local privilege=(sudo -n)
+  if [[ -n ${MISO_ROOT_COMMAND:-} ]]; then privilege=("$MISO_ROOT_COMMAND"); fi
+  "${privilege[@]}" /usr/bin/env \
+    "SSH_ASKPASS=$SSH_ASKPASS" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+    "VNC_AUTH=${VNC_AUTH:-}" "VNC_POINTER_COMMAND=${VNC_POINTER_COMMAND:-}" \
+    "VNC_CAPTURE_PATH=${VNC_CAPTURE_PATH:-}" \
+    /bin/sh -c 'umask 022; exec "$@"' vnc-client "$run/tools/vnc-smoke" "$@"
+}
 remote_script() {
   local name=$1 file=$2
   shift 2
@@ -107,10 +116,10 @@ fi
 if SSH_ASKPASS="$helpers/wrong-askpass.sh" remote true </dev/null > "$log/ssh-negative.log" 2>&1; then exit 1; fi
 grep -q 'Permission denied' "$log/ssh-negative.log"
 session_state before-vnc
-"$run/tools/vnc-smoke" "$ip" admin > "$log/vnc-positive.json"
+vnc "$ip" admin > "$log/vnc-positive.json"
 session_state after-vnc
 negative=0
-"$run/tools/vnc-smoke" "$ip" wrong-password > "$log/vnc-negative.json" || negative=$?
+vnc "$ip" wrong-password > "$log/vnc-negative.json" || negative=$?
 [[ "$negative" == 2 ]] || exit 1
 session_state after-negative
 remote 'if pkgutil --pkg-info com.apple.pkg.RosettaUpdateAuto; then exit 1; fi; test ! -e /Library/Apple/usr/libexec/oah/libRosettaRuntime' > "$log/no-rosetta.log" 2>&1
@@ -138,12 +147,12 @@ read -r x y focus_x width height < <(jq -r '[.target[0] + .target[2]/2, .target[
   printf '| /usr/bin/jq -r '\''@tsv'\''\n'
 } > "$log/observe-pointer.sh"
 chmod 700 "$log/observe-pointer.sh"
-VNC_AUTH=ard VNC_POINTER_COMMAND="$log/observe-pointer.sh" VNC_CAPTURE_PATH="$log/frame.ppm" "$run/tools/vnc-smoke" "$ip" admin "$x" "$y" "$focus_x" "$width" "$height" "$nonce" > "$log/vnc-input.json"
+VNC_AUTH=ard VNC_POINTER_COMMAND="$log/observe-pointer.sh" VNC_CAPTURE_PATH="$log/frame.ppm" vnc "$ip" admin "$x" "$y" "$focus_x" "$width" "$height" "$nonce" > "$log/vnc-input.json"
 remote "cat $witness" > "$log/witness-after.json"
 jq -e --arg nonce "$nonce" '.nonce == $nonce and .clicks == 1 and .text == $nonce and .window_is_key and .application_active' "$log/witness-after.json" >/dev/null
 session_state after-input
 negative=0
-VNC_AUTH=ard "$run/tools/vnc-smoke" "$ip" wrong-password > "$log/ard-negative.json" || negative=$?
+VNC_AUTH=ard vnc "$ip" wrong-password > "$log/ard-negative.json" || negative=$?
 [[ "$negative" == 2 ]] || exit 1
 session_state after-ard-negative
 witness_pid=$(jq -er '.pid | select(. > 1)' "$log/witness-after.json")
