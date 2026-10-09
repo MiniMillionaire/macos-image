@@ -18,16 +18,18 @@ tag=$(jq -er .target.version "$profile")
 if [[ "$VARIANT" == xcode ]]; then
   [[ ${XCODE_VERSION:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
   record="$config/$record_kind-xcode-$XCODE_VERSION.json"
-  configuration=$(cat "$config/xcode-$XCODE_VERSION.json")
+  profile_options=(--config "$config/xcode-$XCODE_VERSION.json")
   if [[ ${XCODE_FLAVOR:-full} == slim ]]; then
     package_variant=slim-xcode
     record="$config/$record_kind-slim-xcode-$XCODE_VERSION.json"
-    configuration=$(jq '.platforms = ["iOS","watchOS"] |
-      .profile = {platforms:.platforms,trimIntel:true,transparentCompression:true,cleanup:true,sparsify:true}' \
-      <<< "$configuration")
+    profile_options+=(--slim)
   fi
-  jq -e --argjson configuration "$configuration" --arg flavor "${XCODE_FLAVOR:-full}" \
-    '.xcodeConfiguration == $configuration and (.xcodeFlavor // "full") == $flavor' "$record" >/dev/null
+  configuration=$(miso xcode defaults "${profile_options[@]}")
+  if ! jq -e --argjson configuration "$configuration" --arg flavor "${XCODE_FLAVOR:-full}" \
+    '.xcodeConfiguration == $configuration and (.xcodeFlavor // "full") == $flavor' "$record" >/dev/null; then
+    printf 'Accepted Xcode configuration does not match the requested MISO profile.\n' >&2
+    exit 1
+  fi
   xcode_tag=$XCODE_VERSION
   if [[ "$xcode_tag" =~ ^([0-9]+(\.[0-9]+)*)(beta|rc)([0-9]*)$ ]]; then
     xcode_tag="${BASH_REMATCH[1]}-${BASH_REMATCH[3]}${BASH_REMATCH[4]}"
