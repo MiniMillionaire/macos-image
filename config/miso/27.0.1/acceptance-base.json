@@ -5,12 +5,14 @@
     "build": "26A434"
   },
   "variant": "base",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-base@sha256:42bcd291d967b540484e21a214ef84901292a607f6ff578260a76b4f53ac7bfc",
-  "sourceRevision": "a51502e73c3a87f8de4fe8b626ee4887cda12d54",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37500536724",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-base@sha256:71c7d1bfbe328bb15ea92328f9db623c825841a7f08c29be28b51dfd3fa52fe5",
+  "sourceRevision": "c1b025a09464d4368b6619f643f973db7f297b4d",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37940181540",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37987933718",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-06T22:05:25Z",
+  "acceptedAt": "2026-10-09T20:43:14Z",
+  "xcodeFlavor": null,
   "runtime": {
     "exitCode": 0,
     "vmStarted": true,
@@ -19,6 +21,10 @@
     "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
     "rosettaInstalled": false,
     "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
     "host": {
       "model": "Mac17,16",
       "macOS": "27.0",
@@ -26,30 +32,15 @@
       "tart": "2.40.1"
     },
     "checks": [
-      "macOS version and build",
-      "automatic login and clean unlocked desktop",
-      "account and passwordless sudo",
-      "locale, keyboard and timezone",
-      "Gatekeeper and FileVault configuration",
-      "CLT selection and macOS SDK 27.0",
-      "C and Swift compile and execution",
-      "SSH positive and negative authentication",
-      "VNC password positive and negative authentication",
-      "ARD positive and negative authentication",
-      "VNC screenshot, mouse and keyboard input",
-      "no Rosetta",
-      "single boot",
-      "stopped disposable clone and unchanged source",
-      "Homebrew missing dependencies and linkage",
-      "Ruby, OpenSSL, Psych, zlib and Bundler",
-      "Node, npm, Yarn and pnpm",
-      "Tart guest agent and Git credential tools",
-      "SIP disabled and authenticated root enabled",
-      "Developer authorization and automation mode",
-      "Time Machine and Spotlight configuration",
-      "Python certificate store (192 CAs)",
-      "TCC UI scripting, file save and screen capture",
-      "Safari WebDriver session and DOM interaction"
-    ]
+      "original-requirements",
+      "compile",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Health and boot checks retained; crash archive not collected."
   }
 }
