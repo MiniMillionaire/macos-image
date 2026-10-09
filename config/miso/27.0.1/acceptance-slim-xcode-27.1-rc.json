@@ -5,13 +5,13 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:bf40a3e127372b90ca3e4378ca843e327414f02254ee70e24d3e03b4241fe8a2",
-  "sourceRevision": "50ffca9a7e9d64f0cb27ad48e958361e3e120308",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37600686735",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37605875255",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:2b9438e3d835a7fab6c64011a6a5f453edcd252d22a789ed6ca51457a659cf94",
+  "sourceRevision": "7fd245bbecb3fd15a55b407e9bed4bba4972c23b",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37865174517",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37882277588",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-07T10:26:00Z",
+  "acceptedAt": "2026-10-09T04:11:46Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -21,6 +21,10 @@
     "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
     "rosettaInstalled": false,
     "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
     "host": {
       "model": "Mac17,16",
       "macOS": "27.0",
@@ -42,19 +46,7 @@
       "final-desktop"
     ],
     "authenticationAndInputVerified": true,
-    "diagnostics": "Retained in the acceptance artifact",
-    "diagnosticsReview": {
-      "reportCount": 16,
-      "kernelPanics": 0,
-      "simulatorShutdownTimeouts": 9,
-      "simulatorAssertions": 4,
-      "simulatorAborts": 1,
-      "webdriverIconCacheUserFaults": 1,
-      "jetsamEvents": 1,
-      "jetsamProcess": "filederivatived",
-      "jetsamReason": "per-process-limit",
-      "conclusion": "Required functional checks passed. Diagnostic reports are retained; no claim of crash-free simulator services."
-    }
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
   },
   "xcodeConfiguration": {
     "build": "27A9275",
@@ -78,9 +70,5 @@
     "runtimeArchitecture": "arm64",
     "schemaVersion": 1,
     "version": "27.1"
-  },
-  "supersededCandidate": {
-    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:be1e8e52a92bda6cf2a782aa5b67fc34b1334a077d5bc980943c505d90b03cc5",
-    "run": "37579538945-1"
   }
 }
