@@ -45,7 +45,7 @@ jobs:
     if: github.repository == 'MiniMillionaire/macos-image' && github.ref == 'refs/heads/main'
     environment: image-acceptance
     runs-on: [self-hosted, macOS, ARM64, macos-image-secondary]
-    timeout-minutes: 120
+    timeout-minutes: ${{ inputs.image_type == 'xcode' && 360 || 120 }}
     defaults:
       run:
         shell: bash
