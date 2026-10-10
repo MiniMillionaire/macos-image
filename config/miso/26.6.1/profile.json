@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "26.6.1",
+    "build": "25G76"
+  },
+  "ipsw": "https://updates.cdn-apple.com/2026SummerFCS/fullrestores/140-83079/25315EF6-AEAB-4588-9774-A3723774C47F/UniversalMac_26.6.1_25G76_Restore.ipsw",
+  "ipswBytes": 19772153977,
+  "ipswSHA256": "ebea9fbe4afd84eed0a4f9673b75cd0f46e15576e01615026368b6e5f1af0f03",
+  "diskBytes": 68719476736,
+  "repository": "ghcr.io/minimillionaire/macos-tahoe",
+  "inspectBasePolicy": true,
+  "policySource": {
+    "version": "26.6.2",
+    "build": "25G83"
+  }
+}

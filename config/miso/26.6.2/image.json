@@ -1,0 +1,18 @@
+{
+  "automatic_login": true,
+  "desktop_defaults": true,
+  "disable_sleep": true,
+  "filevault": false,
+  "full_name": "admin",
+  "gatekeeper_enabled": false,
+  "include_linux_translation": false,
+  "install_rosetta": false,
+  "password": "admin",
+  "passwordless_sudo": true,
+  "remote_login": true,
+  "schema_version": 1,
+  "screen_sharing": true,
+  "time_zone": "GMT",
+  "username": "admin",
+  "vnc_password": "admin"
+}

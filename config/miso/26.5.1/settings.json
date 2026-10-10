@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "26.5.1",
+    "build": "25F80"
+  },
+  "mdsSHA256": "cb283c61a6a5bea8bb3615eaa7eb05f52dacb2eee41c522c75f9857d05f8c5b7",
+  "indexVersion": 100,
+  "tartVersion": "0.15.0"
+}

@@ -167,6 +167,18 @@ software() {
   cp "$work/software/preparation.json" "$evidence/software-preparation.json"
 }
 
+policy() {
+  if [[ $(jq -r '.inspectBasePolicy // false' "$profile") != true ]]; then return; fi
+  privileged "$miso" base prepare-policy --source "$work/vanilla" \
+    --security "$config/security.json" --settings "$config/settings.json" \
+    --output "$work/target-policy" | tee "$evidence/policy.json" >/dev/null
+  mkdir -p "$evidence/policy"
+  local name
+  for name in security settings; do
+    privileged cat "$work/target-policy/$name.json" > "$evidence/policy/$name.json"
+  done
+}
+
 import_parent() {
   [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
   local parent="$work/parent-evidence" reference attempt expected_manifest parent_variant manifest artifact parent_package
@@ -382,8 +394,12 @@ base() {
   local agent python snapshot classification runner
   agent=$(jq -er '.taps[].formulas[] | select(.name == "tart-guest-agent") |
     .version + (if .revision == 0 then "" else "_" + (.revision|tostring) end)' "$work/software/taps/plan.json")
+  local policy_directory="$config"
+  if [[ $(jq -r '.inspectBasePolicy // false' "$profile") == true ]]; then
+    policy_directory="$work/target-policy"
+  fi
   for name in security settings; do
-    jq --arg version "$agent" '.tartVersion = $version' "$config/$name.json" > "$work/plans/$name.json"
+    privileged jq --arg version "$agent" '.tartVersion = $version' "$policy_directory/$name.json" > "$work/plans/$name.json"
   done
   snapshot=$(record plans/trust-snapshot.json)
   jq --arg hash "$(jq -r .sha256 <<< "$snapshot")" '.snapshot_sha256 = $hash' \
@@ -531,7 +547,7 @@ trap finish EXIT
 ) &
 monitor_pid=$!
 case "$stage" in
-  prepare|download|restore|software|base|publish|collect|cleanup) "$stage" ;;
+  prepare|download|restore|policy|software|base|publish|collect|cleanup) "$stage" ;;
   export) export_image ;;
   import) import_parent ;;
   xcode-inputs) bash "$root/ci/offline-xcode.sh" prepare ;;

@@ -1,0 +1,1543 @@
+{
+  "target": {
+    "product_version": "26.6",
+    "product_build": "25G72"
+  },
+  "files": [
+    {
+      "path": "System/Library/Keychains/SystemRootCertificates.keychain",
+      "bytes": 342288,
+      "sha256": "4d0d58b9e80c2b42a4647c6de5b90d64325ac72a418f768c25bfa29b969dc4df"
+    },
+    {
+      "path": "System/Library/Keychains/SystemTrustSettings.plist",
+      "bytes": 62188,
+      "sha256": "81201f2a8c9bbe75191cb2d3d40deed893872f7e3b4ed34d85a02b2d42f5477a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/AnalyticsSamplingRates.plist",
+      "bytes": 2173,
+      "sha256": "31ce3bfbd9f211b768282134aeabbeb0e2cb05cc4d83e9addda9ee7dc42db2ff"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/002393FA0A6825F77EF686E208620B97177791F02F07DB2518480FBE37CE7BD8.cer",
+      "bytes": 1629,
+      "sha256": "002393fa0a6825f77ef686e208620b97177791f02f07db2518480fbe37ce7bd8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/009DBAD686CECD81D13ACAC4F673DCBA5EEB789E63173CDE136CB2880C1DCE79.cer",
+      "bytes": 1847,
+      "sha256": "009dbad686cecd81d13acac4f673dcba5eeb789e63173cde136cb2880c1dce79"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/018E13F0772532CF809BD1B17281867283FC48C6E13BE9C69812854A490C1B05.cer",
+      "bytes": 541,
+      "sha256": "018e13f0772532cf809bd1b17281867283fc48c6e13be9c69812854a490c1b05"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/02ED0EB28C14DA45165C566791700D6451D7FB56F0B2AB1D3B8EB070E56EDFF5.cer",
+      "bytes": 765,
+      "sha256": "02ed0eb28c14da45165c566791700d6451d7fb56f0b2ab1d3b8eb070e56edff5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0376AB1D54C5F9803CE4B2E201A0EE7EEF7B57B636E8A93C9B8D4860C96F5FA7.cer",
+      "bytes": 848,
+      "sha256": "0376ab1d54c5f9803ce4b2e201a0ee7eef7b57b636e8a93c9b8d4860c96f5fa7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/04048028BF1F2864D48F9AD4D83294366A828856553F3B14303F90147F5D40EF.cer",
+      "bytes": 1560,
+      "sha256": "04048028bf1f2864d48f9ad4d83294366a828856553f3b14303f90147f5d40ef"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/063E4AFAC491DFD332F3089B8542E94617D893D7FE944E10A7937EE29D9693C0.cer",
+      "bytes": 1875,
+      "sha256": "063e4afac491dfd332f3089b8542e94617d893d7fe944e10a7937ee29d9693c0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/072C239E48EE4117F279351A1F39E2B2C85A34DA655243EFFF18D99BCB10F914.cer",
+      "bytes": 1839,
+      "sha256": "072c239e48ee4117f279351a1f39e2b2c85a34da655243efff18d99bcb10f914"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/07F2CE55CA1AA6CB992719B1E423C1D02C1EA759A6E2EAB4E150C88282E22550.cer",
+      "bytes": 1813,
+      "sha256": "07f2ce55ca1aa6cb992719b1e423c1d02c1ea759a6e2eab4e150c88282e22550"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/097538169F89D9ECF770E116270EC7E12007AD155052820220F4B38E5C0B1181.cer",
+      "bytes": 1606,
+      "sha256": "097538169f89d9ecf770e116270ec7e12007ad155052820220f4b38e5c0b1181"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0A81EC5A929777F145904AF38D5D509F66B5E2C58FCDB531058B0E17F3F0B41B.cer",
+      "bytes": 848,
+      "sha256": "0a81ec5a929777f145904af38d5d509f66b5e2c58fcdb531058b0e17f3f0b41b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0C2CD63DF7806FA399EDE809116B575BF87989F06518F9808C860503178BAF66.cer",
+      "bytes": 1057,
+      "sha256": "0c2cd63df7806fa399ede809116b575bf87989f06518f9808c860503178baf66"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0CB9124CADFF41D02701F59B477D71E2690B38ADD9F524C49BBED0140AD9B9EC.cer",
+      "bytes": 1410,
+      "sha256": "0cb9124cadff41d02701f59b477d71e2690b38add9f524c49bbed0140ad9b9ec"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0DFF96A96D9D704A543F11D66092447F0590B8DFC5302F8931452864C4EA9215.cer",
+      "bytes": 572,
+      "sha256": "0dff96a96d9d704a543f11d66092447f0590b8dfc5302f8931452864c4ea9215"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/0E1F3A20040ED5B272DCC939E7B8D5B0F4BED764C95CE16CB0A47CA4560A3695.cer",
+      "bytes": 928,
+      "sha256": "0e1f3a20040ed5b272dcc939e7b8d5b0f4bed764c95ce16cb0a47ca4560a3695"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/136335439334A7698016A0D324DE72284E079D7B5220BB8FBD747816EEBEBACA.cer",
+      "bytes": 1869,
+      "sha256": "136335439334a7698016a0d324de72284e079d7b5220bb8fbd747816eebebaca"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1435F225C5D252D7A21948CC3CE62AECFA88001E3DD72D1CC3555100EB372F93.cer",
+      "bytes": 1438,
+      "sha256": "1435f225c5d252d7a21948cc3ce62aecfa88001e3dd72d1cc3555100eb372f93"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1465FA205397B876FAA6F0A9958E5590E40FCC7FAA4FB7C2C8677521FB5FB658.cer",
+      "bytes": 1043,
+      "sha256": "1465fa205397b876faa6f0a9958e5590e40fcc7faa4fb7c2c8677521fb5fb658"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1793927A0614549789ADCE2F8F34F7F0B66D0F3AE3A3B84D21EC15DBBA4FADC7.cer",
+      "bytes": 653,
+      "sha256": "1793927a0614549789adce2f8f34f7f0b66d0f3ae3a3b84d21ec15dbba4fadc7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/179FBC148A3DD00FD24EA13458CC43BFA7F59C8182D783A513F6EBEC100C8924.cer",
+      "bytes": 546,
+      "sha256": "179fbc148a3dd00fd24ea13458cc43bfa7f59c8182d783a513f6ebec100c8924"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/18CE6CFE7BF14E60B2E347B8DFE868CB31D02EBB3ADA271569F50343B46DB3A4.cer",
+      "bytes": 442,
+      "sha256": "18ce6cfe7bf14e60b2e347b8dfe868cb31d02ebb3ada271569f50343b46db3a4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/18F1FC7F205DF8ADDDEB7FE007DD57E3AF375A9C4D8D73546BF4F1FED1E18D35.cer",
+      "bytes": 1697,
+      "sha256": "18f1fc7f205df8adddeb7fe007dd57e3af375a9c4d8d73546bf4f1fed1e18d35"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1BA5B2AA8C65401A82960118F80BEC4F62304D83CEC4713A19C39C011EA46DB4.cer",
+      "bytes": 1349,
+      "sha256": "1ba5b2aa8c65401a82960118f80bec4f62304d83cec4713a19c39c011ea46db4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1BD3870B842FF0A637284268017E18E455A7FD2D84468F3CDF7D587C7AB35C9D.cer",
+      "bytes": 1912,
+      "sha256": "1bd3870b842ff0a637284268017e18e455a7fd2d84468f3cdf7d587c7ab35c9d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1BE7ABE30686B16348AFD1C61B6866A0EA7F4821E67D5E8AF937CF8011BC750D.cer",
+      "bytes": 1454,
+      "sha256": "1be7abe30686b16348afd1c61b6866a0ea7f4821e67d5e8af937cf8011bc750d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1C28A8C009F25850B9155533D4A9A14C534B24DA84756E82D6150B5062D63704.cer",
+      "bytes": 2123,
+      "sha256": "1c28a8c009f25850b9155533d4a9a14c534b24da84756e82d6150b5062d63704"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1D4CA4A2AB21D0093659804FC0EB2175A617279B56A2475245C9517AFEB59153.cer",
+      "bytes": 1427,
+      "sha256": "1d4ca4a2ab21d0093659804fc0eb2175a617279b56a2475245c9517afeb59153"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/1EDB6BD91274882DB795BFC514F8AABE10AD955CBCCFD3FD5A5B5FEBB2CE5B68.cer",
+      "bytes": 905,
+      "sha256": "1edb6bd91274882db795bfc514f8aabe10ad955cbccfd3fd5a5b5febb2ce5b68"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2071277A5F5E5477F0533ACE6419CDA4E7E88CF4366EE2175EBB794A0243B636.cer",
+      "bytes": 1654,
+      "sha256": "2071277a5f5e5477f0533ace6419cda4e7e88cf4366ee2175ebb794a0243b636"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/22A2C1F7BDED704CC1E701B5F408C310880FE956B5DE2A4A44F99C873A25A7C8.cer",
+      "bytes": 664,
+      "sha256": "22a2c1f7bded704cc1e701b5f408c310880fe956b5de2a4a44f99c873a25a7c8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/22D9599234D60F1D4BC7C7E96F43FA555B07301FD475175089DAFB8C25E477B3.cer",
+      "bytes": 565,
+      "sha256": "22d9599234d60f1d4bc7c7e96f43fa555b07301fd475175089dafb8c25e477b3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2316D05A2E2D347FA141135B98ED09F56E81F1CF5679793D3B39DD6D8E461A48.cer",
+      "bytes": 1571,
+      "sha256": "2316d05a2e2d347fa141135b98ed09f56e81f1cf5679793d3b39dd6d8e461a48"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/242B69742FCB1E5B2ABF98898B94572187544E5B4D9911786573621F6A74B82C.cer",
+      "bytes": 1400,
+      "sha256": "242b69742fcb1e5b2abf98898b94572187544e5b4d9911786573621f6a74b82c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2530CC8E98321502BAD96F9B1FBA1B099E2D299E0F4548BB914F363BC0D4531F.cer",
+      "bytes": 1525,
+      "sha256": "2530cc8e98321502bad96f9b1fba1b099e2d299e0f4548bb914f363bc0d4531f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/258C108D81DC81A4808420C5CC4F47501057481E737334E1CCA631CD212E1ED1.cer",
+      "bytes": 1687,
+      "sha256": "258c108d81dc81a4808420c5cc4f47501057481e737334e1cca631cd212e1ed1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2605875AFCC176B2D66DD66A995D7F8D5EBB86CE120D0E7E9E7C6EF294A27D4C.cer",
+      "bytes": 1541,
+      "sha256": "2605875afcc176b2d66dd66a995d7f8d5ebb86ce120d0e7e9e7c6ef294a27d4c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2AA219A1DF9E699C513E3304224C0695AB0BC244BF3334F7B1EE8DB12E16AE9B.cer",
+      "bytes": 537,
+      "sha256": "2aa219a1df9e699c513e3304224c0695ab0bc244bf3334f7b1ee8db12e16ae9b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2CABEAFE37D06CA22ABA7391C0033D25982952C453647349763A3AB5AD6CCF69.cer",
+      "bytes": 1415,
+      "sha256": "2cabeafe37d06ca22aba7391c0033d25982952c453647349763a3ab5ad6ccf69"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2CE1CB0BF9D2F9E102993FBE215152C3B2DD0CABDE1C68E5319B839154DBB7F5.cer",
+      "bytes": 993,
+      "sha256": "2ce1cb0bf9d2f9e102993fbe215152c3b2dd0cabde1c68e5319b839154dbb7f5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2DE620F2D1200AA90B16C3CCF670FD7ED14379AB06FA8B031CFEF8DA051EA5A2.cer",
+      "bytes": 1942,
+      "sha256": "2de620f2d1200aa90b16c3ccf670fd7ed14379ab06fa8b031cfef8da051ea5a2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2E196AD4CF4406BFFC94E1740CF41FEB0976FCC3C755633DA508207DC52548F7.cer",
+      "bytes": 1420,
+      "sha256": "2e196ad4cf4406bffc94e1740cf41feb0976fcc3c755633da508207dc52548f7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/2E7BF16CC22485A7BBE2AA8696750761B0AE39BE3B2FE9D0CC6D4EF73491425C.cer",
+      "bytes": 1519,
+      "sha256": "2e7bf16cc22485a7bbe2aa8696750761b0ae39be3b2fe9d0cc6d4ef73491425c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/306BF8099636A44FFFB5EEDCE6E30C0F36C7D43F6CCA5A2CA3AB71668F353320.cer",
+      "bytes": 1914,
+      "sha256": "306bf8099636a44fffb5eedce6e30c0f36c7d43f6cca5a2ca3ab71668f353320"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/30D0895A9A448A262091635522D1F52010B5867ACAE12C78EF958FD4F4389F2F.cer",
+      "bytes": 1386,
+      "sha256": "30d0895a9a448a262091635522d1f52010b5867acae12c78ef958fd4f4389f2f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/319AF0A7729E6F89269C131EA6A3A16FCD86389FDCAB3C47A4A675C161A3F974.cer",
+      "bytes": 1396,
+      "sha256": "319af0a7729e6f89269c131ea6a3a16fcd86389fdcab3c47a4a675c161a3f974"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/31AD6648F8104138C738F39EA4320133393E3A18CC02296EF97C2AC9EF6731D0.cer",
+      "bytes": 579,
+      "sha256": "31ad6648f8104138c738f39ea4320133393e3a18cc02296ef97c2ac9ef6731d0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/339E6B92BE5459F26A8DC3C5F3720933C838E236601B050048C047A123E6F8E7.cer",
+      "bytes": 1638,
+      "sha256": "339e6b92be5459f26a8dc3c5f3720933c838e236601b050048c047a123e6f8e7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3417BB06CC6007DA1B961C920B8AB4CE3FAD820E4AA30B9ACBC4A74EBDCEBC65.cer",
+      "bytes": 657,
+      "sha256": "3417bb06cc6007da1b961c920b8ab4ce3fad820e4aa30b9acbc4a74ebdcebc65"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3456A32F3E5C96275DB44319B0A835E81754EE523E6F3D19CB5F39F56A53CCE9.cer",
+      "bytes": 1761,
+      "sha256": "3456a32f3e5c96275db44319b0a835e81754ee523e6f3d19cb5f39f56a53cce9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/349DFA4058C5E263123B398AE795573C4E1313C83FE68F93556CD5E8031B3C7D.cer",
+      "bytes": 525,
+      "sha256": "349dfa4058c5e263123b398ae795573c4e1313c83fe68f93556cd5e8031b3c7d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/34D8A73EE208D9BCDB0D956520934B4E40E69482596E8B6F73C8426B010A6F48.cer",
+      "bytes": 525,
+      "sha256": "34d8a73ee208d9bcdb0d956520934b4e40e69482596e8b6f73c8426b010a6f48"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3572CC46440D3F79056CD041F3BBE358292965043B4CE52DBB9EAF9D96278307.cer",
+      "bytes": 1083,
+      "sha256": "3572cc46440d3f79056cd041f3bbe358292965043b4ce52dbb9eaf9d96278307"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/358DF39D764AF9E1B766E9C972DF352EE15CFAC227AF6AD1D70E8E4A6EDCBA02.cer",
+      "bytes": 605,
+      "sha256": "358df39d764af9e1b766e9c972df352ee15cfac227af6ad1d70e8e4a6edcba02"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/35A1FAA8C81125666D26F0A6E864DDEAA70431CC1570DC883CF147CD196E4AB6.cer",
+      "bytes": 1861,
+      "sha256": "35a1faa8c81125666d26f0a6e864ddeaa70431cc1570dc883cf147cd196e4ab6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3629E7188E00A7CB3232C4426BC84912F1218B1A9AE676C0B0ABE1DBFE2182B5.cer",
+      "bytes": 1442,
+      "sha256": "3629e7188e00a7cb3232c4426bc84912f1218b1a9ae676c0b0abe1dbfe2182b5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/36EFD13AE5DC6D01B6C1956841B45D18CE8085FBC197D90E8A8A21A9B01EBFBA.cer",
+      "bytes": 1564,
+      "sha256": "36efd13ae5dc6d01b6c1956841b45d18ce8085fbc197d90e8a8a21a9b01ebfba"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/371A00DC0533B3721A7EEB40E8419E70799D2B0A0F2C1D80693165F7CEC4AD75.cer",
+      "bytes": 1386,
+      "sha256": "371a00dc0533b3721a7eeb40e8419e70799d2b0a0f2c1d80693165f7cec4ad75"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3AE4F4DE5F3E2070A11845BDFE6DCA6E412BB7E4ED84FD4F1B7B496CADFF2CAC.cer",
+      "bytes": 1635,
+      "sha256": "3ae4f4de5f3e2070a11845bdfe6dca6e412bb7e4ed84fd4f1b7b496cadff2cac"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3BC51856040AD7FF6683AA85A0D34F9EA680CD23C37CB8A0423B0F89A24405B9.cer",
+      "bytes": 1942,
+      "sha256": "3bc51856040ad7ff6683aa85a0d34f9ea680cd23c37cb8a0423b0f89a24405b9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3C5F81FEA5FAB82C64BFA2EAECAFCDE8E077FC8620A7CAE537163DF36EDBF378.cer",
+      "bytes": 1038,
+      "sha256": "3c5f81fea5fab82c64bfa2eaecafcde8e077fc8620a7cae537163df36edbf378"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3E9099B5015E8F486C00BCEA9D111EE721FABA355A89BCF1DF69561E3DC6325C.cer",
+      "bytes": 955,
+      "sha256": "3e9099b5015e8f486c00bcea9d111ee721faba355a89bcf1df69561e3dc6325c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/3F99CC474ACFCE4DFED58794665E478D1547739F2E780F1BB4CA9B133097D401.cer",
+      "bytes": 600,
+      "sha256": "3f99cc474acfce4dfed58794665e478d1547739f2e780f1bb4ca9b133097d401"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/40F6AF0346A99AA1CD1D555A4E9CCE62C7F9634603EE406615833DC8C8D00367.cer",
+      "bytes": 920,
+      "sha256": "40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4140B70629FDA4B8A36FD53FB0AA53237157869931B8B2308FD05DF3FF7D78AB.cer",
+      "bytes": 1855,
+      "sha256": "4140b70629fda4b8a36fd53fb0aa53237157869931b8b2308fd05df3ff7d78ab"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/41C923866AB4CAD6B7AD578081582E020797A6CBDF4FFF78CE8396B38937D7F5.cer",
+      "bytes": 1013,
+      "sha256": "41c923866ab4cad6b7ad578081582e020797a6cbdf4fff78ce8396b38937d7f5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4348A0E9444C78CB265E058D5E8944B4D84F9662BD26DB257F8934A443C70161.cer",
+      "bytes": 947,
+      "sha256": "4348a0e9444c78cb265e058d5e8944b4d84f9662bd26db257f8934a443c70161"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/43DF5774B03E7FEF5FE40D931A7BEDF1BB2E6B42738C4E6D3841103D3AA7F339.cer",
+      "bytes": 1090,
+      "sha256": "43df5774b03e7fef5fe40d931a7bedf1bb2e6b42738c4e6d3841103d3aa7f339"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/44B545AA8A25E65A73CA15DC27FC36D24C1CB9953A066539B11582DC487B4833.cer",
+      "bytes": 711,
+      "sha256": "44b545aa8a25e65a73ca15dc27fc36d24c1cb9953a066539b11582dc487b4833"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/45140B3247EB9CC8C5B4F0D7B53091F73292089E6E5A63E2749DD3ACA9198EDA.cer",
+      "bytes": 969,
+      "sha256": "45140b3247eb9cc8c5b4f0d7b53091f73292089e6e5a63e2749dd3aca9198eda"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/46319C69041DB9A0D93DAE802E3002CC615365931FE0976D392E8863E3F3BE31.cer",
+      "bytes": 1971,
+      "sha256": "46319c69041db9a0d93dae802e3002cc615365931fe0976d392e8863e3f3be31"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/46EDC3689046D53A453FB3104AB80DCAEC658B2660EA1629DD7E867990648716.cer",
+      "bytes": 1127,
+      "sha256": "46edc3689046d53a453fb3104ab80dcaec658b2660ea1629dd7e867990648716"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/472A2B232FE9D86B088FAD83C25E370427DA006E7D6DFA0CF9B3B727D007D3A8.cer",
+      "bytes": 1606,
+      "sha256": "472a2b232fe9d86b088fad83c25e370427da006e7d6dfa0cf9b3b727d007d3a8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/485D11769E244C985170BFC97CF888B540295A555FC017BCE3860B40D715A6C5.cer",
+      "bytes": 531,
+      "sha256": "485d11769e244c985170bfc97cf888b540295a555fc017bce3860b40d715a6c5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4941B001B8A97E961B7817C9D9E960EC4B056BFC915A8C1AABF6EF6B3AC046A5.cer",
+      "bytes": 1406,
+      "sha256": "4941b001b8a97e961b7817c9d9e960ec4b056bfc915a8c1aabf6ef6b3ac046a5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/49BACA97E0D741A4B1B695EE9BDC859F431DE9714884F674E97F43707A61F92D.cer",
+      "bytes": 1392,
+      "sha256": "49baca97e0d741a4b1b695ee9bdc859f431de9714884f674e97f43707a61f92d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/49E7A442ACF0EA6287050054B52564B650E4F49E42E348D6AA38E039E957B1C1.cer",
+      "bytes": 1079,
+      "sha256": "49e7a442acf0ea6287050054b52564b650e4f49e42e348d6aa38e039e957b1c1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4B9235A7FEA69307129E842F392BF28E98C6F6084660ABC44855654FA5099805.cer",
+      "bytes": 1928,
+      "sha256": "4b9235a7fea69307129e842f392bf28e98c6f6084660abc44855654fa5099805"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4C84B95EB77E758A616D1DD05737F7BDEC5EB792C128D7A924B5ACD6CD1E90EC.cer",
+      "bytes": 547,
+      "sha256": "4c84b95eb77e758a616d1dd05737f7bdec5eb792c128d7a924b5acd6cd1e90ec"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4EA66AB8FC54D446F6A46A63F0FCA5FE83A1F433CDE771DE8D1A8BE06647D008.cer",
+      "bytes": 1059,
+      "sha256": "4ea66ab8fc54d446f6a46a63f0fca5fe83a1f433cde771de8d1a8be06647d008"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4EA77DEBB54B5669566EB3F2C2859FFF803B04614AE46CAA33E89CCF9FC0DC14.cer",
+      "bytes": 1703,
+      "sha256": "4ea77debb54b5669566eb3f2c2859fff803b04614ae46caa33e89ccf9fc0dc14"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4FA3126D8D3A11D1C4855A4F807CBAD6CF919D3A5A88B03BEA2C6372D93C40C9.cer",
+      "bytes": 1374,
+      "sha256": "4fa3126d8d3a11d1c4855a4f807cbad6cf919d3a5a88b03bea2c6372d93c40c9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/4FF460D54B9C86DABFBCFC5712E0400D2BED3FBC4D4FBDAA86E06ADCD2A9AD7A.cer",
+      "bytes": 659,
+      "sha256": "4ff460d54b9c86dabfbcfc5712e0400d2bed3fbc4d4fbdaa86e06adcd2a9ad7a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/504386C9EE8932FECC95FADE427F69C3E2534B7310489E300FEE448E33C46B42.cer",
+      "bytes": 1506,
+      "sha256": "504386c9ee8932fecc95fade427f69c3e2534b7310489e300fee448e33c46b42"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5092CE0E3F70F2FD9561C34623B546F7D333EF1B633C147D1290E28DE986A230.cer",
+      "bytes": 1411,
+      "sha256": "5092ce0e3f70f2fd9561c34623b546f7d333ef1b633c147d1290e28de986a230"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/513B2CECB810D4CDE5DD85391ADFC6C2DD60D87BB736D2B521484AA47A0EBEF6.cer",
+      "bytes": 891,
+      "sha256": "513b2cecb810d4cde5dd85391adfc6c2dd60d87bb736d2b521484aa47a0ebef6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/514A806A46D7B79725B92CEA06855415D924E76DC5D51E4ED5CA3955CB6EC85D.cer",
+      "bytes": 2871,
+      "sha256": "514a806a46d7b79725b92cea06855415d924e76dc5d51e4ed5ca3955cb6ec85d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/52F0E1C4E58EC629291B60317F074671B85D7EA80D5B07273463534B32B40234.cer",
+      "bytes": 1500,
+      "sha256": "52f0e1c4e58ec629291b60317f074671b85d7ea80d5b07273463534b32b40234"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5527C5780F73EFC197B2286CFC962DA29D3B8A002CB1E3EF6E307888647E7E6F.cer",
+      "bytes": 1171,
+      "sha256": "5527c5780f73efc197b2286cfc962da29d3b8a002cb1e3ef6e307888647e7e6f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/552F7BDCF1A7AF9E6CE672017F4F12ABF77240C78E761AC203D1D9D20AC89988.cer",
+      "bytes": 1428,
+      "sha256": "552f7bdcf1a7af9e6ce672017f4f12abf77240c78e761ac203d1d9d20ac89988"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/55903859C8C0C3EBB8759ECE4E2557225FF5758BBD38EBD48276601E1BD58097.cer",
+      "bytes": 673,
+      "sha256": "55903859c8c0c3ebb8759ece4e2557225ff5758bbd38ebd48276601e1bd58097"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/55926084EC963A64B96E2ABE01CE0BA86A64FBFEBCC7AAB5AFC155B37FD76066.cer",
+      "bytes": 1471,
+      "sha256": "55926084ec963a64b96e2abe01ce0ba86a64fbfebcc7aab5afc155b37fd76066"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/559E1C5406885233CAB74780E22766A4F476D717892E6277903397A8172CD42D.cer",
+      "bytes": 562,
+      "sha256": "559e1c5406885233cab74780e22766a4f476d717892e6277903397a8172cd42d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/55D39CFCB913A1DA6F5559E406392F33988BE91A08373F283F293E2B9A43B2F1.cer",
+      "bytes": 574,
+      "sha256": "55d39cfcb913a1da6f5559e406392f33988be91a08373f283f293e2b9a43b2f1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/562D6A5B4B067465FFD0FBFC9BB05755CDACF55B5EE5C6F910B8B53DB128F57A.cer",
+      "bytes": 882,
+      "sha256": "562d6a5b4b067465ffd0fbfc9bb05755cdacf55b5ee5c6f910b8b53db128f57a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/568D6905A2C88708A4B3025190EDCFEDB1974A606A13C6E5290FCB2AE63EDAB5.cer",
+      "bytes": 1011,
+      "sha256": "568d6905a2c88708a4b3025190edcfedb1974a606a13c6e5290fcb2ae63edab5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/59769007F7685D0FCD50872F9F95D5755A5B2B457D81F3692B610A98672F0E1B.cer",
+      "bytes": 1349,
+      "sha256": "59769007f7685d0fcd50872f9f95d5755a5b2b457d81f3692b610a98672f0e1b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5A2FC03F0C83B090BBFA40604B0988446C7636183DF9846E17101A447FB8EFD6.cer",
+      "bytes": 1491,
+      "sha256": "5a2fc03f0c83b090bbfa40604b0988446c7636183df9846e17101a447fb8efd6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5A5044783B2CC790A92D68A59E1EEE167108B204F060A8378D539016F4670BC9.cer",
+      "bytes": 1384,
+      "sha256": "5a5044783b2cc790a92d68a59e1eee167108b204f060a8378d539016f4670bc9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5ADFE1EE5C70FE5EE38FE0D2C40A1642A9F772272CF37719362034B3D5B79E60.cer",
+      "bytes": 556,
+      "sha256": "5adfe1ee5c70fe5ee38fe0d2c40a1642a9f772272cf37719362034b3d5b79e60"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5C58468D55F58E497E743982D2B50010B6D165374ACF83A7D4A32DB768C4408E.cer",
+      "bytes": 959,
+      "sha256": "5c58468d55f58e497e743982d2b50010b6d165374acf83a7d4a32db768c4408e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5CBF6FB81FD417EA4128CD6F8172A3C9402094F74AB2ED3A06B4405D04F30B19.cer",
+      "bytes": 549,
+      "sha256": "5cbf6fb81fd417ea4128cd6f8172a3c9402094f74ab2ed3a06b4405d04f30b19"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5CC3D78E4E1D5E45547A04E6873E64F90CF9536D1CCC2EF800F355C4C5FD70FD.cer",
+      "bytes": 1425,
+      "sha256": "5cc3d78e4e1d5e45547a04e6873e64f90cf9536d1ccc2ef800f355c4c5fd70fd"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5D56499BE4D2E08BCFCAD08A3E38723D50503BDE706948E42F55603019E528AE.cer",
+      "bytes": 1380,
+      "sha256": "5d56499be4d2e08bcfcad08a3e38723d50503bde706948e42f55603019e528ae"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5EDB7AC43B82A06A8761E8D7BE4979EBF2611F7DD79BF91C1C6B566A219ED766.cer",
+      "bytes": 690,
+      "sha256": "5edb7ac43b82a06a8761e8d7be4979ebf2611f7dd79bf91c1c6b566a219ed766"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5F28B888456D21158C5E3E8A31719CF3B305300BC5B436B696BE22F6973F1DF1.cer",
+      "bytes": 2071,
+      "sha256": "5f28b888456d21158c5e3e8a31719cf3b305300bc5b436b696be22f6973f1df1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/5FBD45B0303B6247E410328864B795BF91F44856BE6CBD8D1949FF60A6F51908.cer",
+      "bytes": 632,
+      "sha256": "5fbd45b0303b6247e410328864b795bf91f44856be6cbd8d1949ff60a6f51908"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/62AD51DFC580A9F96B503D24DE4234FD13DBA61EE37A6D85AEF2BD68595A37B4.cer",
+      "bytes": 1629,
+      "sha256": "62ad51dfc580a9f96b503d24de4234fd13dba61ee37a6d85aef2bd68595a37b4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/62DD0BE9B9F50A163EA0F8E75C053B1ECA57EA55C8688F647C6881F2C8357B95.cer",
+      "bytes": 1470,
+      "sha256": "62dd0be9b9f50a163ea0f8e75c053b1eca57ea55c8688f647c6881f2c8357b95"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/63343ABFB89A6A03EBB57E9B3F5FA7BE7C4F5C756F3017B3A8C488C3653E9179.cer",
+      "bytes": 583,
+      "sha256": "63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/64BAC96281207FFE5EF8E10E2542B0D146274396EF4C1EB0F38B583F2CEA4B47.cer",
+      "bytes": 1394,
+      "sha256": "64bac96281207ffe5ef8e10e2542b0d146274396ef4c1eb0f38b583f2cea4b47"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/657CFE2FA73FAA38462571F332A2363A46FCE7020951710702CDFBB6EEDA3305.cer",
+      "bytes": 1355,
+      "sha256": "657cfe2fa73faa38462571f332a2363a46fce7020951710702cdfbb6eeda3305"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/65A05892F6267A1E468CF4E1E547DF83C37421FD609FE68C213C44D21DAC877D.cer",
+      "bytes": 1697,
+      "sha256": "65a05892f6267a1e468cf4e1e547df83c37421fd609fe68c213c44d21dac877d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/670420DF2D7CE5A246E8F9B1212BFCC0D7D7B2F4544C6E61EAA86BC1862C74D9.cer",
+      "bytes": 1896,
+      "sha256": "670420df2d7ce5a246e8f9b1212bfcc0d7d7b2f4544c6e61eaa86bc1862c74d9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/673FD7033771502EE3EE544BA489EE25CFC0ADD44D649B04E5973933943E5891.cer",
+      "bytes": 1414,
+      "sha256": "673fd7033771502ee3ee544ba489ee25cfc0add44d649b04e5973933943e5891"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/67C03CF2D31E2C073C30EA1B4E869BCAA5BC0EB329251A47C8520EFFFCD45DF1.cer",
+      "bytes": 558,
+      "sha256": "67c03cf2d31e2c073c30ea1b4e869bcaa5bc0eb329251a47c8520efffcd45df1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/681EBC1822B079B97E0404E4687D9B6C0C0892C820F55738A282AAE62529BDD8.cer",
+      "bytes": 1276,
+      "sha256": "681ebc1822b079b97e0404e4687d9b6c0c0892c820f55738a282aae62529bdd8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/69729B8E15A86EFC177A57AFB7171DFC64ADD28C2FCA8CF1507E34453CCB1470.cer",
+      "bytes": 543,
+      "sha256": "69729b8e15a86efc177a57afb7171dfc64add28c2fca8cf1507e34453ccb1470"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6AB2AB75F51CB4F4F0156203FBF6F646232F514BE059F62833308B82B4D72DB1.cer",
+      "bytes": 592,
+      "sha256": "6ab2ab75f51cb4f4f0156203fbf6f646232f514be059f62833308b82b4d72db1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6AD43C815CD847AF82B180A2A0BD3902B3520E19CF0ED210D80099E597429900.cer",
+      "bytes": 1947,
+      "sha256": "6ad43c815cd847af82b180a2a0bd3902b3520e19cf0ed210d80099e597429900"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6B2A9FD517A78AF2A62185F33457764FC91EBEE84A55F63F186278DCFDE68A75.cer",
+      "bytes": 1705,
+      "sha256": "6b2a9fd517a78af2a62185f33457764fc91ebee84a55f63f186278dcfde68a75"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6B328085625318AA50D173C98D8BDA09D57E27413D114CF787A0F5D06C030CF6.cer",
+      "bytes": 617,
+      "sha256": "6b328085625318aa50d173c98d8bda09d57e27413d114cf787a0f5d06c030cf6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6B9C08E86EB0F767CFAD65CD98B62149E5494A67F5845E7BD1ED019F27B86BD6.cer",
+      "bytes": 953,
+      "sha256": "6b9c08e86eb0f767cfad65cd98b62149e5494a67f5845e7bd1ed019f27b86bd6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6C61DAC3A2DEF031506BE036D2A6FE401994FBD13DF9C8D466599274C446EC98.cer",
+      "bytes": 1049,
+      "sha256": "6c61dac3a2def031506be036d2a6fe401994fbd13df9c8d466599274c446ec98"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/6DC47172E01CBCB0BF62580D895FE2B8AC9AD4F873801E0C10B9C837D21EB177.cer",
+      "bytes": 1070,
+      "sha256": "6dc47172e01cbcb0bf62580d895fe2b8ac9ad4f873801e0c10b9c837d21eb177"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/70A73F7F376B60074248904534B11482D5BF0E698ECC498DF52577EBF2E93B9A.cer",
+      "bytes": 1354,
+      "sha256": "70a73f7f376b60074248904534b11482d5bf0e698ecc498df52577ebf2e93b9a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/70B6A10C0CA76DECE7ADBE970B76A37D8A02857B134C7505B184EBD5FCA4F3EA.cer",
+      "bytes": 1809,
+      "sha256": "70b6a10c0ca76dece7adbe970b76a37d8a02857b134c7505b184ebd5fca4f3ea"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/71A6B0CF7EB793C6A56BFB4A67A6E61E88D6AD41804A5DE39EB8A443B66581EC.cer",
+      "bytes": 1571,
+      "sha256": "71a6b0cf7eb793c6a56bfb4a67a6e61e88d6ad41804a5de39eb8a443b66581ec"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/71AB420374156C1E6372CABFFACD862593C2CEAC1C851299D50ED7DB974C806A.cer",
+      "bytes": 2053,
+      "sha256": "71ab420374156c1e6372cabffacd862593c2ceac1c851299d50ed7db974c806a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/71E653BFBF5E72515B4099BBD5EC8872812B47C6EC1FA9ADD327E1C92C9EA16D.cer",
+      "bytes": 1562,
+      "sha256": "71e653bfbf5e72515b4099bbd5ec8872812b47c6ec1fa9add327e1c92c9ea16d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/73C176434F1BC6D5ADF45B0E76E727287C8DE57616C1E6E6141A2B2CBC7D8E4C.cer",
+      "bytes": 1173,
+      "sha256": "73c176434f1bc6d5adf45b0e76e727287c8de57616c1e6e6141a2b2cbc7d8e4c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7431E5F4C3C1CE4690774F0B61E05440883BA9A01ED00BA6ABD7806ED3B118CF.cer",
+      "bytes": 969,
+      "sha256": "7431e5f4c3c1ce4690774f0b61e05440883ba9a01ed00ba6abd7806ed3b118cf"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/75F5C8DB96B8E2148A6A958A478311F05C758FB7D96D5B8BC04E5B9D359C3B09.cer",
+      "bytes": 1757,
+      "sha256": "75f5c8db96b8e2148a6a958a478311f05c758fb7d96d5b8bc04e5b9d359c3b09"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/761503E31F5D1A48E1ECCA91312DFC81C46265BA7FEECF276F8C04D19264B93B.cer",
+      "bytes": 1940,
+      "sha256": "761503e31f5d1a48e1ecca91312dfc81c46265ba7feecf276f8c04d19264b93b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/77930F8110055031134A40CABB63075B67FCC8659B2782466C1C3B689BF72E4A.cer",
+      "bytes": 567,
+      "sha256": "77930f8110055031134a40cabb63075b67fcc8659b2782466c1c3b689bf72e4a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/77B82CD8644C4305F7ACC5CB156B45675004033D51C60C6202A8E0C33467D3A0.cer",
+      "bytes": 1355,
+      "sha256": "77b82cd8644c4305f7acc5cb156b45675004033d51c60c6202a8e0c33467d3a0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7831D95A47D42508CD5C9E6264F9096BAC19F04EB9B7C8BDD35FFFC71C189617.cer",
+      "bytes": 1448,
+      "sha256": "7831d95a47d42508cd5c9e6264f9096bac19f04eb9b7c8bdd35fffc71c189617"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/786AA3B9B4CE59BBEA524C46FFDB263044DAD6CCF6CA37675E25B75C2EE34805.cer",
+      "bytes": 1550,
+      "sha256": "786aa3b9b4ce59bbea524c46ffdb263044dad6ccf6ca37675e25b75c2ee34805"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/78833A783BB2986C254B9370D3C20E5EBA8FA7840CBF63FE17297A0B0119685E.cer",
+      "bytes": 1411,
+      "sha256": "78833a783bb2986c254b9370d3c20e5eba8fa7840cbf63fe17297a0b0119685e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/795015CAACA74715D341120D3F0EFD192A032F1C00391797F54EF9980804A175.cer",
+      "bytes": 1657,
+      "sha256": "795015caaca74715d341120d3f0efd192a032f1c00391797f54ef9980804a175"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/79A49F18EA13D923457C3B9F63DD92AE33252990E4DA281B63412034C747B3B9.cer",
+      "bytes": 1801,
+      "sha256": "79a49f18ea13d923457c3b9f63dd92ae33252990e4da281b63412034c747b3b9"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7AFC9D01A62F03A2DE9637936D4AFE68090D2DE18D03F29C88CFB0B1BA63587F.cer",
+      "bytes": 1032,
+      "sha256": "7afc9d01a62f03a2de9637936d4afe68090d2de18d03f29c88cfb0b1ba63587f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7BB647A62AEEAC88BF257AA522D01FFEA395E0AB45C73F93F65654EC38F25A06.cer",
+      "bytes": 1422,
+      "sha256": "7bb647a62aeeac88bf257aa522d01ffea395e0ab45c73f93f65654ec38f25a06"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7D05EBB682339F8C9451EE094EEBFEFA7953A114EDB2F44949452FAB7D2FC185.cer",
+      "bytes": 922,
+      "sha256": "7d05ebb682339f8c9451ee094eebfefa7953a114edb2f44949452fab7d2fc185"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7DF800075F5203C017364E81195A9AC9FF00C507D64A70F737D8D3E8CB3F0845.cer",
+      "bytes": 1195,
+      "sha256": "7df800075f5203c017364e81195a9ac9ff00c507d64a70f737d8d3e8cb3f0845"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7E37CB8B4C47090CAB36551BA6F45DB840680FBA166A952DB100717F43053FC2.cer",
+      "bytes": 586,
+      "sha256": "7e37cb8b4c47090cab36551ba6f45db840680fba166a952db100717f43053fc2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7ECACA4A3585A3B40E25574415512D56B57999B753017856F2AB15FA1F21F6D0.cer",
+      "bytes": 1595,
+      "sha256": "7ecaca4a3585a3b40e25574415512d56b57999b753017856f2ab15fa1f21f6d0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7EEF7E3CAF48620728CCB1181593BBE28A152AB40E90ABD7D821E647B3429720.cer",
+      "bytes": 1870,
+      "sha256": "7eef7e3caf48620728ccb1181593bbe28a152ab40e90abd7d821e647b3429720"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/7FEB9374EAB08D392717C647436DAE06176A24C010607FDA1CCE5E5F0106B472.cer",
+      "bytes": 1721,
+      "sha256": "7feb9374eab08d392717c647436dae06176a24c010607fda1cce5e5f0106b472"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/80AB1BAAC5CAA236E8801792FFC88DDCCE45A930FA30E578DB944D51282E1570.cer",
+      "bytes": 987,
+      "sha256": "80ab1baac5caa236e8801792ffc88ddcce45a930fa30e578db944d51282e1570"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/814406331B979FB14E87D1CB38ED0EF2BB5BEE0A1E728937D6BDD5D494FCD5E6.cer",
+      "bytes": 2111,
+      "sha256": "814406331b979fb14e87d1cb38ed0ef2bb5bee0a1e728937d6bdd5d494fcd5e6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8174FDD9DB62E04DD18F17D1224406C7A2CC8D5DB5816F3DC7F5E900047E7FB7.cer",
+      "bytes": 1404,
+      "sha256": "8174fdd9db62e04dd18f17d1224406c7a2cc8d5db5816f3dc7f5e900047e7fb7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/81A9088EA59FB364C548A6F85559099B6F0405EFBF18E5324EC9F457BA00112F.cer",
+      "bytes": 1384,
+      "sha256": "81a9088ea59fb364c548a6f85559099b6f0405efbf18e5324ec9f457ba00112f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/82FBE865DA22D1F25ADF94BBD809D3F516125849E792DB7BB18452304C2ECC43.cer",
+      "bytes": 1530,
+      "sha256": "82fbe865da22d1f25adf94bbd809d3f516125849e792db7bb18452304c2ecc43"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/847161FBBAD4C303424CB1CEB860A93C9DEE139B671C5764ADCDC3F3E4F9BB18.cer",
+      "bytes": 1956,
+      "sha256": "847161fbbad4c303424cb1ceb860a93c9dee139b671c5764adcdc3f3e4f9bb18"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/849F3E878AC22EDFB3D1EE804C8211D9E7C56A1B5E84B5D32C078A0E32F5CC7B.cer",
+      "bytes": 602,
+      "sha256": "849f3e878ac22edfb3d1ee804c8211d9e7c56a1b5e84b5d32c078a0e32f5cc7b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8560F91C3624DABA9570B5FEA0DBE36FF11A8323BE9486854FB3F34A5571198D.cer",
+      "bytes": 621,
+      "sha256": "8560f91c3624daba9570b5fea0dbe36ff11a8323be9486854fb3f34a5571198d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/85666A562EE0BE5CE925C1D8890A6F76A87EC16D4D7D5F29EA7419CF20123B69.cer",
+      "bytes": 1505,
+      "sha256": "85666a562ee0be5ce925c1d8890a6f76a87ec16d4d7d5f29ea7419cf20123b69"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/857BFCE43B1BB4601FF4543B46D3FB2E213BF9B4FEEB6F13BE9EF45C04FF6F8B.cer",
+      "bytes": 1806,
+      "sha256": "857bfce43b1bb4601ff4543b46d3fb2e213bf9b4feeb6f13be9ef45c04ff6f8b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/85A0DD7DD720ADB7FF05F83D542B209DC7FF4528F7D677B18389FEA5E5C49E86.cer",
+      "bytes": 1467,
+      "sha256": "85a0dd7dd720adb7ff05f83d542b209dc7ff4528f7d677b18389fea5e5c49e86"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/86A1ECBA089C4A8D3BBE2734C612BA341D813E043CF9E8A862CD5C57A36BBE6B.cer",
+      "bytes": 594,
+      "sha256": "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/884864ACDB55E55BF1E5CF648EF434491E2F6990FF4A952E3FA4763A1A6C33BB.cer",
+      "bytes": 1060,
+      "sha256": "884864acdb55e55bf1e5cf648ef434491e2f6990ff4a952e3fa4763a1a6c33bb"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/88EF81DE202EB018452E43F864725CEA5FBD1FC2D9D205730709C5D8B8690F46.cer",
+      "bytes": 1380,
+      "sha256": "88ef81de202eb018452e43f864725cea5fbd1fc2d9d205730709c5d8b8690f46"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/88F438DCF8FFD1FA8F429115FFE5F82AE1E06E0C70C375FAAD717B34A49E7265.cer",
+      "bytes": 1446,
+      "sha256": "88f438dcf8ffd1fa8f429115ffe5f82ae1e06e0c70c375faad717b34a49e7265"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8A866FD1B276B57E578E921C65828A2BED58E9F2F288054134B7F1F4BFC9CC74.cer",
+      "bytes": 1380,
+      "sha256": "8a866fd1b276b57e578e921c65828a2bed58e9f2f288054134b7f1f4bfc9cc74"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8D25CD97229DBF70356BDA4EB3CC734031E24CF00FAFCFD32DC76EB5841C7EA8.cer",
+      "bytes": 1371,
+      "sha256": "8d25cd97229dbf70356bda4eb3cc734031e24cf00fafcfd32dc76eb5841c7ea8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8DD4B5373CB0DE36769C12339280D82746B3AA6CD426E797A31BABE4279CF00B.cer",
+      "bytes": 606,
+      "sha256": "8dd4b5373cb0de36769c12339280d82746b3aa6cd426e797a31babe4279cf00b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8EBC96106EFEF27FD369D5D85E736E4C4E31DDAC22E316892355C53B282EC137.cer",
+      "bytes": 1557,
+      "sha256": "8ebc96106efef27fd369d5d85e736e4c4e31ddac22e316892355c53b282ec137"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8ECDE6884F3D87B1125BA31AC3FCB13D7016DE7F57CC904FE1CB97C6AE98196E.cer",
+      "bytes": 837,
+      "sha256": "8ecde6884f3d87b1125ba31ac3fcb13d7016de7f57cc904fe1cb97c6ae98196e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8FAF7D2E2CB4709BB8E0B33666BF75A5DD45B5DE480F8EA8D4BFE6BEBC17F2ED.cer",
+      "bytes": 1421,
+      "sha256": "8faf7d2e2cb4709bb8e0b33666bf75a5dd45b5de480f8ea8d4bfe6bebc17f2ed"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/8FE4FB0AF93A4D0D67DB0BEBB23E37C71BF325DCBCDD240EA04DAF58B47E1840.cer",
+      "bytes": 1380,
+      "sha256": "8fe4fb0af93a4d0d67db0bebb23e37c71bf325dcbcdd240ea04daf58b47e1840"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/90370D3EFA88BF58C30105BA25104A358460A7FA52DFC2011DF233A0F417912A.cer",
+      "bytes": 1390,
+      "sha256": "90370d3efa88bf58c30105ba25104a358460a7fa52dfc2011df233a0f417912a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/90F70DB89E1F300AA162AD351E44D5D19A64BE441D59FD8C57FC7AF71BD5352A.cer",
+      "bytes": 1962,
+      "sha256": "90f70db89e1f300aa162ad351e44d5d19a64be441d59fd8c57fc7af71bd5352a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/91E2F5788D5810EBA7BA58737DE1548A8ECACD014598BC0B143E041B17052552.cer",
+      "bytes": 967,
+      "sha256": "91e2f5788d5810eba7ba58737de1548a8ecacd014598bc0b143e041b17052552"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/93C176167ECA02A1B262B16517AC5FB5FC25D3568D97ECDDD04E3A6126B6C7BA.cer",
+      "bytes": 1125,
+      "sha256": "93c176167eca02a1b262b16517ac5fb5fc25d3568d97ecddd04e3a6126b6c7ba"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/945BBC825EA554F489D1FD51A73DDF2EA624AC7019A05205225C22A78CCFA8B4.cer",
+      "bytes": 612,
+      "sha256": "945bbc825ea554f489d1fd51a73ddf2ea624ac7019a05205225c22a78ccfa8b4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/96BCEC06264976F37460779ACF28C5A7CFE8A3C0AAE11A8FFCEE05C0BDDF08C6.cer",
+      "bytes": 1391,
+      "sha256": "96bcec06264976f37460779acf28c5a7cfe8a3c0aae11a8ffcee05c0bddf08c6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/97552015F5DDFC3C8788C006944555408894450084F100867086BC1A2BB58DC8.cer",
+      "bytes": 1502,
+      "sha256": "97552015f5ddfc3c8788c006944555408894450084f100867086bc1a2bb58dc8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9773E45D7BF11D2AE9211447496673B4E46D074FD5BA2AB271B7D07197DEF895.cer",
+      "bytes": 1743,
+      "sha256": "9773e45d7bf11d2ae9211447496673b4e46d074fd5ba2ab271b7d07197def895"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/986373DDA59FD09384B0A47C8E3155AB7424ECDA5DD82DB2E2A43FBD7591434E.cer",
+      "bytes": 1655,
+      "sha256": "986373dda59fd09384b0a47c8e3155ab7424ecda5dd82db2e2a43fbd7591434e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/99DAD8412FF1155B12759717AEF5A31E6E089E357539FACA3D57E138018493B3.cer",
+      "bytes": 558,
+      "sha256": "99dad8412ff1155b12759717aef5a31e6e089e357539faca3d57e138018493b3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9A114025197C5BB95D94E63D55CD43790847B646B23CDF11ADA4A00EFF15FB48.cer",
+      "bytes": 1373,
+      "sha256": "9a114025197c5bb95d94e63d55cd43790847b646b23cdf11ada4a00eff15fb48"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9A296A5182D1D451A2E37F439B74DAAFA267523329F90F9A0D2007C334E23C9A.cer",
+      "bytes": 1414,
+      "sha256": "9a296a5182d1d451a2e37f439b74daafa267523329f90f9a0d2007c334e23c9a"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9A6EC012E1A7DA9DBE34194D478AD7C0DB1822FB071DF12981496ED104384113.cer",
+      "bytes": 2007,
+      "sha256": "9a6ec012e1a7da9dbe34194d478ad7c0db1822fb071df12981496ed104384113"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9A6FC4AB4DB1EA6F6663507EDC1D008F091AE88FAB6F3AE56A84A4090529EF58.cer",
+      "bytes": 1778,
+      "sha256": "9a6fc4ab4db1ea6f6663507edc1d008f091ae88fab6f3ae56a84a4090529ef58"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9A8FD69BF4F5DAD68DEDF9B732264DF3644D2E2D1FBD463F726CC77087636B71.cer",
+      "bytes": 1930,
+      "sha256": "9a8fd69bf4f5dad68dedf9b732264df3644d2e2d1fbd463f726cc77087636b71"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9AAD0918FBE3D382DB7E0EBFFEEAB4F380C9A9B4F55492F945C7F3C9D7B28308.cer",
+      "bytes": 1651,
+      "sha256": "9aad0918fbe3d382db7e0ebffeeab4f380c9a9b4f55492f945c7f3c9d7b28308"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9D433C237C3AEE7A676C9A2ED4ECCB9E40ED17914655571624F0A89969B634BF.cer",
+      "bytes": 2032,
+      "sha256": "9d433c237c3aee7a676c9a2ed4eccb9e40ed17914655571624f0a89969b634bf"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9DC1B99EA189DA654857A0868041B645154B6FF5EDB1810B2144C4EC60A132CC.cer",
+      "bytes": 1420,
+      "sha256": "9dc1b99ea189da654857a0868041b645154b6ff5edb1810b2144c4ec60a132cc"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/9E4115FD70E2317E15BF811552610643B32818A0304AA3C97685A76465493261.cer",
+      "bytes": 924,
+      "sha256": "9e4115fd70e2317e15bf811552610643b32818a0304aa3c97685a76465493261"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A028FB2822D0C2699A451B7083A984318F7A0102A3B42F5B089D99CF3F9149C3.cer",
+      "bytes": 1790,
+      "sha256": "a028fb2822d0c2699a451b7083a984318f7a0102a3b42f5b089d99cf3f9149c3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A040929A02CE53B4ACF4F2FFC6981CE4496F755E6D45FE0B2A692BCD52523F36.cer",
+      "bytes": 1551,
+      "sha256": "a040929a02ce53b4acf4f2ffc6981ce4496f755e6d45fe0b2a692bcd52523f36"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A14616D1E8C0B49E0E21CAE2B542A8351A26747D3A18A45999C38BA1D078B6CB.cer",
+      "bytes": 2863,
+      "sha256": "a14616d1e8c0b49e0e21cae2b542a8351a26747d3a18a45999c38ba1d078b6cb"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A1A86D04121EB87F027C66F53303C28E5739F943FC84B38AD6AF009035DD9457.cer",
+      "bytes": 1042,
+      "sha256": "a1a86d04121eb87f027c66f53303c28e5739f943fc84b38ad6af009035dd9457"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A5C53CF6843A395E6EC244E9B27D58413295428DED97586FD4F67AA4AB8D49A0.cer",
+      "bytes": 1185,
+      "sha256": "a5c53cf6843a395e6ec244e9b27d58413295428ded97586fd4f67aa4ab8d49a0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A6B34F7B0E87446362BB1A2BF3EE95DD56D8BA97A9FFB03DF41031377ECDD6F8.cer",
+      "bytes": 1973,
+      "sha256": "a6b34f7b0e87446362bb1a2bf3ee95dd56d8ba97a9ffb03df41031377ecdd6f8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/A9841D2E47CBE6D71D8FAFDF38387F93F43D76D792504EFB17A21020C58C0B89.cer",
+      "bytes": 888,
+      "sha256": "a9841d2e47cbe6d71d8fafdf38387f93f43d76d792504efb17a21020c58c0b89"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/AD73B87AB9B9E4E28B99EA56E6C8C886759C77BC9DA65A3F98C94CCBFFAFC272.cer",
+      "bytes": 1258,
+      "sha256": "ad73b87ab9b9e4e28b99ea56e6c8c886759c77bc9da65a3f98c94ccbffafc272"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/AD7DD58D03AEDB22A30B5084394920CE12230C2D8017AD9B81AB04079BDD026B.cer",
+      "bytes": 580,
+      "sha256": "ad7dd58d03aedb22a30b5084394920ce12230c2d8017ad9b81ab04079bdd026b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/AEAB9AB2D2BC325A5A68AEB0433F9518A8D1C8BCD0839C961C080AA01C1A5F8E.cer",
+      "bytes": 643,
+      "sha256": "aeab9ab2d2bc325a5a68aeb0433f9518a8d1c8bcd0839c961c080aa01c1a5f8e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B043295F0124D40F8677FDF2EDAD0B34812A469D4286C9239730649530100DE2.cer",
+      "bytes": 1734,
+      "sha256": "b043295f0124d40f8677fdf2edad0b34812a469d4286c9239730649530100de2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B085D70B964F191A73E4AF0D54AE7A0E07AAFDAF9B71DD0862138AB7325A24A2.cer",
+      "bytes": 480,
+      "sha256": "b085d70b964f191a73e4af0d54ae7a0e07aafdaf9b71dd0862138ab7325a24a2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B0B1730ECBC7FF4505142C49F1295E6EDA6BCAED7E2C68C5BE91B5A11001F024.cer",
+      "bytes": 1215,
+      "sha256": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B0F25A6D9A96315C7CDAEA3E490E7BFA9FB17310B0701B7CD6FF432530837730.cer",
+      "bytes": 1493,
+      "sha256": "b0f25a6d9a96315c7cdaea3e490e7bfa9fb17310b0701b7cd6ff432530837730"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B1023E844180A7254F7C0F1AD6C65C2DCCD59DEF388001C4380BCA73DBF4F338.cer",
+      "bytes": 1777,
+      "sha256": "b1023e844180a7254f7c0f1ad6c65c2dccd59def388001c4380bca73dbf4f338"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B296DC3BCF451217D7AD4F84FB8EE25CC92FC659CAFA0EB4A8B5B4DB3D0215C2.cer",
+      "bytes": 1747,
+      "sha256": "b296dc3bcf451217d7ad4f84fb8ee25cc92fc659cafa0eb4a8b5b4db3d0215c2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B2FAE53E14CCD7AB9212064701AE279C1D8988FACB775FA8A008914E663988A8.cer",
+      "bytes": 537,
+      "sha256": "b2fae53e14ccd7ab9212064701ae279c1d8988facb775fa8a008914e663988a8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B4585F22E4AC756A4E8612A1361C5D9D031A93FD84FEBB778FA3068B0FC42DC2.cer",
+      "bytes": 507,
+      "sha256": "b4585f22e4ac756a4e8612a1361c5d9d031a93fd84febb778fa3068b0fc42dc2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B676F2EDDAE8775CD36CB0F63CD1D4603961F49E6265BA013A2F0307B6D0B804.cer",
+      "bytes": 1494,
+      "sha256": "b676f2eddae8775cd36cb0f63cd1d4603961f49e6265ba013a2f0307b6d0b804"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B6A80A71146BC15F8A9CCA6B57A793B0C502DDC334D62482669C345854040BE6.cer",
+      "bytes": 1378,
+      "sha256": "b6a80a71146bc15f8a9cca6b57a793b0c502ddc334d62482669c345854040be6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B76911A3352D1A27B3C355F049CF6FBFC5E3E4975BFDBDBC1FA041327FC76D7C.cer",
+      "bytes": 936,
+      "sha256": "b76911a3352d1a27b3c355f049cf6fbfc5e3e4975bfdbdbc1fa041327fc76d7c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/B9EF51A5F69A974F8D290B0A75FB253B7339053002AECB6516A270EA88AEF4ED.cer",
+      "bytes": 1815,
+      "sha256": "b9ef51a5f69a974f8d290b0a75fb253b7339053002aecb6516a270ea88aef4ed"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/BA0312F7B72F6B64B4CCEE34B5F628CF65A1F3B9F16B8DFE7ADA90C54E475A1C.cer",
+      "bytes": 1019,
+      "sha256": "ba0312f7b72f6b64b4ccee34b5f628cf65a1f3b9f16b8dfe7ada90c54e475a1c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/BD71FDF6DA97E4CF62D1647ADD2581B07D79ADF8397EB4ECBA9C5E8488821423.cer",
+      "bytes": 514,
+      "sha256": "bd71fdf6da97e4cf62d1647add2581b07d79adf8397eb4ecba9c5e8488821423"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/BE6C4DA2BBB9BA59B6F3939768374246C3C005993FA98F020D1DEDBED48A81D5.cer",
+      "bytes": 1473,
+      "sha256": "be6c4da2bbb9ba59b6f3939768374246c3c005993fa98f020d1dedbed48a81d5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/BFD88FE1101C41AE3E801BF8BE56350EE9BAD1A6B9BD515EDC5C6D5B8711AC44.cer",
+      "bytes": 895,
+      "sha256": "bfd88fe1101c41ae3e801bf8be56350ee9bad1a6b9bd515edc5c6d5b8711ac44"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/BFFF8FD04433487D6A8AA60C1A29767A9FC2BBB05E420F713A13B992891D3893.cer",
+      "bytes": 1420,
+      "sha256": "bfff8fd04433487d6a8aa60c1a29767a9fc2bbb05e420f713a13b992891d3893"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C068D776784255772BBC6AE9F70A536A410AD688A50DDEAFBF66BCC5254796F6.cer",
+      "bytes": 1661,
+      "sha256": "c068d776784255772bbc6ae9f70a536a410ad688a50ddeafbf66bcc5254796f6"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C0A6F4DC63A24BFDCF54EF2A6A082A0A72DE35803E2FF5FF527AE5D87206DFD5.cer",
+      "bytes": 1460,
+      "sha256": "c0a6f4dc63a24bfdcf54ef2a6a082a0a72de35803e2ff5ff527ae5d87206dfd5"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C2B6D2709DFB7B0FE5DA9042B40ACD8A454405E47F831AC5076E5812BC158E9E.cer",
+      "bytes": 591,
+      "sha256": "c2b6d2709dfb7b0fe5da9042b40acd8a454405e47f831ac5076e5812bc158e9e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C2B9B042DD57830E7D117DAC55AC8AE19407D38E41D88F3215BC3A890444A050.cer",
+      "bytes": 1430,
+      "sha256": "c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C30B32E75F8277A7F28E6ADFD9EBE48C2CA50564F4DFA899CEEFCB886C1A3572.cer",
+      "bytes": 2339,
+      "sha256": "c30b32e75f8277a7f28e6adfd9ebe48c2ca50564f4dfa899ceefcb886c1a3572"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C32FFD9F46F936D16C3673990959434B9AD60AAFBB9E7CF33654F144CC1BA143.cer",
+      "bytes": 574,
+      "sha256": "c32ffd9f46f936d16c3673990959434b9ad60aafbb9e7cf33654f144cc1ba143"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C3846BF24B9E93CA64274C0EC67C1ECC5E024FFCACD2D74019350E81FE546AE4.cer",
+      "bytes": 1028,
+      "sha256": "c3846bf24b9e93ca64274c0ec67c1ecc5e024ffcacd2d74019350e81fe546ae4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C3F5326537DB6477C4D7BF830FF5B401A7ADB29707702ADD98E62461F9EE67C7.cer",
+      "bytes": 1525,
+      "sha256": "c3f5326537db6477c4d7bf830ff5b401a7adb29707702add98e62461f9ee67c7"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C741F70F4B2A8D88BF2E71C14122EF53EF10EBA0CFA5E64CFA20F418853073E0.cer",
+      "bytes": 1452,
+      "sha256": "c741f70f4b2a8d88bf2e71c14122ef53ef10eba0cfa5e64cfa20f418853073e0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C76AD81BD29B66E24C8BA239267DDE6A0D9BB9C8867864733DA8A9C7F42AFC57.cer",
+      "bytes": 1714,
+      "sha256": "c76ad81bd29b66e24c8ba239267dde6a0d9bb9c8867864733da8a9c7f42afc57"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C8792B47355FA3D152AA5E86F37C27650BE1E05137BD36E8778ACF270BB18B54.cer",
+      "bytes": 995,
+      "sha256": "c8792b47355fa3d152aa5e86f37c27650be1e05137bd36e8778acf270bb18b54"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C90F26F0FB1B4018B22227519B5CA2B53E2CA5B3BE5CF18EFE1BEF47380C5383.cer",
+      "bytes": 574,
+      "sha256": "c90f26f0fb1b4018b22227519b5ca2b53e2ca5b3be5cf18efe1bef47380c5383"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/C97F2F6E6A8ADB6ECFE4978F08CA8F6F0123A94784522B610ADF6AB51439FC62.cer",
+      "bytes": 1266,
+      "sha256": "c97f2f6e6a8adb6ecfe4978f08ca8f6f0123a94784522b610adf6ab51439fc62"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CB3CCBB76031E5E0138F8DD39A23F9DE47FFC35E43C1144CEA27D46A5AB1CB5F.cer",
+      "bytes": 914,
+      "sha256": "cb3ccbb76031e5e0138f8dd39a23f9de47ffc35e43c1144cea27d46a5ab1cb5f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CBB522D7B7F127AD6A0113865BDF1CD4102E7D0759AF635A7CF4720DC963C53B.cer",
+      "bytes": 867,
+      "sha256": "cbb522d7b7f127ad6a0113865bdf1cd4102e7d0759af635a7cf4720dc963c53b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CBB9C44D84B8043E1050EA31A69F514955D7BFD2E2C6B49301019AD61D9F5058.cer",
+      "bytes": 527,
+      "sha256": "cbb9c44d84b8043e1050ea31a69f514955d7bfd2e2c6b49301019ad61d9f5058"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CC1B9F9E4370FB68141D28A115EAA863F8EADB7A04E2BD23B3C62F9D9F17C263.cer",
+      "bytes": 1028,
+      "sha256": "cc1b9f9e4370fb68141d28a115eaa863f8eadb7a04e2bd23b3c62f9d9f17c263"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CCFE2DD1DA87733E54394E9E378D4E1D7F4BA1FFF48FA6485295BA57352516EE.cer",
+      "bytes": 992,
+      "sha256": "ccfe2dd1da87733e54394e9e378d4e1d7f4ba1fff48fa6485295ba57352516ee"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CD122CB877C6928B9017B0F0B80DBD508196300BBD03CD7356C3BEEF524E7E0B.cer",
+      "bytes": 1400,
+      "sha256": "cd122cb877c6928b9017b0f0b80dbd508196300bbd03cd7356c3beef524e7e0b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CD2A017CD21B512E7C62ADD183D18B38EC2C55D48A620FCBC06CFE021BE284E3.cer",
+      "bytes": 1402,
+      "sha256": "cd2a017cd21b512e7c62add183d18b38ec2c55d48a620fcbc06cfe021be284e3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CE1DCD4B99DD35A4093C5130B0C8B9CA384410D814C30EEFF9355A206BF931F3.cer",
+      "bytes": 570,
+      "sha256": "ce1dcd4b99dd35a4093c5130b0c8b9ca384410d814c30eeff9355a206bf931f3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/CECDDC905099D8DADFC5B1D209B737CBE2C18CFB2C10C0FF0BCF0D3286FC1AA2.cer",
+      "bytes": 1076,
+      "sha256": "cecddc905099d8dadfc5b1d209b737cbe2c18cfb2c10c0ff0bcf0d3286fc1aa2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D02996BAAE096BECDF8A9B94C9D280582FD08ED3A5D8B13BFD236695885F4005.cer",
+      "bytes": 1783,
+      "sha256": "d02996baae096becdf8a9b94c9d280582fd08ed3a5d8b13bfd236695885f4005"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D12DF63569F0F814514C2E29C93A9A133A4CBAA92D3046F8C6BC2D9D6F66F087.cer",
+      "bytes": 1198,
+      "sha256": "d12df63569f0f814514c2e29c93a9a133a4cbaa92d3046f8c6bc2d9d6f66f087"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D142FAE2E28A3D82503BDE59C93B1E00C677C6196E63264F5D26A1D801FC6317.cer",
+      "bytes": 1688,
+      "sha256": "d142fae2e28a3d82503bde59c93b1e00c677c6196e63264f5d26a1d801fc6317"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D35E250CB02E27BB3FC52D1F1A0DFD88FA9813BE1B777320AAE912B54E3B1F02.cer",
+      "bytes": 1636,
+      "sha256": "d35e250cb02e27bb3fc52d1f1a0dfd88fa9813be1b777320aae912b54e3b1f02"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D4A5941C7141ED1949A0C6CE9DD45A0AB94DC337902EB0A1209852738EEBE854.cer",
+      "bytes": 1460,
+      "sha256": "d4a5941c7141ed1949a0c6ce9dd45a0ab94dc337902eb0a1209852738eebe854"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D5917A7791EB7CF20A2E57EB98284A67B28A57E89182DA53D546678C9FDE2B4F.cer",
+      "bytes": 1412,
+      "sha256": "d5917a7791eb7cf20a2e57eb98284a67b28a57e89182da53d546678c9fde2b4f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D7A7A0FB5D7E2731D771E9484EBCDEF71D5F0C3E0A2948782BC83EE0EA699EF4.cer",
+      "bytes": 1078,
+      "sha256": "d7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D7BA3F4FF8AD05633451470DDA3378A3491B90005E5C687D2B68D53647CFDD66.cer",
+      "bytes": 900,
+      "sha256": "d7ba3f4ff8ad05633451470dda3378a3491b90005e5c687d2b68d53647cfdd66"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D8E0FEBC1DB2E38D00940F37D27D41344D993E734B99D5656D9778D4D8143624.cer",
+      "bytes": 784,
+      "sha256": "d8e0febc1db2e38d00940f37d27d41344d993e734b99d5656d9778d4d8143624"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D947432ABDE7B7FA90FC2E6B59101B1280E0E1C7E4E40FA3C6887FFF57A7F4CF.cer",
+      "bytes": 1371,
+      "sha256": "d947432abde7b7fa90fc2e6b59101b1280e0e1c7e4e40fa3c6887fff57a7f4cf"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D95D0E8EDA79525BF9BEB11B14D2100D3294985F0C62D9FABD9CD999ECCB7B1D.cer",
+      "bytes": 1448,
+      "sha256": "d95d0e8eda79525bf9beb11b14d2100d3294985f0c62d9fabd9cd999eccb7b1d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/D9B38F7314AAB95DE57B63784F7D123D031C4FED6D8F66ED55A91BD05FEA818B.cer",
+      "bytes": 1791,
+      "sha256": "d9b38f7314aab95de57b63784f7d123d031c4fed6d8f66ed55a91bd05fea818b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/DAA0435407FA44C28AB939E6823813605779093873A96649AD6E03B05D28626C.cer",
+      "bytes": 1325,
+      "sha256": "daa0435407fa44c28ab939e6823813605779093873a96649ad6e03b05d28626c"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/DAB3FA0D6E821006FE709AE12176ABA2F397706CC9C71F5C1C0D098044DAEBDC.cer",
+      "bytes": 1856,
+      "sha256": "dab3fa0d6e821006fe709ae12176aba2f397706cc9c71f5c1c0d098044daebdc"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/DB3517D1F6732A2D5AB97C533EC70779EE3270A62FB4AC4238372460E6F01E88.cer",
+      "bytes": 1615,
+      "sha256": "db3517d1f6732a2d5ab97c533ec70779ee3270a62fb4ac4238372460e6f01e88"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/DB476339CCBFCC9E4BD1D6CB606CA27F00679E1EF8A581E7236309B9D63FFE37.cer",
+      "bytes": 1822,
+      "sha256": "db476339ccbfcc9e4bd1d6cb606ca27f00679e1ef8a581e7236309b9d63ffe37"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/DD6936FE21F8F077C123A1A521C12224F72255B73E03A7260693E8A24B0FA389.cer",
+      "bytes": 1340,
+      "sha256": "dd6936fe21f8f077c123a1a521c12224f72255b73e03a7260693e8a24b0fa389"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E23D4A036D7B70E9F595B1422079D2B91EDFBB1FB651A0633EAA8A9DC5F80703.cer",
+      "bytes": 1389,
+      "sha256": "e23d4a036d7b70e9f595b1422079d2b91edfbb1fb651a0633eaa8a9dc5f80703"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E35D28419ED02025CFA69038CD623962458DA5C695FBDEA3C22B0BFB25897092.cer",
+      "bytes": 502,
+      "sha256": "e35d28419ed02025cfa69038cd623962458da5c695fbdea3c22b0bfb25897092"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E38655F4B0190C84D3B3893D840A687E190A256D98052F159E6D4A39F589A6EB.cer",
+      "bytes": 565,
+      "sha256": "e38655f4b0190c84d3b3893d840a687e190a256d98052f159e6d4a39f589a6eb"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E3B6A2DB2ED7CE48842F7AC53241C7B71D54144BFB40C11F3F1D0B42F5EEA12D.cer",
+      "bytes": 940,
+      "sha256": "e3b6a2db2ed7ce48842f7ac53241c7b71d54144bfb40c11f3f1d0b42f5eea12d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E44DDB7952261F15005CD60C1D0C38C18CBFD17C273A31F8ED4C8F53E2685F32.cer",
+      "bytes": 559,
+      "sha256": "e44ddb7952261f15005cd60c1d0c38c18cbfd17c273a31f8ed4c8f53e2685f32"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E4C10A68028A7CD51D158F3D98AE9CFC0C8A9EBD7718F95676F44F2B0C24D130.cer",
+      "bytes": 1754,
+      "sha256": "e4c10a68028a7cd51d158f3d98ae9cfc0c8a9ebd7718f95676f44f2b0c24d130"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E7426982C0264B786B9425CE45F363587F34834FA34A6A7FFDD505674176AD0D.cer",
+      "bytes": 1893,
+      "sha256": "e7426982c0264b786b9425ce45f363587f34834fa34a6a7ffdd505674176ad0d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E74FBDA55BD564C473A36B441AA799C8A68E077440E8288B9FA1E50E4BBACA11.cer",
+      "bytes": 572,
+      "sha256": "e74fbda55bd564c473a36b441aa799c8a68e077440e8288b9fa1e50e4bbaca11"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E793C9B02FD8AA13E21C31228ACCB08119643B749C898964B1746D46C3D4CBD2.cer",
+      "bytes": 1506,
+      "sha256": "e793c9b02fd8aa13e21c31228accb08119643b749c898964b1746d46c3d4cbd2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/E8E8176536A60CC2C4E10187C3BEFCA20EF263497018F566D5BEA0F94D0C111B.cer",
+      "bytes": 544,
+      "sha256": "e8e8176536a60cc2c4e10187c3befca20ef263497018f566d5bea0f94d0c111b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/EAA962C4FA4A6BAFEBE415196D351CCD888D4F53F3FA8AE6D7C466A94E6042BB.cer",
+      "bytes": 828,
+      "sha256": "eaa962c4fa4a6bafebe415196d351ccd888d4f53f3fa8ae6d7c466a94e6042bb"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/EBC5570C29018C4D67B1AA127BAF12F703B4611EBC17B7DAB5573894179B93FA.cer",
+      "bytes": 1415,
+      "sha256": "ebc5570c29018c4d67b1aa127baf12f703b4611ebc17b7dab5573894179b93fa"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/EBD41040E4BB3EC742C9E381D31EF2A41A48B6685C96E7CEF3C1DF6CD4331C99.cer",
+      "bytes": 889,
+      "sha256": "ebd41040e4bb3ec742c9e381d31ef2a41a48b6685c96e7cef3c1df6cd4331c99"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/EDF7EBBCA27A2A384D387B7D4010C666E2EDB4843E4C29B4AE1D5B9332E6B24D.cer",
+      "bytes": 1373,
+      "sha256": "edf7ebbca27a2a384d387b7d4010c666e2edb4843e4c29b4ae1d5b9332e6b24d"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/EEC5496B988CE98625B934092EEC2908BED0B0F316C2D4730C84EAF1F3D34881.cer",
+      "bytes": 1095,
+      "sha256": "eec5496b988ce98625b934092eec2908bed0b0f316c2d4730c84eaf1f3d34881"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F015CE3CC239BFEF064BE9F1D2C417E1A0264A0A94BE1F0C8D121864EB6949CC.cer",
+      "bytes": 1390,
+      "sha256": "f015ce3cc239bfef064be9f1d2c417e1a0264a0a94be1f0c8d121864eb6949cc"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F038421F07F20D63A20D3691E5A178AB8459EBE570C1647B7690554EF23876AB.cer",
+      "bytes": 1754,
+      "sha256": "f038421f07f20d63a20d3691e5a178ab8459ebe570c1647b7690554ef23876ab"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F114469FB80778133A1F70E4D8338EDAB97DD42CEB8ECC01CAFB70D6B87DF11E.cer",
+      "bytes": 1663,
+      "sha256": "f114469fb80778133a1f70e4d8338edab97dd42ceb8ecc01cafb70d6b87df11e"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F1C1B50AE5A20DD8030EC9F6BC24823DD367B5255759B4E71B61FCE9F7375D73.cer",
+      "bytes": 956,
+      "sha256": "f1c1b50ae5a20dd8030ec9f6bc24823dd367b5255759b4e71b61fce9f7375d73"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F230BECB27B1EE22EB4B83E84B548904AF2E55A529F06D5B315A42A7F9AF5E1B.cer",
+      "bytes": 2334,
+      "sha256": "f230becb27b1ee22eb4b83e84b548904af2e55a529f06d5b315a42a7f9af5e1b"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F356BEA244B7A91EB35D53CA9AD7864ACE018E2D35D5F8F96DDF68A6F41AA474.cer",
+      "bytes": 891,
+      "sha256": "f356bea244b7a91eb35d53ca9ad7864ace018e2d35d5f8f96ddf68a6f41aa474"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F3E3735389398E369A60F89DCC8FA056A7967968D14B37BC656EC51A1864A7BB.cer",
+      "bytes": 1748,
+      "sha256": "f3e3735389398e369a60f89dcc8fa056a7967968d14b37bc656ec51a1864a7bb"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F5FCC6D6D0E17D462CB2C9F0D08826BD87F10175523766DA26C2CEB6460CF7A2.cer",
+      "bytes": 545,
+      "sha256": "f5fcc6d6d0e17d462cb2c9f0d08826bd87f10175523766da26c2ceb6460cf7a2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F7C7E28FB5E79F314AAAC6BBBA932F15E1A72069F435D4C9E707F93CA1482EE3.cer",
+      "bytes": 1608,
+      "sha256": "f7c7e28fb5e79f314aaac6bbba932f15e1a72069f435d4c9e707f93ca1482ee3"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/F995EE487116B125E2E90787F7453EFDED0FAAC8D5BB3E3B335D701D9E8068F2.cer",
+      "bytes": 1573,
+      "sha256": "f995ee487116b125e2e90787f7453efded0faac8d5bb3e3b335d701d9e8068f2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FA760B953DFD935CA420BA9BAA5F07067FAD4449B5554B9418CBDD12E0A56EDA.cer",
+      "bytes": 1410,
+      "sha256": "fa760b953dfd935ca420ba9baa5f07067fad4449b5554b9418cbdd12e0a56eda"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FAB9218FFD63B29F6377DD8883D51BB5A147B5F689EBDCC3D6FBA7874AF34E70.cer",
+      "bytes": 851,
+      "sha256": "fab9218ffd63b29f6377dd8883d51bb5a147b5f689ebdcc3d6fba7874af34e70"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FAD540811AFAE0DC767CDF6572A088FA3CE8493DD82B3B869A67D10AAB4E8124.cer",
+      "bytes": 1166,
+      "sha256": "fad540811afae0dc767cdf6572a088fa3ce8493dd82b3b869a67d10aab4e8124"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FD73DAD31C644FF1B43BEF0CCDDA96710B9CD9875ECA7E31707AF3E96D522BBD.cer",
+      "bytes": 967,
+      "sha256": "fd73dad31c644ff1b43bef0ccdda96710b9cd9875eca7e31707af3e96d522bbd"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FE3CBED838D30BAB900184C1F21A4B27D3211CB5C9257D7E985C2AE43AC6A89F.cer",
+      "bytes": 1840,
+      "sha256": "fe3cbed838d30bab900184c1f21a4b27d3211cb5c9257d7e985c2ae43ac6a89f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FE5E29A8BC39E99B1A1E77D29590AC1948A337A387C63E83F0C4B18BFC8BE1B2.cer",
+      "bytes": 1958,
+      "sha256": "fe5e29a8bc39e99b1a1e77d29590ac1948a337a387c63e83f0c4b18bfc8be1b2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FE7696573855773E37A95E7AD4D9CC96C30157C15D31765BA9B15704E1AE78FD.cer",
+      "bytes": 1476,
+      "sha256": "fe7696573855773e37a95e7ad4d9cc96c30157c15d31765ba9b15704e1ae78fd"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FE95A24E7F94978E58D99350AB7AB789774A987CD25187C128C191D207523BB1.cer",
+      "bytes": 1790,
+      "sha256": "fe95a24e7f94978e58d99350ab7ab789774a987cd25187c128c191d207523bb1"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FF453A5413EA558FE7062AB6FE831073E7F30FE6BA75B82EAD5209DB0775CAD0.cer",
+      "bytes": 1830,
+      "sha256": "ff453a5413ea558fe7062ab6fe831073e7f30fe6ba75b82ead5209db0775cad0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors/FFE0E2FAB9A71C9DC927B3211EFBB315BB0048B1E8A6621947B2B10363051C2F.cer",
+      "bytes": 563,
+      "sha256": "ffe0e2fab9a71c9dc927b3211efbb315bb0048b1e8a6621947b2b10363051c2f"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/Anchors.plist",
+      "bytes": 75362,
+      "sha256": "c54edaed50a0c90a5944359571116bef061cf867d7be3da635a405b28fa7bab4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/AppleCertificateAuthorities.plist",
+      "bytes": 898,
+      "sha256": "43d45b996a0a685a49b4d744e8fd101ffdf01d7031b9be164ff50f07945271b2"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/AssetVersion.plist",
+      "bytes": 371,
+      "sha256": "8f5071819f7bd499d94e8256d4f5d224e436c08e3f3266e58fff67990b73be80"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/CertificatePinning.plist",
+      "bytes": 94585,
+      "sha256": "8b6b01b3a7070479e2de4f79e9a64371667ec07288079a4ca1f41e511ec1fc19"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/EVRoots.plist",
+      "bytes": 3174,
+      "sha256": "bdb7f80931421e7a10f77be4a736b4b2b0e2a945526869a60ac144fda64cc830"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/TrustStore.html",
+      "bytes": 58660,
+      "sha256": "63d494bed40759728ada54d833fff6281687b9f041db3c8a140c546cfb031827"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/TrustedCTLogs.plist",
+      "bytes": 26217,
+      "sha256": "98d0bd3f1493aca701025ecb68eba2fc744bd6b2852eb2dbffeb2992f771dca4"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/TrustedCTLogs_nonTLS.plist",
+      "bytes": 15369,
+      "sha256": "6fdc038a80e45c7d01ef587fddda26d606a33549f59ff9e24115bc2cb96e16a0"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/ValidUpdate.plist",
+      "bytes": 317,
+      "sha256": "2c19473d43f94c2d80fd0400e5267f4177a59a0bdf5b5c17deb580898299a9de"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/certsIndex.data",
+      "bytes": 3792,
+      "sha256": "04c4af4a89783bc350268f202a80c93749f8d2d05e56c6f3259675c6e63cae81"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/certsTable.data",
+      "bytes": 171464,
+      "sha256": "0eb6c23bb3297ac8d9c91ca37ea544af3171dd86ed010ab5d4b3dac1c1fe59b8"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/manifest.data",
+      "bytes": 292,
+      "sha256": "22a70866ab12e55a26b8493f448a957f51c40e448113ee19616eee222a05cc09"
+    },
+    {
+      "path": "System/Library/Security/Certificates.bundle/Contents/Resources/valid.sqlite3",
+      "bytes": 12165120,
+      "sha256": "aed1f190cf16def819c7cbbc77fc4cb8d0988e8fc54e80965cb4ecdc47779fc7"
+    },
+    {
+      "path": "private/etc/ssl/cert.pem",
+      "bytes": 333483,
+      "sha256": "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994"
+    }
+  ]
+}

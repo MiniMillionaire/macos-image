@@ -1,0 +1,87 @@
+{
+  "additionalRubyVersions": [
+    "2.7.8"
+  ],
+  "formulae": [
+    {
+      "name": "awscli"
+    },
+    {
+      "name": "ca-certificates"
+    },
+    {
+      "name": "cmake"
+    },
+    {
+      "name": "curl"
+    },
+    {
+      "name": "gcc"
+    },
+    {
+      "name": "gh"
+    },
+    {
+      "name": "git-lfs"
+    },
+    {
+      "name": "gitlab-runner"
+    },
+    {
+      "name": "jq"
+    },
+    {
+      "name": "libyaml"
+    },
+    {
+      "name": "mise"
+    },
+    {
+      "name": "node@24"
+    },
+    {
+      "name": "rbenv"
+    },
+    {
+      "name": "ruby-build"
+    },
+    {
+      "name": "unzip"
+    },
+    {
+      "name": "wget"
+    },
+    {
+      "name": "yq"
+    },
+    {
+      "name": "zip"
+    }
+  ],
+  "npm": [
+    {
+      "name": "yarn"
+    },
+    {
+      "name": "pnpm"
+    }
+  ],
+  "schemaVersion": 1,
+  "thirdParty": [
+    {
+      "name": "actions-runner"
+    },
+    {
+      "name": "buildkite-agent@3"
+    },
+    {
+      "name": "otel-cli"
+    },
+    {
+      "name": "tart-guest-agent"
+    },
+    {
+      "name": "git-credential-manager"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "26.5.2",
+    "build": "25F84"
+  },
+  "csrutilSHA256": "8859c3e8a77d35a72e1b70c89f139ebef3601699584b296611f42b4306d65108",
+  "tccdSHA256": "cfcc93abe0fb853e58a56aceebd4144bd3902343318bba01eda88e4fdb5ea6f1",
+  "tccSchemaSHA256": "538dfa353b62704ca4339060e29e618aa1c1225e8711efdfe097bceff6a59a5b",
+  "tccSchemaVersion": 32,
+  "tartVersion": "0.15.0",
+  "captureReminder": {
+    "schemaVersion": 1,
+    "replaydSHA256": "4df6f74677349cc2381dc612dd3ffd31a802286b4052d8acb33290c929dccdce",
+    "expiresAt": "2100-01-01T00:00:00Z"
+  }
+}

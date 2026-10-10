@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "26.5.1",
+    "build": "25F80"
+  },
+  "ipsw": "https://updates.cdn-apple.com/2026SpringFCS/fullrestores/122-88870/E47EBB85-45F2-4E3C-B9E7-6FF7868C2FBA/UniversalMac_26.5.1_25F80_Restore.ipsw",
+  "ipswBytes": 19769808058,
+  "ipswSHA256": "83f53dc7f9cce465ba88dd487bda74ce60c5582fcd45251eeeb9aea7f5a72f4d",
+  "diskBytes": 68719476736,
+  "repository": "ghcr.io/minimillionaire/macos-tahoe",
+  "inspectBasePolicy": true,
+  "policySource": {
+    "version": "26.6.2",
+    "build": "25G83"
+  }
+}
