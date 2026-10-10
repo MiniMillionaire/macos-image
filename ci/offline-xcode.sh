@@ -36,6 +36,7 @@ privileged() {
 
 prepare() {
   mkdir "$inputs"
+  if [[ ${XCODE_TOOLS:-} == configuration ]]; then return; fi
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     local selected
     for selected in ${XCODE_TOOLS//,/ }; do
@@ -92,6 +93,10 @@ build() {
   mkdir "$work/xcode"
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     previous="$work/xcode-parent/bundle"
+    if [[ "$XCODE_TOOLS" == configuration ]]; then
+      finalize --refresh-existing
+      return
+    fi
     local selected
     for selected in ${XCODE_TOOLS//,/ }; do
       install_stage "$selected" image/bundle "install-$selected" --prepared "$inputs/$selected" --config "$xcode" --username "$username" --replace-existing
@@ -134,7 +139,7 @@ build() {
 }
 
 finalize() {
-  install_stage final image/bundle complete --config "$xcode" --username "$username"
+  install_stage final image/bundle complete --config "$xcode" --username "$username" "$@"
   privileged jq -e --argjson configuration "$(cat "$xcode")" \
     '.xcode_complete == true and .xcode_configuration == $configuration' "$previous/manifest.json" >/dev/null
 }

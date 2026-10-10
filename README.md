@@ -15,6 +15,8 @@ through `sudo -n` or the `MISO_ROOT_COMMAND` repository variable pointing to its
 authorized command runner. MISO expands smaller Base disks while preserving Recovery.
 Choose `xcode_flavor: slim` to keep iOS/watchOS and apply native Intel trimming,
 compression, cache cleanup and sparse compaction.
+To refresh an existing Xcode image without reinstalling its tools, set
+`xcode_tools: configuration` and use that Xcode build as `parent_run_id`.
 
 Construction does not start a VM or install Rosetta. After upload, acceptance
 downloads the candidate once and boots a disposable clone. Numbered tags follow

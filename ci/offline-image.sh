@@ -79,7 +79,7 @@ prepare() {
   fi
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     [[ "$TARGET_VARIANT" == xcode && -n ${PARENT_RUN:-} ]] || return 1
-    [[ "$XCODE_TOOLS" == android ]] || return 1
+    [[ "$XCODE_TOOLS" == android || "$XCODE_TOOLS" == configuration ]] || return 1
   fi
   local installed_miso
   installed_miso=$(command -v miso)
@@ -273,7 +273,7 @@ import_parent() {
     mkdir "$work/xcode-parent"
     privileged mv "$work/parent-import/bundle" "$work/xcode-parent/bundle"
     local receipt
-    for receipt in archive.json gems.json prepare-casks.json prepare-tuist.json prepare-simulator-tools.json prepare-flutter.json; do
+    for receipt in archive.json gems.json prepare-casks.json prepare-tuist.json prepare-simulator-tools.json prepare-flutter.json prepare-android.json; do
       cp "$parent/$receipt" "$evidence/$receipt"
     done
     cp "$parent/publication.json" "$evidence/inherited-xcode.json"
