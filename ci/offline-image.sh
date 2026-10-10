@@ -84,6 +84,7 @@ prepare() {
   local installed_miso
   installed_miso=$(command -v miso)
   mkdir -p "$work/bin" "$work/packages" "$images" "$work/common-evidence"
+  touch "$work/diagnostics-start"
   { sw_vers; uname -m; sysctl hw.model hw.memsize; xcodebuild -version; privileged id -u; } \
     > "$evidence/host.txt"
   install -m 755 "$installed_miso" "$miso"
@@ -500,6 +501,38 @@ publish() {
   printf 'Uploaded candidate: %s\n\nDownload and VM acceptance are pending.\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
 }
 
+collect_execution_crashes() {
+  local start end directory path index=0
+  local journals=("$evidence/"*-journals.jsonl)
+  [[ -f "${journals[0]}" ]] || return 0
+  start=$(jq -sr '[.[].commands[]? | select((.result.signal // 0) != 0) |
+    .startedAt | fromdateiso8601] | if length == 0 then empty else
+    min - 10 | strftime("%Y-%m-%d %H:%M:%S") end' "${journals[@]}")
+  [[ -n "$start" ]] || return 0
+  end=$(jq -sr '[.[].commands[]? | select((.result.signal // 0) != 0) |
+    (.finishedAt // .startedAt) | fromdateiso8601] | max + 30 |
+    strftime("%Y-%m-%d %H:%M:%S")' "${journals[@]}")
+  mkdir -p "$evidence/crashes"
+  for directory in /Library/Logs/DiagnosticReports "$HOME/Library/Logs/DiagnosticReports" \
+    /var/root/Library/Logs/DiagnosticReports; do
+    privileged test -d "$directory" || continue
+    while IFS= read -r -d '' path; do
+      privileged grep -F -q "$work/" "$path" || continue
+      index=$((index + 1))
+      privileged cat "$path" > "$evidence/crashes/$index-${path##*/}"
+    done < <(privileged find "$directory" -maxdepth 2 -type f \
+      \( -name '*.ips' -o -name '*.crash' \) -newer "$work/diagnostics-start" -print0)
+  done
+  printf 'Saved %s execution crash reports.\n' "$index"
+  privileged env TZ=UTC /usr/bin/log show --start "$start" --end "$end" \
+    --timezone UTC --style compact --info --predicate \
+    'process == "miso" OR process == "sw_vers" OR process == "clang" OR
+     process == "amfid" OR process == "sandboxd" OR process == "ReportCrash" OR
+     (process == "kernel" AND (eventMessage CONTAINS[c] "miso" OR
+      eventMessage CONTAINS[c] "sw_vers" OR eventMessage CONTAINS[c] "clang"))' \
+    > "$evidence/crashes/system.log" 2> "$evidence/crashes/collection.stderr"
+}
+
 collect() {
   if [[ -f "$work/common-evidence/host.txt" ]]; then cp "$work/common-evidence/"* "$evidence/"; fi
   local directory path
@@ -522,6 +555,7 @@ collect() {
           done
       done > "$evidence/$directory-failed-commands.txt"
   done
+  collect_execution_crashes || printf '%s\n' 'Execution crash collection was incomplete.' >&2
   df -k / > "$evidence/space-final.txt"
 }
 
