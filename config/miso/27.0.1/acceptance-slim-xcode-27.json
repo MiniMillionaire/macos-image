@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3018f985b2a163b6787df903f93224f4618caef1aa79880f509da722145bb770",
+  "sourceRevision": "ffd361711f1341a0422ea3327e45cd7b2212efa1",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38036869884",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38046220190",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-10T11:01:53Z",
+  "xcodeFlavor": "slim",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0",
+      "build": "26A428",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "system-policy-boot-1",
+      "system-policy-boot-2",
+      "original-requirements",
+      "xcode-tools",
+      "compile",
+      "mobile-tools",
+      "simulator-ios",
+      "simulator-watchos",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "dismiss-notifications",
+      "final-desktop",
+      "system-policy-final"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact.",
+    "systemPolicy": {
+      "absentServices": 0,
+      "configuredServices": 104,
+      "preferences": 15,
+      "runtimeVerified": true
+    },
+    "bootTimes": [
+      {
+        "boot": 1,
+        "sshSeconds": 10.557
+      },
+      {
+        "boot": 2,
+        "sshSeconds": 5.779
+      }
+    ]
+  },
+  "xcodeConfiguration": {
+    "build": "27A266a",
+    "components": [
+      "MetalToolchain"
+    ],
+    "platforms": [
+      "iOS",
+      "watchOS"
+    ],
+    "profile": {
+      "cleanup": true,
+      "platforms": [
+        "iOS",
+        "watchOS"
+      ],
+      "preset": "slim",
+      "sparsify": true,
+      "system": {
+        "features": {
+          "advertising": "disabled",
+          "appleIntelligence": "disabled",
+          "cloudSync": "disabled",
+          "continuity": "disabled",
+          "home": "disabled",
+          "messages": "disabled",
+          "personalApps": "disabled",
+          "photoAnalysis": "disabled",
+          "siri": "disabled",
+          "telemetryUpload": "disabled"
+        },
+        "services": {
+        },
+        "settings": {
+          "automaticAppUpdates": false,
+          "automaticBackups": false,
+          "automaticOSUpdates": false,
+          "securityDataUpdates": true,
+          "sessionRestore": false,
+          "spotlightIndexing": false
+        }
+      },
+      "transparentCompression": true,
+      "trimIntel": true
+    },
+    "runtimeArchitecture": "arm64",
+    "schemaVersion": 1,
+    "version": "27.0"
+  }
+}
