@@ -5,13 +5,13 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:118cda20c9678caa95b7190cd81e9676baf8e7a59c480e29cedefc03138cd0a3",
-  "sourceRevision": "83fc422d9efc723bffcb50494a7bda2ae5f7beec",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37917884347",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37934834725",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:7f07219fd0cb2e5c0447e508f88ea533bf5e28e44bed1574ca0f6c9a4cf6debc",
+  "sourceRevision": "32cb725a3a5e91a1a4d8f7eaa5d37b34b180b061",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38093736938",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38106237309",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-09T13:22:07Z",
+  "acceptedAt": "2026-10-11T02:53:16Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -36,6 +36,7 @@
       "system-policy-boot-2",
       "original-requirements",
       "xcode-tools",
+      "xcode-gui",
       "compile",
       "mobile-tools",
       "simulator-ios",
@@ -59,11 +60,11 @@
     "bootTimes": [
       {
         "boot": 1,
-        "sshSeconds": 9.703
+        "sshSeconds": 10.174
       },
       {
         "boot": 2,
-        "sshSeconds": 6.174
+        "sshSeconds": 6.202
       }
     ]
   },
@@ -114,5 +115,9 @@
     "runtimeArchitecture": "arm64",
     "schemaVersion": 1,
     "version": "27.1"
+  },
+  "supersededCandidate": {
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:118cda20c9678caa95b7190cd81e9676baf8e7a59c480e29cedefc03138cd0a3",
+    "run": "37917884347-1"
   }
 }
