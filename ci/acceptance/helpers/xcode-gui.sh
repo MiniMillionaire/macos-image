@@ -57,16 +57,23 @@ function run(args) {
             if (installButton || /download\s*(?:&|and)\s*install|select (?:the )?(?:components|platforms).*install|install additional components/i.test(text)) {
                 throw new Error('Xcode requested component installation on first GUI launch');
             }
+            if (nodes.some(node => node.labels.includes('External Agent Access')) &&
+                nodes.some(node => node.labels.includes('Control how external coding agents can connect to Xcode'))) {
+                console.log('XCODE_GUI_STOP=external-agent-access');
+                console.log('XCODE_GUI_FIRST_LAUNCH=passed');
+                return;
+            }
             if (/what[’']s new in xcode/i.test(text)) {
                 const button = nodes.find(node => node.role === 'AXButton' && node.labels.includes('Continue'));
                 if (button) button.element.click();
             } else if (/welcome to xcode/i.test(text) && !nodes.some(node => node.role === 'AXSheet')) {
+                console.log('XCODE_GUI_STOP=welcome');
                 console.log('XCODE_GUI_FIRST_LAUNCH=passed');
                 return;
             }
         }
         delay(1);
     }
-    throw new Error('Xcode did not reach its welcome window within 120 seconds');
+    throw new Error('Xcode did not reach a verified first-launch endpoint within 120 seconds');
 }
 JAVASCRIPT
