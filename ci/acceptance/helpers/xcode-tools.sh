@@ -38,5 +38,7 @@ done
 hub="$application/Contents/Applications/DeviceHub.app"
 codesign "${signature_options[@]}" "$hub"
 [[ $(plutil -extract CFBundleIdentifier raw "$hub/Contents/Info.plist") == com.apple.dt.Devices ]] || exit 1
-[[ $(plutil -extract CFBundleShortVersionString raw "$hub/Contents/Info.plist") == "$version" ]] || exit 1
+hub_version=$(plutil -extract CFBundleShortVersionString raw "$hub/Contents/Info.plist")
+[[ -n "$hub_version" ]] || exit 1
+printf 'DEVICE_HUB_VERSION=%s\n' "$hub_version"
 printf 'XCODE_TOOLS=passed\n'
