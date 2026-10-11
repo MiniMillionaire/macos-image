@@ -45,7 +45,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: offline-macos-${{ inputs.macos_version }}-${{ inputs.image_type }}-${{ inputs.xcode_flavor }}
+  group: offline-macos-${{ inputs.macos_version }}
   cancel-in-progress: false
 
 jobs:
