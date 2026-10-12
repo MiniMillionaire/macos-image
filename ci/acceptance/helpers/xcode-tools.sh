@@ -28,13 +28,6 @@ metal=$(xcrun --find metal)
 printf 'METAL_PATH=%s\n' "$metal"
 codesign --verify --strict '-R=anchor apple' "$metal"
 xcrun metal --version
-for platform in iOS watchOS tvOS xrOS; do
-  root="/Library/Developer/DeveloperDiskImages/${platform}_DDI"
-  [[ $(plutil -extract ProductBuildVersion raw "$root/version.plist") == "$build" ]] || exit 1
-  [[ $(plutil -extract Platform raw "$root/version.plist") == "$platform" ]] || exit 1
-  test -f "$root/Restore/BuildManifest.plist"
-  test -f "$root/Restore/Restore.plist"
-done
 hub="$application/Contents/Applications/DeviceHub.app"
 codesign "${signature_options[@]}" "$hub"
 [[ $(plutil -extract CFBundleIdentifier raw "$hub/Contents/Info.plist") == com.apple.dt.Devices ]] || exit 1

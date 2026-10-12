@@ -174,6 +174,7 @@ remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE
 if [[ "$variant" == xcode ]]; then
   scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
   remote_script xcode-tools "$helpers/xcode-tools.sh"
+  remote_script xcode-ddi "$helpers/xcode-ddi.sh"
   gui_status=0
   remote_script xcode-gui "$helpers/xcode-gui.sh" || gui_status=$?
   scp "${options[@]}" "admin@$ip:/private/tmp/miso-xcode-gui.png" "$log/xcode-gui.png" >> "$log/scp.log" 2>&1 || gui_status=1
