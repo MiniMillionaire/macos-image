@@ -5,13 +5,13 @@
     "build": "26A428"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3eae8bffbdb11ed858f9478496312f2bced536549fd11ad9a3ef7cd98cddfe4a",
-  "sourceRevision": "4d03ae9ba43c9d1780dfb4f3e5f3144b0614a288",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37736692736",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/37755378573",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:cbda3370267044bc988fe4f8676eca513d389a225648aab3de1c6df64eb442e9",
+  "sourceRevision": "e4256a9811f130e825538e6e28b7d45d2acd584e",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38113161148",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38202200416",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-08T09:23:17Z",
+  "acceptedAt": "2026-10-12T04:15:03Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -27,13 +27,16 @@
     },
     "host": {
       "model": "Mac17,16",
-      "macOS": "27.0",
-      "build": "26A428",
+      "macOS": "27.0.1",
+      "build": "26A434",
       "tart": "2.40.1"
     },
     "checks": [
+      "system-policy-boot-1",
+      "system-policy-boot-2",
       "original-requirements",
       "xcode-tools",
+      "xcode-gui",
       "compile",
       "mobile-tools",
       "simulator-ios",
@@ -43,10 +46,27 @@
       "safari",
       "health",
       "dismiss-notifications",
-      "final-desktop"
+      "final-desktop",
+      "system-policy-final"
     ],
     "authenticationAndInputVerified": true,
-    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact.",
+    "systemPolicy": {
+      "absentServices": 0,
+      "configuredServices": 104,
+      "preferences": 15,
+      "runtimeVerified": true
+    },
+    "bootTimes": [
+      {
+        "boot": 1,
+        "sshSeconds": 10.368
+      },
+      {
+        "boot": 2,
+        "sshSeconds": 5.702
+      }
+    ]
   },
   "xcodeConfiguration": {
     "build": "27A9275",
@@ -63,7 +83,32 @@
         "iOS",
         "watchOS"
       ],
+      "preset": "slim",
       "sparsify": true,
+      "system": {
+        "features": {
+          "advertising": "disabled",
+          "appleIntelligence": "disabled",
+          "cloudSync": "disabled",
+          "continuity": "disabled",
+          "home": "disabled",
+          "messages": "disabled",
+          "personalApps": "disabled",
+          "photoAnalysis": "disabled",
+          "siri": "disabled",
+          "telemetryUpload": "disabled"
+        },
+        "services": {
+        },
+        "settings": {
+          "automaticAppUpdates": false,
+          "automaticBackups": false,
+          "automaticOSUpdates": false,
+          "securityDataUpdates": true,
+          "sessionRestore": false,
+          "spotlightIndexing": false
+        }
+      },
       "transparentCompression": true,
       "trimIntel": true
     },
