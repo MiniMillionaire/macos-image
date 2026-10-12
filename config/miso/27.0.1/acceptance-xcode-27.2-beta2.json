@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:cb1b6018f357ac1e1b563e5f955c1f8d1e70bd15eba15cea55b2728d49622e21",
+  "sourceRevision": "e4256a9811f130e825538e6e28b7d45d2acd584e",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38113158917",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38199498267",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-12T03:30:39Z",
+  "xcodeFlavor": "full",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0.1",
+      "build": "26A434",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "original-requirements",
+      "xcode-tools",
+      "xcode-gui",
+      "compile",
+      "mobile-tools",
+      "simulator-ios",
+      "simulator-watchos",
+      "simulator-tvos",
+      "simulator-visionos",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "dismiss-notifications",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+  },
+  "xcodeConfiguration": {
+    "build": "27B5028f",
+    "components": [
+      "MetalToolchain"
+    ],
+    "platforms": [
+      "iOS",
+      "watchOS",
+      "tvOS",
+      "visionOS"
+    ],
+    "runtimeArchitecture": "arm64",
+    "schemaVersion": 1,
+    "version": "27.2"
+  },
+  "supersededCandidate": {
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:09da971f6455424b0897da1dd052596d232c40e747d2f74f872a8497c815734e",
+    "run": "38089891479-1"
+  }
+}
