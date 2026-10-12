@@ -1,6 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 source "$HOME/.zprofile"
+select_device_type() {
+  jq -er --arg runtime "$1" --arg prefix "$2" '
+    .runtimes[] | select(.identifier == $runtime and .isAvailable == true) |
+    if (.supportedDeviceTypes | type) != "array" then
+      error("Runtime does not report supported device types: \($runtime)")
+    else
+      [.supportedDeviceTypes[].identifier | select(startswith($prefix))] | sort |
+      first // error("No supported device matches \($prefix) in \($runtime)")
+    end'
+}
 configuration=/private/tmp/offline-xcode-config.json
 xcode_version=$(jq -er .configuration.version "$configuration")
 platform=${MISO_SIMULATOR_PLATFORM:?}
@@ -13,11 +23,11 @@ case "$platform" in
 esac
 version=$(jq -er --arg platform "$platform_name" '.runtimes[]|select(.platform == $platform)|.version' "$configuration")
 build=$(jq -er --arg platform "$platform_name" '.runtimes[]|select(.platform == $platform)|.build' "$configuration")
-encoded=$(jq -nr --arg version "$version" '$version|split(".")|map(tonumber)|.[0]*65536+.[1]*256+(.[2]//0)')
 identifier="com.apple.CoreSimulator.SimRuntime.$runtime-${version//./-}"
 report=$(xcrun simctl list runtimes --json)
 printf '%s\n' "$report" | jq -e --arg identifier "$identifier" --arg build "$build" --arg version "$version" '[.runtimes[]|select(.identifier == $identifier and .version == $version and .buildversion == $build and .isAvailable == true)]|length == 1'
-type=$(xcrun simctl list devicetypes --json | jq -er --argjson encoded "$encoded" --arg prefix "com.apple.CoreSimulator.SimDeviceType.$device" '[.devicetypes[]|select((.identifier|startswith($prefix)) and (.minRuntimeVersion // 0) <= $encoded and (.maxRuntimeVersion // 4294967295) >= $encoded)]|sort_by(.minRuntimeVersion // 0)|last.identifier|select(type == "string")')
+type=$(printf '%s\n' "$report" | select_device_type "$identifier" "com.apple.CoreSimulator.SimDeviceType.$device")
+printf 'SIM_DEVICE_TYPE=%s RUNTIME=%s BUILD=%s\n' "$type" "$identifier" "$build"
 printf "SIM_EVENT=create PLATFORM=%s TIME=%s\n" "$platform" "$(date -u +%FT%TZ)"
 name="MISO-$platform-$(uuidgen)"
 udid=$(xcrun simctl create "$name" "$type" "$identifier")
