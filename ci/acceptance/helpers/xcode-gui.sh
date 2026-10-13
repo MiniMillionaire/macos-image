@@ -36,18 +36,19 @@ function run(args) {
     }
     const deadline = Date.now() + 120000;
     let previous = '';
+    let continuedWhatsNew = false;
     while (Date.now() < deadline) {
         const processes = matches();
         if (processes.length === 1) {
-            const pending = processes[0].windows();
+            const pending = processes[0].windows().map(window => ({element: window, window}));
             const nodes = [];
             while (pending.length) {
-                const element = pending.shift();
+                const {element, window} = pending.shift();
                 const role = read(() => element.role(), '');
                 const labels = [read(() => element.name(), ''), read(() => element.description(), ''),
                     read(() => element.value(), '')].filter(value => typeof value === 'string' && value);
-                nodes.push({element, role, labels});
-                pending.push(...read(() => element.uiElements(), []));
+                nodes.push({element, window, role, labels});
+                pending.push(...read(() => element.uiElements(), []).map(element => ({element, window})));
             }
             const snapshot = JSON.stringify(nodes.map(({role, labels}) => ({role, labels})));
             if (snapshot !== previous) { console.log(snapshot); previous = snapshot; }
@@ -63,10 +64,24 @@ function run(args) {
                 console.log('XCODE_GUI_FIRST_LAUNCH=passed');
                 return;
             }
-            if (/what[’']s new in xcode/i.test(text)) {
-                const button = nodes.find(node => node.role === 'AXButton' && node.labels.includes('Continue'));
-                if (button) button.element.click();
-            } else if (/welcome to xcode/i.test(text) && !nodes.some(node => node.role === 'AXSheet')) {
+            const whatsNew = nodes.find(node => node.role === 'AXWindow' &&
+                node.labels.some(label => /^what[’']s new in xcode$/i.test(label)));
+            if (whatsNew && !continuedWhatsNew && !nodes.some(node => node.role === 'AXSheet')) {
+                const buttons = nodes.filter(node => node.window === whatsNew.element &&
+                    node.role === 'AXButton' && read(() => node.element.enabled(), false) &&
+                    !read(() => node.element.subrole(), ''));
+                const button = buttons.find(node => node.labels.includes('Continue'));
+                if (button) {
+                    console.log('XCODE_GUI_ACTION=continue-whats-new');
+                    button.element.click();
+                    continuedWhatsNew = true;
+                } else if (buttons.length && nodes.filter(node => node.role === 'AXWindow').length === 1 &&
+                    read(() => processes[0].frontmost(), false)) {
+                    console.log('XCODE_GUI_ACTION=return-whats-new');
+                    events.keyCode(36);
+                    continuedWhatsNew = true;
+                }
+            } else if (!whatsNew && /welcome to xcode/i.test(text) && !nodes.some(node => node.role === 'AXSheet')) {
                 console.log('XCODE_GUI_STOP=welcome');
                 console.log('XCODE_GUI_FIRST_LAUNCH=passed');
                 return;
