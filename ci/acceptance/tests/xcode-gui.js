@@ -10,19 +10,34 @@ function node(role, name, children = [], options = {}) {
     return {
         role: () => role, name: () => name, description: () => '', value: () => '',
         uiElements: () => children, enabled: () => options.enabled ?? true,
-        subrole: () => options.subrole ?? null, click: options.click ?? (() => {})
+        subrole: () => options.subrole ?? null, click: options.click ?? (() => {}),
+        actions: {byName: name => {
+            assert.equal(name, 'AXRaise');
+            return {perform: () => { options.raise?.(); }};
+        }}
     };
 }
 
-function check(makeWindows, expected, expectedClicks = 0, frontmost = true) {
+function check(makeWindows, expected, expectedClicks = 0, frontmost = true, focusErrors = []) {
     let launched = false, elapsed = 0, clicks = 0;
     const messages = [];
     const welcome = node('AXWindow', 'Welcome to Xcode');
     const click = () => { clicks++; };
+    let focusedName;
+    const focus = name => { focusedName = name; };
+    const windows = () => makeWindows({welcome, click, clicks, focus});
     const context = vm.createContext({
         Application: name => name === 'System Events'
             ? {processes: {whose: () => () => launched
-                ? [{windows: () => makeWindows({welcome, click, clicks}), frontmost: () => frontmost}] : []},
+                ? [{windows, attributes: {byName: name => {
+                    assert.equal(name, 'AXFocusedWindow');
+                    return {value: () => {
+                        if (focusErrors.length) throw Object.assign(new Error('AX read failed'), {errorNumber: focusErrors.shift()});
+                        return {name: () => focusedName ?? windows()[0].name()};
+                    }};
+                }},
+                    get frontmost() { return () => frontmost; },
+                    set frontmost(value) { frontmost = value; }}] : []},
                 keyCode: key => { assert.equal(key, 36); click(); }}
             : {activate: () => { launched = true; }},
         Date: {now: () => elapsed}, delay: () => { elapsed += 1000; },
@@ -60,11 +75,21 @@ check(({click}) => [news([button('', click, {enabled: false})])], timeout);
 check(({click}) => [news([button('', click)]), node('AXSheet', 'Unknown modal')], timeout);
 check(({click}) => [news([]), node('AXWindow', 'Other window', [button('Continue', click)])], timeout);
 check(({click}) => [news([button('', click)]), node('AXWindow', 'Other window')], timeout);
-check(({click}) => [news([button('', click)])], timeout, 0, false);
+check(({welcome, click, clicks}) => clicks ? [welcome] : [news([button('', click)])], 'welcome', 1, false);
+check(({welcome, click, clicks}) => clicks ? [welcome] : [news([button('', click)]), welcome], 'welcome', 1);
+let backgroundNews;
+check(({welcome, click, clicks, focus}) => {
+    backgroundNews ??= node('AXWindow', 'What’s New in Xcode', [button('', click)], {raise: () => focus('What’s New in Xcode')});
+    return clicks ? [welcome] : [welcome, backgroundNews];
+}, 'welcome', 1);
 check(({click}) => [news([button('Download', click)])], install);
 check(({click}) => [node('AXWindow', 'Xcode', [
     node('AXStaticText', 'External Agent Access'),
     node('AXStaticText', 'Control how external coding agents can connect to Xcode'),
     node('AXRadioButton', 'Access option', [], {click}), button('Continue', click)
 ])], 'external-agent-access');
-console.log('14 Xcode GUI acceptance cases passed.');
+for (const error of [-1719, -1728]) {
+    check(({welcome, click, clicks}) => clicks ? [welcome] : [news([button('', click)])], 'welcome', 1, true, [error]);
+}
+check(({click}) => [news([button('', click)])], /AX read failed/, 0, true, [-1743]);
+console.log('19 Xcode GUI acceptance cases passed.');

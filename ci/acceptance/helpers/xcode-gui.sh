@@ -27,17 +27,21 @@ function run(args) {
     const matches = () => events.processes.whose({bundleIdentifier: 'com.apple.dt.Xcode'})();
     if (matches().length) throw new Error('Xcode was already running before GUI acceptance');
     Application(args[0]).activate();
+    let stale = false;
     function read(operation, fallback) {
         try { return operation(); }
         catch (error) {
-            if (error.errorNumber !== -1728) throw error;
+            if (error.errorNumber !== -1728 && error.errorNumber !== -1719) throw error;
+            stale = true;
             return fallback;
         }
     }
     const deadline = Date.now() + 120000;
     let previous = '';
+    let previousFocus = '';
     let continuedWhatsNew = false;
     while (Date.now() < deadline) {
+        stale = false;
         const processes = matches();
         if (processes.length === 1) {
             const pending = processes[0].windows().map(window => ({element: window, window}));
@@ -50,6 +54,7 @@ function run(args) {
                 nodes.push({element, window, role, labels});
                 pending.push(...read(() => element.uiElements(), []).map(element => ({element, window})));
             }
+            if (stale) { delay(1); continue; }
             const snapshot = JSON.stringify(nodes.map(({role, labels}) => ({role, labels})));
             if (snapshot !== previous) { console.log(snapshot); previous = snapshot; }
             const text = nodes.flatMap(node => node.labels).join('\n');
@@ -67,16 +72,30 @@ function run(args) {
             const whatsNew = nodes.find(node => node.role === 'AXWindow' &&
                 node.labels.some(label => /^what[’']s new in xcode$/i.test(label)));
             if (whatsNew && !continuedWhatsNew && !nodes.some(node => node.role === 'AXSheet')) {
+                const windows = nodes.filter(node => node.role === 'AXWindow');
+                const knownWindows = windows.every(node => node === whatsNew ||
+                    node.labels.some(label => /^welcome to xcode$/i.test(label)));
+                const frontmost = read(() => processes[0].frontmost(), false);
+                const focusedWindow = read(() => processes[0].attributes.byName('AXFocusedWindow').value(), null);
+                const focused = focusedWindow && /^what[’']s new in xcode$/i.test(read(() => focusedWindow.name(), ''));
+                const focus = JSON.stringify({frontmost, focused, knownWindows});
+                if (focus !== previousFocus) { console.log('XCODE_GUI_FOCUS=' + focus); previousFocus = focus; }
                 const buttons = nodes.filter(node => node.window === whatsNew.element &&
                     node.role === 'AXButton' && read(() => node.element.enabled(), false) &&
                     !read(() => node.element.subrole(), ''));
                 const button = buttons.find(node => node.labels.includes('Continue'));
-                if (button) {
+                if (stale) { delay(1); continue; }
+                if (knownWindows && !frontmost) {
+                    console.log('XCODE_GUI_ACTION=activate-xcode');
+                    processes[0].frontmost = true;
+                } else if (knownWindows && !focused) {
+                    console.log('XCODE_GUI_ACTION=raise-whats-new');
+                    read(() => whatsNew.element.actions.byName('AXRaise').perform(), null);
+                } else if (knownWindows && button) {
                     console.log('XCODE_GUI_ACTION=continue-whats-new');
                     button.element.click();
                     continuedWhatsNew = true;
-                } else if (buttons.length && nodes.filter(node => node.role === 'AXWindow').length === 1 &&
-                    read(() => processes[0].frontmost(), false)) {
+                } else if (knownWindows && buttons.length) {
                     console.log('XCODE_GUI_ACTION=return-whats-new');
                     events.keyCode(36);
                     continuedWhatsNew = true;
