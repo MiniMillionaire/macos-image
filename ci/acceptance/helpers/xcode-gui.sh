@@ -39,7 +39,7 @@ function run(args) {
     const deadline = Date.now() + 120000;
     let previous = '';
     let previousFocus = '';
-    let continuedWhatsNew = false;
+    let nextWhatsNewAction = 0;
     while (Date.now() < deadline) {
         stale = false;
         const processes = matches();
@@ -71,7 +71,7 @@ function run(args) {
             }
             const whatsNew = nodes.find(node => node.role === 'AXWindow' &&
                 node.labels.some(label => /^what[’']s new in xcode$/i.test(label)));
-            if (whatsNew && !continuedWhatsNew && !nodes.some(node => node.role === 'AXSheet')) {
+            if (whatsNew && Date.now() >= nextWhatsNewAction && !nodes.some(node => node.role === 'AXSheet')) {
                 const windows = nodes.filter(node => node.role === 'AXWindow');
                 const knownWindows = windows.every(node => node === whatsNew ||
                     node.labels.some(label => /^welcome to xcode$/i.test(label)));
@@ -94,11 +94,11 @@ function run(args) {
                 } else if (knownWindows && button) {
                     console.log('XCODE_GUI_ACTION=continue-whats-new');
                     button.element.click();
-                    continuedWhatsNew = true;
+                    nextWhatsNewAction = Date.now() + 2000;
                 } else if (knownWindows && buttons.length) {
                     console.log('XCODE_GUI_ACTION=return-whats-new');
                     events.keyCode(36);
-                    continuedWhatsNew = true;
+                    nextWhatsNewAction = Date.now() + 2000;
                 }
             } else if (!whatsNew && /welcome to xcode/i.test(text) && !nodes.some(node => node.role === 'AXSheet')) {
                 console.log('XCODE_GUI_STOP=welcome');

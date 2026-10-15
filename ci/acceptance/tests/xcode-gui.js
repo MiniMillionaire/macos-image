@@ -70,7 +70,17 @@ check(({welcome, click, clicks}) => clicks ? [welcome] : [news([
     button('', click), button('', click), button('', click),
     node('AXStaticText', 'External Agent Access')
 ])], 'welcome', 1);
-check(({click}) => [news([button('', click), button('', click)])], timeout, 1);
+check(({click}) => [news([button('', click), button('', click)])], timeout, 60);
+check(({welcome, click, clicks}) => clicks >= 2 ? [welcome] : [news([button('', click)])], 'welcome', 2);
+check(({welcome, click, clicks}) => clicks >= 2 ? [welcome] : [news([button('Continue', click)])], 'welcome', 2);
+check(({click, clicks}) => clicks ? [node('AXWindow', 'Xcode', [
+    node('AXStaticText', 'External Agent Access'),
+    node('AXStaticText', 'Control how external coding agents can connect to Xcode'),
+    button('Continue', click)
+])] : [news([button('', click)])], 'external-agent-access', 1);
+check(({click, clicks}) => clicks ? [news([button('Download', click)])] : [news([button('', click)])], install, 1);
+check(({click, clicks}) => clicks ? [news([button('', click)]), node('AXSheet', 'Unknown modal')]
+    : [news([button('', click)])], timeout, 1);
 check(({click}) => [news([button('', click, {enabled: false})])], timeout);
 check(({click}) => [news([button('', click)]), node('AXSheet', 'Unknown modal')], timeout);
 check(({click}) => [news([]), node('AXWindow', 'Other window', [button('Continue', click)])], timeout);
@@ -92,4 +102,4 @@ for (const error of [-1719, -1728]) {
     check(({welcome, click, clicks}) => clicks ? [welcome] : [news([button('', click)])], 'welcome', 1, true, [error]);
 }
 check(({click}) => [news([button('', click)])], /AX read failed/, 0, true, [-1743]);
-console.log('19 Xcode GUI acceptance cases passed.');
+console.log('24 Xcode GUI acceptance cases passed.');
