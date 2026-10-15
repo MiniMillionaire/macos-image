@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.0.1",
+    "build": "26A434"
+  },
+  "variant": "xcode",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:264542af08636346843fc3358dfd358bb0339f3e9d6c1a59062febc1ada37cd5",
+  "sourceRevision": "ebc5738188ac3f80b13b2792d9937fb2047f1b5d",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38711381452",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38740930951",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "acceptedAt": "2026-10-15T13:34:23Z",
+  "xcodeFlavor": "full",
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0.1",
+      "build": "26A434",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "original-requirements",
+      "xcode-tools",
+      "xcode-ddi",
+      "xcode-gui",
+      "compile",
+      "mobile-tools",
+      "simulator-ios",
+      "simulator-watchos",
+      "simulator-tvos",
+      "simulator-visionos",
+      "base-tools",
+      "tcc",
+      "safari",
+      "health",
+      "dismiss-notifications",
+      "final-desktop"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+  },
+  "xcodeConfiguration": {
+    "build": "27A5218g",
+    "components": [
+      "MetalToolchain"
+    ],
+    "platforms": [
+      "iOS",
+      "watchOS",
+      "tvOS",
+      "visionOS"
+    ],
+    "runtimeArchitecture": "arm64",
+    "schemaVersion": 1,
+    "version": "27.0"
+  }
+}
