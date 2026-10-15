@@ -56,7 +56,7 @@ fetch() {
 }
 
 require_detached() {
-  hdiutil info -plist > "$evidence/attachments.plist"
+  privileged hdiutil info -plist > "$evidence/attachments.plist"
   plutil -convert json -o - "$evidence/attachments.plist" | jq -e --arg prefix "$work/" \
     '[.images[]? | select(."image-path" | startswith($prefix))] | length == 0' >/dev/null
 }
@@ -547,11 +547,20 @@ collect() {
       done > "$evidence/$directory-journals.jsonl"
     privileged find "$work/$directory" -maxdepth 3 -name journal.json -type f -print0 |
       while IFS= read -r -d '' path; do
-        privileged cat "$path" | jq -r '.commands[]|select(.error != null or .result == null)|.stdout,.stderr' |
+        privileged cat "$path" | jq -r '
+          ([.commands[]|select(.error != null or .result == null)] +
+           (if .status == "failed" then
+              [.commands[]|select(.name == "image-ownership" or .name == "detach-image" or
+                                  .name == "detach-owned-readonly-image")]|group_by(.name)|map(last)
+            else [] end))|unique_by(.stdout)|.[]|.stdout,.stderr' |
           while IFS= read -r log; do
             [[ "$log" == logs/* && "$log" != *..* ]] || continue
             printf '\n%s/%s\n' "${path%/journal.json}" "$log"
-            privileged tail -c 8192 "${path%/journal.json}/$log"
+            if [[ "$log" == *-image-ownership.stdout ]]; then
+              privileged tail -c 65536 "${path%/journal.json}/$log"
+            else
+              privileged tail -c 8192 "${path%/journal.json}/$log"
+            fi
           done
       done > "$evidence/$directory-failed-commands.txt"
   done
