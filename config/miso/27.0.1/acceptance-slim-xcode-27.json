@@ -5,13 +5,13 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3018f985b2a163b6787df903f93224f4618caef1aa79880f509da722145bb770",
-  "sourceRevision": "ffd361711f1341a0422ea3327e45cd7b2212efa1",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38036869884",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/38046220190",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:9195659212cb6f6d5e42f4b5c7e2c70c9ec036ef921201069286c4c2194ee609",
+  "sourceRevision": "76f6f4519dedfb86a486216c2cfd5d52fdc94569",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39053480571",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39072129049",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": false,
-  "acceptedAt": "2026-10-10T11:01:53Z",
+  "acceptedAt": "2026-10-17T21:58:24Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -27,8 +27,8 @@
     },
     "host": {
       "model": "Mac17,16",
-      "macOS": "27.0",
-      "build": "26A428",
+      "macOS": "27.0.1",
+      "build": "26A434",
       "tart": "2.40.1"
     },
     "checks": [
@@ -36,6 +36,8 @@
       "system-policy-boot-2",
       "original-requirements",
       "xcode-tools",
+      "xcode-ddi",
+      "xcode-gui",
       "compile",
       "mobile-tools",
       "simulator-ios",
@@ -59,11 +61,11 @@
     "bootTimes": [
       {
         "boot": 1,
-        "sshSeconds": 10.557
+        "sshSeconds": 12.608
       },
       {
         "boot": 2,
-        "sshSeconds": 5.779
+        "sshSeconds": 6.278
       }
     ]
   },
@@ -114,5 +116,9 @@
     "runtimeArchitecture": "arm64",
     "schemaVersion": 1,
     "version": "27.0"
+  },
+  "supersededCandidate": {
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3018f985b2a163b6787df903f93224f4618caef1aa79880f509da722145bb770",
+    "run": "38036869884-1"
   }
 }
