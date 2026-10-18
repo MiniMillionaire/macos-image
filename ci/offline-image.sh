@@ -7,7 +7,9 @@ set -euo pipefail
 [[ ${KEEP_PARENT_IMAGE:-false} == true || ${KEEP_PARENT_IMAGE:-false} == false ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
-work="$RUNNER_TEMP/offline-image"
+source "$root/ci/image-storage.sh"
+image_storage_paths
+work="$IMAGE_BUILD_WORKSPACE"
 evidence="$RUNNER_TEMP/offline-evidence/$VARIANT"
 [[ ${IMAGE_PROFILE:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$IMAGE_PROFILE" != *..* ]] || exit 1
 [[ ${TARGET_VARIANT:-} == vanilla || ${TARGET_VARIANT:-} == base || ${TARGET_VARIANT:-} == xcode ]] || exit 1
@@ -28,12 +30,13 @@ package_variant=$VARIANT
 if [[ "$VARIANT" == xcode && ${XCODE_FLAVOR:-full} == slim ]]; then package_variant=slim-xcode; fi
 configuration_digest=$(jq -Sc . "$config/image.json" | shasum -a 256 | awk '{print $1}')
 username=$(jq -er .username "$config/image.json")
-mkdir -p "$work" "$evidence"
+image_storage_require_directory "$work"
+mkdir -p "$evidence"
 export PATH="$work/bin:$PATH"
 images="$work/images"
 miso="$work/bin/miso"
-parent_cache_root="$HOME/.cache/macos-image/offline-parents"
-legacy_parent_cache="$HOME/.cache/macos-image/offline-parent"
+parent_cache_root="$IMAGE_CACHE_ROOT/offline-parents"
+legacy_parent_cache="$IMAGE_CACHE_ROOT/offline-parent"
 stage=${1:?Missing operation}
 
 privileged() {
@@ -62,6 +65,7 @@ require_detached() {
 }
 
 prepare() {
+  printf 'Image workspace: %s\nImage cache: %s\n' "$work" "$IMAGE_CACHE_ROOT"
   [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ||
     ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" == xcode ]] || return 1
   if [[ -n ${PARENT_RUN:-} ]]; then
@@ -100,7 +104,7 @@ prepare() {
     return 1
   fi
   "$miso" --version > "$evidence/tools.txt"
-  df -k / > "$evidence/space-before-cleanup.txt"
+  df -k "${work%/*}" > "$evidence/space-before-cleanup.txt"
   if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]]; then
     xcrun simctl runtime delete all || true
     local selected path
@@ -118,7 +122,7 @@ prepare() {
     done
   fi
   hash -r
-  df -k / | tee "$evidence/space-after-cleanup.txt"
+  df -k "${work%/*}" | tee "$evidence/space-after-cleanup.txt"
   [[ $(df -k "$work" | awk 'NR==2 {print $4}') -ge 93323264 ]] || exit 1
   "$miso" config check "$config/image.json" > "$evidence/config-check.json"
   if [[ "$TARGET_VARIANT" != vanilla ]]; then
@@ -286,8 +290,10 @@ import_parent() {
 
 take_acceptance_source() {
   [[ ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted ]] || return 1
-  local reference=$1 cache="$HOME/.cache/macos-image/acceptance/${1##*@sha256:}" file
+  local reference=$1 cache="$IMAGE_CACHE_ROOT/acceptance/${1##*@sha256:}" file
   [[ -d "$cache" ]] || return 1
+  image_storage_require_directory "$cache" || exit 1
+  image_storage_require_same_volume "$cache" "$work" || exit 1
   [[ ! -L "$cache" && ! -L "$cache/vm" && $(cat "$cache/reference.txt") == "$reference" ]] || exit 1
   for file in disk.img nvram.bin config.json; do
     [[ -f "$cache/vm/$file" && ! -L "$cache/vm/$file" ]] || exit 1
@@ -565,11 +571,11 @@ collect() {
       done > "$evidence/$directory-failed-commands.txt"
   done
   collect_execution_crashes || printf '%s\n' 'Execution crash collection was incomplete.' >&2
-  df -k / > "$evidence/space-final.txt"
+  df -k "${work%/*}" > "$evidence/space-final.txt"
 }
 
 cleanup() {
-  [[ "$work" == "$RUNNER_TEMP/offline-image" && ! -L "$work" ]] || exit 1
+  [[ "$work" == "$IMAGE_BUILD_WORKSPACE" && ! -L "$work" ]] || exit 1
   require_detached
   retain_parent_image
   privileged rm -r "$work"
@@ -579,7 +585,7 @@ finish() {
   local status=$?
   if [[ -n ${monitor_pid:-} ]]; then kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" 2>/dev/null || true; fi
   printf 'exit=%s\n' "$status" > "$evidence/$stage.status"
-  df -k / > "$evidence/space-after-$stage.txt"
+  df -k "${work%/*}" > "$evidence/space-after-$stage.txt"
 }
 trap finish EXIT
 (

@@ -1,7 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-work=${ACCEPTANCE_WORKSPACE:?}
-[[ "$work" == "$RUNNER_TEMP/"* && -d "$work" && ! -L "$work" ]] || exit 0
+root=$(cd "$(dirname "$0")/../.." && pwd -P)
+source "$root/ci/image-storage.sh"
+image_storage_paths
+work="${ACCEPTANCE_WORKSPACE:-}"
+[[ "$work" == "$IMAGE_ACCEPTANCE_WORKSPACE" && -d "$work" && ! -L "$work" ]] || exit 0
+image_storage_require_directory "$work"
 export TART_HOME="$work/tart"
 tart="$work/tools/tart.app/Contents/MacOS/tart"
 if [[ -x "$tart" && -d "$TART_HOME/vms/acceptance" ]]; then
@@ -15,7 +19,9 @@ hdiutil info -plist | plutil -convert json -o - - | jq -e --arg path "$work/" \
 if [[ -f "$work/evidence/source-cache.txt" ]]; then
   cache=$(cat "$work/evidence/source-cache.txt")
   reference=$(jq -er .reference "$work/cloud/publication.json")
-  [[ "$cache" == "$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]] || exit 1
+  [[ "$reference" =~ @sha256:[0-9a-f]{64}$ ]] || exit 1
+  [[ "$cache" == "$IMAGE_CACHE_ROOT/acceptance/${reference##*@sha256:}" && ! -L "$cache" ]] || exit 1
+  image_storage_require_directory "$cache"
   if [[ -f "$work/evidence/acceptance.json" && ${KEEP_SOURCE_IMAGE:-false} != true ]]; then
     rm -r "${cache:?}"
   elif [[ -f "$work/evidence/acceptance.json" ]]; then
@@ -27,4 +33,4 @@ fi
 for path in tart download tools; do
   if [[ -d "$work/$path" ]]; then rm -r "${work:?}/$path"; fi
 done
-df -h /System/Volumes/Data > "$work/evidence/space-cleaned.txt"
+df -h "$work" > "$work/evidence/space-cleaned.txt"
