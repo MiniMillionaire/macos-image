@@ -25,6 +25,14 @@ offline workflow uses MISO for upload and download, without a Tart executable.
 Transfers default to 4 concurrent requests on hosted runners and 8 on the M5;
 set the `MISO_TRANSFER_CONCURRENCY` repository variable to override this.
 
+For external storage, set `storage_directory` in the build and verification
+workflows to the same existing directory on an APFS volume. Alternatively, set
+the `IMAGE_STORAGE_DIRECTORY` repository variable for self-hosted jobs. Image
+workspaces and retained parents stay on that volume; concurrent runs have separate
+workspaces. Leave it empty to use the current runner paths. Keep the volume mounted
+through cleanup. Use `keep_parent_image` to reuse a parent across builds, then leave
+it off for the last build; `keep_source_image` retains an accepted source for reuse.
+
 For VM acceptance, dispatch **Verify offline macOS images** with the build run ID.
 It uses a disposable clone on the M5, displays download and test progress, and
 retains its results as an artifact. The `image-acceptance` environment requires

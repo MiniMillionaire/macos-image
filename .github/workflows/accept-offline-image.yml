@@ -22,6 +22,10 @@ on:
         description: Keep source image for the next build
         type: boolean
         default: false
+      storage_directory:
+        description: Storage directory (optional)
+        type: string
+        default: ''
       xcode_version:
         description: Xcode version
         type: string
@@ -59,13 +63,17 @@ jobs:
       MISO_BOOT_CYCLES: ${{ inputs.image_type == 'xcode' && inputs.xcode_flavor == 'slim' && '2' || '1' }}
       KEEP_SOURCE_IMAGE: ${{ inputs.keep_source_image }}
       TART_VERSION: 2.40.1
+      IMAGE_STORAGE_DIRECTORY: ${{ inputs.storage_directory || vars.IMAGE_STORAGE_DIRECTORY }}
       MISO_ROOT_COMMAND: ${{ vars.MISO_ROOT_COMMAND }}
     steps:
-      - name: Set workspace
-        run: printf 'ACCEPTANCE_WORKSPACE=%s/acceptance-%s-%s\n' "$RUNNER_TEMP" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Set workspace
+        run: |
+          source ci/image-storage.sh
+          image_storage_paths
+          printf 'ACCEPTANCE_WORKSPACE=%s\n' "$IMAGE_ACCEPTANCE_WORKSPACE" >> "$GITHUB_ENV"
       - uses: cocoa-xu/miso@v0.5.12
         with:
           version: 0.5.12

@@ -5,7 +5,9 @@ set -euo pipefail
 [[ ${IMAGE_PROFILE:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$IMAGE_PROFILE" != *..* ]] || exit 1
 [[ ${XCODE_VERSION:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-work="$RUNNER_TEMP/offline-image"
+source "$root/ci/image-storage.sh"
+image_storage_paths
+work="$IMAGE_BUILD_WORKSPACE"
 evidence="$RUNNER_TEMP/offline-evidence/xcode"
 config="$root/config/miso/$IMAGE_PROFILE"
 xcode="$evidence/xcode-$XCODE_VERSION.json"

@@ -22,6 +22,10 @@ on:
         description: Keep parent image on this runner
         type: boolean
         default: false
+      storage_directory:
+        description: Storage directory (optional)
+        type: string
+        default: ''
       xcode_version:
         description: Xcode version
         type: string
@@ -73,6 +77,7 @@ jobs:
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
       XCODE_TOOLS: ${{ inputs.xcode_tools }}
+      IMAGE_STORAGE_DIRECTORY: ${{ inputs.storage_directory || (inputs.image_type == 'xcode' && vars.IMAGE_STORAGE_DIRECTORY || '') }}
       MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
     steps:
       - uses: actions/checkout@v7

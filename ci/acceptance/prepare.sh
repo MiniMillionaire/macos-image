@@ -1,12 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
-work=${ACCEPTANCE_WORKSPACE:?}
-[[ "$work" == "$RUNNER_TEMP/"* && ! -e "$work" ]] || exit 1
+source "$root/ci/image-storage.sh"
+image_storage_paths
+work="${ACCEPTANCE_WORKSPACE:?}"
+[[ "$work" == "$IMAGE_ACCEPTANCE_WORKSPACE" && ! -e "$work" && ! -L "$work" ]] || exit 1
 [[ "$BUILD_RUN" =~ ^[0-9]+$ ]] || exit 1
 [[ "$MACOS_VERSION" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]] || exit 1
 [[ "$IMAGE_TYPE" == vanilla || "$IMAGE_TYPE" == base || "$IMAGE_TYPE" == xcode ]] || exit 1
 [[ "$XCODE_FLAVOR" == full || "$XCODE_FLAVOR" == slim ]] || exit 1
+image_storage_require_directory "$work"
+image_storage_require_directory "$IMAGE_CACHE_ROOT/acceptance"
+image_storage_require_same_volume "$work" "$IMAGE_CACHE_ROOT/acceptance"
+printf 'Acceptance workspace: %s\nImage cache: %s\n' "$work" "$IMAGE_CACHE_ROOT"
 mkdir -p "$work/cloud" "$work/tools" "$work/tart/vms" "$work/evidence"
 gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" \
   --json status,conclusion,headBranch,headSha,workflowName,url > "$work/evidence/build-run.json"
@@ -44,7 +50,7 @@ fi
 { sw_vers; sysctl hw.model hw.memsize; miso --version; } > "$work/evidence/host.txt"
 unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
 reference=$(jq -er .reference "$publication")
-cache="$HOME/.cache/macos-image/acceptance/${reference##*@sha256:}"
+cache="$IMAGE_CACHE_ROOT/acceptance/${reference##*@sha256:}"
 [[ ! -L "$cache" ]] || exit 1
 if [[ -d "$cache" ]]; then
   [[ $(cat "$cache/reference.txt") == "$reference" ]] || exit 1
@@ -83,4 +89,4 @@ mkdir -p "$work/tools/InputWitness.app/Contents/MacOS"
 swiftc -O "$root/ci/acceptance/helpers/focus-input-witness.swift" -o "$work/tools/InputWitness.app/Contents/MacOS/InputWitness"
 cp "$root/ci/acceptance/helpers/InputWitness.plist" "$work/tools/InputWitness.app/Contents/Info.plist"
 codesign --force --sign - "$work/tools/InputWitness.app"
-df -h /System/Volumes/Data > "$work/evidence/space-prepared.txt"
+df -h "$work" > "$work/evidence/space-prepared.txt"
