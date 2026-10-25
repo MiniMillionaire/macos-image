@@ -59,7 +59,9 @@ else
      .runtime.review.failedChecks == ["notification-center"] and
      .runtime.review.supplementalExitCode == 0)) and .runtime.vmStopped == true and
   .runtime.sourceUnchanged == true and .runtime.rosettaInstalled == false and
-  .runtime.manualGuestRepair == false
+  .runtime.manualGuestRepair == false and
+  (.runtime.checks | index("credential-rotation-before-cold-boot") != null) and
+  (.runtime.checks | index("credential-rotation-after-cold-boot") != null)
 ' "$record" >/dev/null
 fi
 reference=$(jq -er .reference "$record")
