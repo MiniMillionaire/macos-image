@@ -276,7 +276,7 @@ import_parent() {
     required_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
   fi
   jq -n --arg reference "$reference" --arg manifest "$expected_manifest" --argjson bytes "$required_bytes" \
-    '{reference:$reference,sourceManifest:$manifest,diskBytes:$bytes}' > "$work/parent-identity.json"
+    '{reference:$reference,sourceManifest:$manifest,diskBytes:$bytes,eanInitialized:true}' > "$work/parent-identity.json"
   if restore_parent_cache; then
     printf 'Reusing retained parent image: %s\n' "$reference"
     jq -n --arg reference "$reference" '{reference:$reference,reused:true}' > "$evidence/parent-download.json"
