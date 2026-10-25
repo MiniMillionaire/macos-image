@@ -28,7 +28,8 @@ for attempt in {1..60}; do
     .runtimes as $runtimes |
     all($remove[0][]; . as $old |
       all($images[0][]; .identifier != $old.identifier) and
-      all($runtimes[]; .identifier != $old.runtimeIdentifier or .isAvailable != true))
+      (any($images[0][]; .runtimeIdentifier == $old.runtimeIdentifier and .state == "Ready" and .kind != "Legacy Download") or
+       all($runtimes[]; .identifier != $old.runtimeIdentifier or .isAvailable != true)))
   ' "$work/removing-runtimes.json" >/dev/null; then
     removed=true
     break
@@ -47,9 +48,9 @@ download() {
 }
 while IFS=$'\t' read -r platform runtime_build identifier; do
   if jq -e --slurpfile remove "$work/remove.json" --arg identifier "$identifier" --arg build "$runtime_build" '
-    [.[] | select(.runtimeIdentifier == $identifier and .build == $build) |
+    [.[] | select(.runtimeIdentifier == $identifier and .build == $build and .state == "Ready" and .kind != "Legacy Download") |
       .identifier as $id | select(all($remove[0][]; .identifier != $id))] | length == 1
-  ' "$work/before.json" >/dev/null; then
+  ' "$work/removing-images.json" >/dev/null; then
     printf 'Runtime already installed: %s %s\n' "$platform" "$runtime_build"
     continue
   fi
