@@ -3,6 +3,8 @@ set -euo pipefail
 work=${ACCEPTANCE_WORKSPACE:?}
 runtime="$work/runtime/runtime-status.json"
 jq -e '.exitCode == 0 and .vmStopped and .sourceUnchanged' "$runtime" >/dev/null
+grep -qx 'credential-rotation-before-cold-boot 0' "$work/runtime/checks.tsv"
+grep -qx 'credential-rotation-after-cold-boot 0' "$work/runtime/checks.tsv"
 diagnostics='Health and boot checks retained; crash archive not collected.'
 if [[ -s "$work/runtime/diagnostics.tar" ]]; then
   diagnostics='Crash archive and health checks retained in the acceptance artifact.'

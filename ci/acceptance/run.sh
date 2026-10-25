@@ -267,4 +267,6 @@ jq -n --argjson inherited "$((initial_boot_events - 1))" --argjson boots "$boot_
 if [[ "$variant" == xcode ]]; then remote_script dismiss-notifications "$helpers/dismiss-notifications.sh"; fi
 remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 system_policy final
+source "$helpers/credentials.sh"
+verify_credential_persistence
 printf 'RUNTIME_ACCEPTANCE_PASSED\n'
