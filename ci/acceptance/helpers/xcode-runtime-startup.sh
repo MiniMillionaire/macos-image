@@ -57,15 +57,21 @@ mkdir -p "$root/RuntimeProbe.app"
 cat > "$root/probe.m" <<'OBJC'
 #import <UIKit/UIKit.h>
 @interface ProbeDelegate : UIResponder <UIApplicationDelegate>
-@property(nonatomic, strong) UIWindow *window;
 @end
 @implementation ProbeDelegate
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+@end
+@interface ProbeSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property(nonatomic, strong) UIWindow *window;
+@end
+@implementation ProbeSceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     self.window.rootViewController = [UIViewController new];
     [self.window makeKeyAndVisible];
-    NSLog(@"RUNTIME_PROBE_LAUNCHED");
-    return YES;
+}
+- (void)sceneDidBecomeActive:(UIScene *)scene {
+    NSURL *documents = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    [@"ready\n" writeToURL:[documents URLByAppendingPathComponent:@"scene-ready"] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
 }
 @end
 int main(int argc, char **argv) {
@@ -86,6 +92,13 @@ cat > "$root/RuntimeProbe.app/Info.plist" <<'PLIST'
 <key>CFBundleSupportedPlatforms</key><array><string>iPhoneSimulator</string></array>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 <key>LSRequiresIPhoneOS</key><true/>
+<key>UIApplicationSceneManifest</key><dict>
+<key>UIApplicationSupportsMultipleScenes</key><false/>
+<key>UISceneConfigurations</key><dict>
+<key>UIWindowSceneSessionRoleApplication</key><array><dict>
+<key>UISceneConfigurationName</key><string>RuntimeProbe</string>
+<key>UISceneDelegateClassName</key><string>ProbeSceneDelegate</string>
+</dict></array></dict></dict>
 </dict></plist>
 PLIST
 version=$(jq -er '.runtimes[] | select(.platform == "iOS") | .version' "$configuration")
@@ -120,7 +133,7 @@ final class RuntimeMountTests: XCTestCase {
 }
 SWIFT
 exercise() {
-  local phase=$1
+  local phase=$1 pid data ready=false
   event "$phase create"
   udid=$(bounded 30 xcrun simctl create "RuntimeStartup-$phase" "$type" "$runtime")
   [[ "$udid" =~ ^[0-9A-Fa-f-]{36}$ ]]
@@ -128,12 +141,24 @@ exercise() {
   bounded 300 xcrun simctl bootstatus "$udid" -b
   event "$phase install"
   bounded 90 xcrun simctl install "$udid" "$root/RuntimeProbe.app"
-  bounded 60 xcrun simctl launch --terminate-running-process "$udid" moe.uwucocoa.runtime-probe
+  bounded 60 xcrun simctl launch --terminate-running-process "$udid" moe.uwucocoa.runtime-probe | tee "$root/$phase-launch.log"
+  pid=$(sed -n 's/^moe\.uwucocoa\.runtime-probe: \([0-9][0-9]*\)$/\1/p' "$root/$phase-launch.log")
+  [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]]
+  data=$(bounded 30 xcrun simctl get_app_container "$udid" moe.uwucocoa.runtime-probe data)
+  for attempt in {1..120}; do
+    kill -0 "$pid"
+    if [[ -f "$data/Documents/scene-ready" ]]; then ready=true; break; fi
+    sleep 0.5
+  done
+  [[ "$ready" == true ]]
   bounded 30 xcrun simctl get_app_container "$udid" moe.uwucocoa.runtime-probe app
   event "$phase xcodebuild-test"
   (cd "$root/RuntimeTests"; bounded 600 xcodebuild test -scheme RuntimeTests -destination "id=$udid" \
     -parallel-testing-enabled NO -derivedDataPath "$root/DerivedData" -resultBundlePath "$root/$phase.xcresult" \
     -quiet) > "$root/$phase-xcodebuild.log" 2>&1
+  kill -0 "$pid"
+  [[ $(ps -p "$pid" -o comm=) == */RuntimeProbe.app/RuntimeProbe ]]
+  bounded 30 xcrun simctl terminate "$udid" moe.uwucocoa.runtime-probe
   event "$phase passed"
   bounded 60 xcrun simctl shutdown "$udid"
   bounded 30 xcrun simctl delete "$udid"
