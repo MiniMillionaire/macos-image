@@ -5,13 +5,68 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:7b403c2c13b5a3816c9278aa133cb202aa9cc3a2047f90140381182bd778c9f4",
-  "sourceRevision": "68fbfdc1371e10bccc0181988bf968939071a3d0",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39025528125",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39042909706",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:24f9c62f70bcb6d342824d410ec9c779f350387590d2c9fa61b8e6ee495d7487",
+  "sourceRevision": "34e8020afd5dd43b198df30526b705ca7a566d76",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40178600820",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40181685640",
   "anonymousDownloadVerified": true,
-  "constructionVMStarted": false,
-  "acceptedAt": "2026-10-17T15:13:53Z",
+  "constructionVMStarted": true,
+  "componentInstallation": {
+    "method": "xcodebuild",
+    "configuration": {
+      "build": "27A266a",
+      "components": [
+        "MetalToolchain"
+      ],
+      "platforms": [
+        "iOS",
+        "watchOS",
+        "tvOS",
+        "visionOS"
+      ],
+      "runtimeArchitecture": "arm64",
+      "schemaVersion": 1,
+      "version": "27.0"
+    },
+    "runtimes": [
+      {
+        "identifier": "7266C478-528B-4AD6-B65C-8CF41C12A1B7",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.xrOS-27-0",
+        "build": "24M362",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      },
+      {
+        "identifier": "A2A337A1-50BE-4DD7-8FFE-AD21BFB1D333",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+        "build": "24A434",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      },
+      {
+        "identifier": "B8B8E9C5-6D5D-4FC3-B563-7C2FC3EACAE1",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.watchOS-27-0",
+        "build": "24R362",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      },
+      {
+        "identifier": "B173D980-E9D6-4B36-958D-5D8FC4AB9DFF",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.tvOS-27-0",
+        "build": "24J360",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      }
+    ],
+    "completed": true,
+    "vmStopped": true,
+    "sourceUnchanged": true
+  },
+  "acceptedAt": "2026-10-25T10:24:30Z",
   "xcodeFlavor": "full",
   "runtime": {
     "exitCode": 0,
@@ -32,6 +87,8 @@
       "tart": "2.40.1"
     },
     "checks": [
+      "health-boot-1",
+      "runtime-startup",
       "original-requirements",
       "xcode-tools",
       "xcode-ddi",
@@ -50,7 +107,12 @@
       "final-desktop"
     ],
     "authenticationAndInputVerified": true,
-    "diagnostics": "Crash archive and health checks retained in the acceptance artifact."
+    "diagnostics": "Crash archive and health checks retained in the acceptance artifact.",
+    "bootEvents": {
+      "inherited": 1,
+      "acceptance": 1,
+      "total": 2
+    }
   },
   "xcodeConfiguration": {
     "build": "27A266a",
@@ -68,7 +130,7 @@
     "version": "27.0"
   },
   "supersededCandidate": {
-    "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:ad6584622c486a543a6fdae6a7419995dfda17f982371adad0e81398de461d7a",
-    "run": "37992312157-1"
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-xcode@sha256:7b403c2c13b5a3816c9278aa133cb202aa9cc3a2047f90140381182bd778c9f4",
+    "run": "39025528125-1"
   }
 }
