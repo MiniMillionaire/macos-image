@@ -38,7 +38,7 @@ on:
       xcode_tools:
         description: Xcode refresh
         type: choice
-        options: ['', configuration, android]
+        options: ['', configuration, android, components]
         default: ''
 
 permissions:
@@ -90,6 +90,7 @@ jobs:
       - name: Prepare build tools and workspace
         env:
           BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
         run: bash ci/offline-image.sh prepare
       - name: Download Command Line Tools
         if: inputs.parent_run_id == ''
@@ -172,7 +173,7 @@ jobs:
         env:
           VARIANT: xcode
         run: bash ci/offline-image.sh xcode
-      - name: Export Xcode and retire build inputs
+      - name: Install native Xcode components and export image
         if: inputs.image_type == 'xcode'
         env:
           VARIANT: xcode

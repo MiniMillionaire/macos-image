@@ -38,7 +38,12 @@ if [[ "$VARIANT" == xcode ]]; then
 fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
-  .target == $target and .variant == $variant and .constructionVMStarted == false
+  .target == $target and .variant == $variant and
+  (if .variant == "xcode" and .constructionVMStarted == true then
+    .componentInstallation.method == "xcodebuild" and .componentInstallation.completed == true and
+    .componentInstallation.vmStopped == true and .componentInstallation.sourceUnchanged == true and
+    (.runtime.checks | index("runtime-startup") != null)
+   else .constructionVMStarted == false end)
 ' "$record" >/dev/null
 if [[ ${BEFORE_ACCEPTANCE:-false} == true ]]; then
   jq -e --arg actor "$GITHUB_ACTOR" '

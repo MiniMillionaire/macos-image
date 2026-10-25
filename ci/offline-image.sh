@@ -40,7 +40,9 @@ legacy_parent_cache="$IMAGE_CACHE_ROOT/offline-parent"
 stage=${1:?Missing operation}
 
 privileged() {
-  if [[ -n ${MISO_ROOT_COMMAND:-} ]]; then
+  if [[ ${XCODE_TOOLS:-} == components ]]; then
+    "$@"
+  elif [[ -n ${MISO_ROOT_COMMAND:-} ]]; then
     "$MISO_ROOT_COMMAND" "$@"
   else
     sudo -n "$@"
@@ -83,7 +85,7 @@ prepare() {
   fi
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     [[ "$TARGET_VARIANT" == xcode && -n ${PARENT_RUN:-} ]] || return 1
-    [[ "$XCODE_TOOLS" == android || "$XCODE_TOOLS" == configuration ]] || return 1
+    [[ "$XCODE_TOOLS" == android || "$XCODE_TOOLS" == configuration || "$XCODE_TOOLS" == components ]] || return 1
   fi
   local installed_miso
   installed_miso=$(command -v miso)
@@ -102,6 +104,13 @@ prepare() {
   if [[ $BUILD_RUNNER_ENVIRONMENT == github-hosted ]] && grep -q '/opt/homebrew/' "$evidence/tool-libraries.txt"; then
     printf '%s\n' 'Publication tools depend on the Homebrew directory scheduled for cleanup.' >&2
     return 1
+  fi
+  if [[ "$TARGET_VARIANT" == xcode ]]; then
+    gh release download 2.40.1 --repo cirruslabs/tart --pattern tart.tar.gz --dir "$work/bin"
+    tar -xzf "$work/bin/tart.tar.gz" -C "$work/bin"
+    rm "$work/bin/tart.tar.gz"
+    codesign --verify --deep --strict "$work/bin/tart.app"
+    ln -s tart.app/Contents/MacOS/tart "$work/bin/tart"
   fi
   "$miso" --version > "$evidence/tools.txt"
   df -k "${work%/*}" > "$evidence/space-before-cleanup.txt"
@@ -197,7 +206,10 @@ import_parent() {
   artifact="offline-$IMAGE_PROFILE-$parent_variant-$PARENT_RUN-$attempt"
   parent_package=$parent_variant
   if [[ "$parent_variant" == xcode ]]; then
-    artifact="offline-$IMAGE_PROFILE-xcode-$XCODE_VERSION-$XCODE_FLAVOR-$PARENT_RUN-$attempt"
+    artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PARENT_RUN/artifacts" --paginate | \
+      jq -ser --arg prefix "offline-$IMAGE_PROFILE-xcode-" --arg suffix "-$XCODE_FLAVOR-$PARENT_RUN-$attempt" '
+        [.[].artifacts[] | select(.expired == false and (.name | startswith($prefix) and endswith($suffix))) | .name] |
+        if length == 1 then .[0] else error("Expected exactly one Xcode parent artifact") end')
     if [[ "$XCODE_FLAVOR" == slim ]]; then parent_package=slim-xcode; fi
   fi
   gh run download "$PARENT_RUN" --repo "$GITHUB_REPOSITORY" \
@@ -208,14 +220,21 @@ import_parent() {
     [[ -f "$manifest" ]] || return 1
   else
     manifest="$parent/bundle-manifest.json"
-    [[ -f "$manifest" ]] || return 1
+    if [[ ${XCODE_TOOLS:-} != components ]]; then
+      [[ -f "$manifest" ]] || { printf 'Offline edits require a never-booted MISO parent.\n' >&2; return 1; }
+    fi
     if [[ "$parent_variant" == base ]]; then [[ -f "$parent/software-preparation.json" ]] || return 1; fi
     if [[ "$parent_variant" == xcode ]]; then
       local profile_options=(--config "$config/xcode-$XCODE_VERSION.json")
       if [[ "$XCODE_FLAVOR" == slim ]]; then profile_options+=(--slim); fi
       "$miso" xcode defaults "${profile_options[@]}" > "$evidence/parent-expected-xcode.json"
-      jq -e --slurpfile expected "$evidence/parent-expected-xcode.json" \
-        '.xcode_complete == true and .xcode_configuration == $expected[0]' "$manifest" >/dev/null
+      if [[ ${XCODE_TOOLS:-} == components ]]; then
+        jq -e --slurpfile expected "$evidence/parent-expected-xcode.json" \
+          '.configuration == $expected[0]' "$parent/archive.json" >/dev/null
+      else
+        jq -e --slurpfile expected "$evidence/parent-expected-xcode.json" \
+          '.xcode_complete == true and .xcode_configuration == $expected[0]' "$manifest" >/dev/null
+      fi
     fi
   fi
   local revision parent_configuration
@@ -226,13 +245,30 @@ import_parent() {
   parent_configuration=$(jq -Sc . "$evidence/parent-image-config.json" | shasum -a 256 | awk '{print $1}')
   [[ "$parent_configuration" == "$configuration_digest" ]] || return 1
   jq -e --argjson target "$target" --arg variant "$parent_variant" \
-    --arg configuration "$configuration_digest" --arg run "$PARENT_RUN-$attempt" --arg revision "$revision" '
+    --arg configuration "$configuration_digest" --arg run "$PARENT_RUN-$attempt" --arg revision "$revision" \
+    --arg refresh "${XCODE_TOOLS:-}" '
     .variant == $variant and .target == $target and .run == $run and .revision == $revision and
     (.imageConfigurationSHA256 // $configuration) == $configuration and
-    (.uploaded == true or .anonymousDownloadVerified == true) and .vmStarted == false and .runtimeVerified == false' \
+    (.uploaded == true or .anonymousDownloadVerified == true) and .runtimeVerified == false and
+    (.vmStarted == false or (.vmStarted == true and $refresh == "components" and .variant == "xcode" and
+      .componentInstallation.completed == true and .componentInstallation.vmStopped == true and
+      .componentInstallation.sourceUnchanged == true and .componentInstallation.method == "xcodebuild"))' \
     "$parent/publication.json" >/dev/null
   reference=$(jq -er .reference "$parent/publication.json")
   [[ "$reference" == "$repository-$parent_package@sha256:"* && "${reference##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  if [[ ${XCODE_TOOLS:-} == components ]]; then
+    unset MISO_REGISTRY_USERNAME MISO_REGISTRY_PASSWORD
+    if ! take_acceptance_source "$reference"; then
+      "$miso" bundle pull "$reference" --output "$work/parent-download" \
+        --concurrency "${MISO_TRANSFER_CONCURRENCY:-4}" > "$evidence/parent-download.json"
+    fi
+    mv "$work/parent-download/vm" "$work/xcode-parent-vm"
+    jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
+      "$work/xcode-parent-vm/config.json" > "$evidence/parent-identity.json"
+    cmp "$parent/source-identity.json" "$evidence/parent-identity.json"
+    copy_xcode_parent_evidence
+    return
+  fi
   expected_manifest=$(jq -er .sourceManifest.sha256 "$parent/export.json")
   [[ $(shasum -a 256 "$manifest" | awk '{print $1}') == "$expected_manifest" ]] || return 1
   local required_bytes=0 source_bytes
@@ -276,16 +312,20 @@ import_parent() {
     parent_source=xcode-parent/bundle
     mkdir "$work/xcode-parent"
     privileged mv "$work/parent-import/bundle" "$work/xcode-parent/bundle"
-    local receipt
-    for receipt in archive.json gems.json prepare-casks.json prepare-tuist.json prepare-simulator-tools.json prepare-flutter.json prepare-android.json; do
-      cp "$parent/$receipt" "$evidence/$receipt"
-    done
-    cp "$parent/publication.json" "$evidence/inherited-xcode.json"
+    copy_xcode_parent_evidence
   fi
   cp "$parent/publication.json" "$work/parent-publication.json"
   printf '%s\n' "$parent_source" > "$work/parent-source.txt"
   require_detached
   if [[ -d "$work/parent-download/vm" ]]; then rm -r "$work/parent-download/vm"; fi
+}
+
+copy_xcode_parent_evidence() {
+  local receipt
+  for receipt in archive.json gems.json prepare-casks.json prepare-tuist.json prepare-simulator-tools.json prepare-flutter.json prepare-android.json; do
+    cp "$work/parent-evidence/$receipt" "$evidence/$receipt"
+  done
+  cp "$work/parent-evidence/publication.json" "$evidence/inherited-xcode.json"
 }
 
 take_acceptance_source() {
@@ -360,6 +400,7 @@ restore_parent_cache() {
 }
 
 retain_parent_image() {
+  if [[ ${XCODE_TOOLS:-} == components ]]; then return; fi
   [[ ${KEEP_PARENT_IMAGE:-false} == true && -f "$work/parent-source.txt" ]] || return 0
   local source
   source=$(cat "$work/parent-source.txt")
@@ -455,10 +496,29 @@ export_image() {
   local source="$work/vanilla"
   if [[ "$VARIANT" == base ]]; then source="$work/base/11-cleanup/bundle"; fi
   if [[ "$VARIANT" == xcode ]]; then source="$work/xcode/final/image/bundle"; fi
-  privileged "$miso" bundle export-tart "$source" --output "$work/export-$VARIANT" | tee "$evidence/export.json" >/dev/null
-  privileged cp "$source/manifest.json" "$evidence/bundle-manifest.json"
-  privileged chown -R "$(id -u):$(id -g)" "$work/export-$VARIANT" "$evidence"
-  mv "$work/export-$VARIANT/vm" "$images/$VARIANT"
+  if [[ ${XCODE_TOOLS:-} == components ]]; then
+    mv "$work/xcode-parent-vm" "$images/$VARIANT"
+  else
+    privileged "$miso" bundle export-tart "$source" --output "$work/export-$VARIANT" | tee "$evidence/export.json" >/dev/null
+    privileged cp "$source/manifest.json" "$evidence/bundle-manifest.json"
+    privileged chown -R "$(id -u):$(id -g)" "$work/export-$VARIANT" "$evidence"
+    mv "$work/export-$VARIANT/vm" "$images/$VARIANT"
+    if [[ "$VARIANT" == xcode ]]; then
+      mv "$evidence/export.json" "$evidence/offline-export.json"
+      mv "$evidence/bundle-manifest.json" "$evidence/offline-source-manifest.json"
+    fi
+  fi
+  if [[ "$VARIANT" == xcode ]]; then
+    local component_status=0
+    /bin/bash "$root/ci/xcode-components.sh" "$images/$VARIANT" \
+      "$evidence/xcode-$XCODE_VERSION.json" "$evidence/xcode-$XCODE_VERSION-inputs.json" "$work/native-xcode" || component_status=$?
+    cp -R "$work/native-xcode/evidence" "$evidence/native-components"
+    [[ "$component_status" == 0 ]] || return "$component_status"
+    rm -r "$images/$VARIANT"
+    mv "$work/native-xcode/vm" "$images/$VARIANT"
+    jq -n --slurpfile components "$evidence/native-components/native-components.json" \
+      '{format:"tart",vmStarted:true,componentInstallation:$components[0]}' > "$evidence/export.json"
+  fi
   cp "$images/$VARIANT/config.json" "$evidence/source-config.json"
   jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
     "$evidence/source-config.json" > "$evidence/source-identity.json"
@@ -497,9 +557,10 @@ publish() {
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
     --arg flavor "${XCODE_FLAVOR:-full}" \
+    --argjson components "$(if [[ "$VARIANT" == xcode ]]; then cat "$evidence/native-components/native-components.json"; else printf null; fi)" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
       target:$target,profile:$profile,imageConfigurationSHA256:$configuration,uploaded:true,anonymousDownloadVerified:false,
-      vmStarted:false,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
+      vmStarted:($variant == "xcode"),componentInstallation:$components,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
       xcodeFlavor:(if $variant == "xcode" then $flavor else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi
   require_detached

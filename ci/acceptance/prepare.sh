@@ -40,7 +40,11 @@ repository="$(jq -er .repository "$root/config/miso/$MACOS_VERSION/profile.json"
 jq -e --arg revision "$(jq -r .headSha "$work/evidence/build-run.json")" \
   --arg repository "$repository" --arg version "$MACOS_VERSION" --arg variant "$IMAGE_TYPE" '
   .revision == $revision and .variant == $variant and .target.version == $version and
-  (.uploaded == true or .anonymousDownloadVerified == true) and .vmStarted == false and .runtimeVerified == false and
+  (.uploaded == true or .anonymousDownloadVerified == true) and .runtimeVerified == false and
+  (if .variant == "xcode" and .vmStarted == true then
+    .componentInstallation.method == "xcodebuild" and .componentInstallation.completed == true and
+    .componentInstallation.vmStopped == true and .componentInstallation.sourceUnchanged == true
+   else .vmStarted == false end) and
   (.reference | startswith($repository + "@sha256:")) and
   (.reference | test("@sha256:[0-9a-f]{64}$"))' "$publication" >/dev/null
 if [[ "$IMAGE_TYPE" == xcode ]]; then

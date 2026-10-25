@@ -4,7 +4,7 @@ All new images use MISO. The repository has three manually dispatched workflows:
 
 | Workflow | Purpose |
 | --- | --- |
-| Build offline macOS images | Build and upload a candidate without starting a VM |
+| Build offline macOS images | Build and upload a candidate; Xcode components install in an isolated VM |
 | Verify offline macOS images | Download and test a disposable clone on the M5 |
 | Publish accepted offline macOS images | Publish the accepted digest and remove its temporary tags |
 
@@ -30,13 +30,28 @@ For Xcode, select a configured `xcode_version`, such as `27.1-rc`, and
 private download base URL. The configured Apple archive filename is appended.
 
 To replace Android in an existing Xcode image, set its build as `parent_run_id`
-and set `xcode_tools: android`. Only Android and final image optimization run;
-the existing Xcode, other tools and simulators are reused. The resulting image
-still requires VM acceptance before publication.
+and set `xcode_tools: android`. The parent must be a completed, never-booted MISO
+image. Set `xcode_tools: components` to replace legacy simulator installations
+with Xcode-managed components. This mode also accepts a native Xcode parent and
+uses an ordinary Tart clone, without importing it as an unbooted MISO bundle.
+Both paths require VM acceptance.
+
+macOS, Base, the Xcode application, and developer tools are assembled offline.
+An isolated builder replaces legacy simulator copies with Apple's managed
+installations. It runs `xcodebuild -downloadPlatform` and `-downloadComponent` commands, using
+the configured runtime builds and arm64 architecture. It waits for installation
+transactions to finish, verifies one available installation per runtime, and
+shuts down before export. This stage needs a running VM slot but no VNC interaction.
+The final Xcode image is not an unbooted MISO source for subsequent offline edits.
+
+Build artifacts retain the intermediate `offline-source-manifest.json` and
+`offline-export.json` separately from the native component receipt. Their disk
+hashes describe the offline intermediate, not the final, booted Xcode image.
 
 Vanilla and Base use hosted Apple silicon runners. Xcode uses the M5 runner with
 administrator access through `sudo -n` or the authorized `MISO_ROOT_COMMAND`
-repository variable. Registry transfers use 4 concurrent requests on hosted
+repository variable for offline assembly. Component-only refresh and VM acceptance
+run as the ordinary runner user. Registry transfers use 4 concurrent requests on hosted
 runners and 8 on the M5, unless `MISO_TRANSFER_CONCURRENCY` overrides them.
 
 ## Verify
@@ -48,7 +63,10 @@ approve the M5 job.
 
 The job downloads the candidate once, boots a disposable clone, runs functional
 checks, stops the VM and uploads logs and an acceptance record. Download progress
-and test output are visible in CI. Construction itself never starts a VM.
+and test output are visible in CI. Xcode acceptance starts its runtime checks as
+soon as first-boot SSH connects: it installs and launches an iOS app, runs XCTest
+on the simulator, and repeats after at least 11 minutes. Runtime inventory and
+paths are monitored throughout. This does not delay the image's readiness signal.
 
 Review the acceptance artifact, including diagnostics, then commit its
 `evidence/acceptance.json` under `config/miso/<macos_version>/`:

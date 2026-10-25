@@ -70,9 +70,7 @@ watchdog_pid=$!
 options=(-F /dev/null -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$log/known_hosts" -o ConnectTimeout=5 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o NumberOfPasswordPrompts=1 -o PubkeyAuthentication=no -o PreferredAuthentications=password)
 remote() { ssh "${options[@]}" "admin@$ip" "$@"; }
 vnc() {
-  local privilege=(sudo -n)
-  if [[ -n ${MISO_ROOT_COMMAND:-} ]]; then privilege=("$MISO_ROOT_COMMAND"); fi
-  "${privilege[@]}" /usr/bin/env \
+  /usr/bin/env \
     "SSH_ASKPASS=$SSH_ASKPASS" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
     "VNC_AUTH=${VNC_AUTH:-}" "VNC_POINTER_COMMAND=${VNC_POINTER_COMMAND:-}" \
     "VNC_CAPTURE_PATH=${VNC_CAPTURE_PATH:-}" \
@@ -83,8 +81,9 @@ remote_script() {
   shift 2
   printf '\n::group::%s\n' "$name"
   scp "${options[@]}" "$file" "admin@$ip:/private/tmp/miso-acceptance-step.sh" >> "$log/scp.log" 2>&1
-  local status=0
-  remote "env EXPECTED_VERSION=$expected_version EXPECTED_BUILD=$expected_build $* /usr/bin/perl -e 'alarm 900; exec @ARGV' /bin/bash /private/tmp/miso-acceptance-step.sh" </dev/null 2>&1 | tee "$log/$name.log" || status=$?
+  local status=0 timeout=900
+  if [[ "$name" == runtime-startup ]]; then timeout=1800; fi
+  remote "env EXPECTED_VERSION=$expected_version EXPECTED_BUILD=$expected_build $* /usr/bin/perl -e 'alarm $timeout; exec @ARGV' /bin/bash /private/tmp/miso-acceptance-step.sh" </dev/null 2>&1 | tee "$log/$name.log" || status=$?
   printf '::endgroup::\n'
   printf '%s %s\n' "$name" "$status" >> "$log/checks.tsv"
   return "$status"
@@ -143,6 +142,14 @@ for ((boot=1; boot<=boot_cycles; boot++)); do
   elapsed=$(awk -v start="$started" -v end="$(monotonic)" 'BEGIN {printf "%.3f", end-start}')
   printf '%s\t%s\n' "$boot" "$elapsed" >> "$log/boot-times.tsv"
   printf '::notice::Boot %s: SSH ready after %s seconds.\n' "$boot" "$elapsed"
+  if [[ "$variant" == xcode && "$boot" == 1 ]]; then
+    scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
+    scp "${options[@]}" "$helpers/runtime-inventory.jq" "admin@$ip:/private/tmp/runtime-inventory.jq" >> "$log/scp.log" 2>&1
+    startup_status=0
+    remote_script runtime-startup "$helpers/xcode-runtime-startup.sh" || startup_status=$?
+    remote 'tar -cf - -C /private/tmp --exclude=macos-image-runtime-startup/DerivedData macos-image-runtime-startup' > "$log/runtime-startup.tar" || startup_status=1
+    [[ "$startup_status" == 0 ]] || exit "$startup_status"
+  fi
   ready=false
   for attempt in {1..40}; do
     if remote 'test "$(stat -f %Su /dev/console)" = admin' </dev/null > "$log/ready.log" 2>&1; then ready=true; break; fi

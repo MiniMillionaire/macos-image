@@ -64,7 +64,6 @@ jobs:
       KEEP_SOURCE_IMAGE: ${{ inputs.keep_source_image }}
       TART_VERSION: 2.40.1
       IMAGE_STORAGE_DIRECTORY: ${{ inputs.storage_directory || vars.IMAGE_STORAGE_DIRECTORY }}
-      MISO_ROOT_COMMAND: ${{ vars.MISO_ROOT_COMMAND }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -38,7 +38,7 @@ privileged() {
 
 prepare() {
   mkdir "$inputs"
-  if [[ ${XCODE_TOOLS:-} == configuration ]]; then return; fi
+  if [[ ${XCODE_TOOLS:-} == configuration || ${XCODE_TOOLS:-} == components ]]; then return; fi
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     local selected
     for selected in ${XCODE_TOOLS//,/ }; do
@@ -92,6 +92,7 @@ install_stage() {
 
 build() {
   local previous="$work/base/11-cleanup/bundle" platform version runtime_build runtime_name
+  if [[ ${XCODE_TOOLS:-} == components ]]; then return; fi
   mkdir "$work/xcode"
   if [[ -n ${XCODE_TOOLS:-} ]]; then
     previous="$work/xcode-parent/bundle"
