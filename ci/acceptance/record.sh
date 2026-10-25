@@ -42,6 +42,10 @@ if [[ -f "$work/runtime/system-policy-final.json" ]]; then
     > "$work/evidence/acceptance-policy.json"
   mv "$work/evidence/acceptance-policy.json" "$work/evidence/acceptance.json"
 fi
+jq --slurpfile boots "$work/runtime/boot-events.json" \
+  '.runtime.bootEvents = $boots[0]' "$work/evidence/acceptance.json" \
+  > "$work/evidence/acceptance-boots.json"
+mv "$work/evidence/acceptance-boots.json" "$work/evidence/acceptance.json"
 if [[ -f "$work/cloud/inherited-xcode.json" ]]; then
   jq --slurpfile parent "$work/cloud/inherited-xcode.json" \
     '.supersededCandidate = ($parent[0] | {reference,run})' "$work/evidence/acceptance.json" \

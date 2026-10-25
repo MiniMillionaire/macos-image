@@ -142,6 +142,17 @@ for ((boot=1; boot<=boot_cycles; boot++)); do
   elapsed=$(awk -v start="$started" -v end="$(monotonic)" 'BEGIN {printf "%.3f", end-start}')
   printf '%s\t%s\n' "$boot" "$elapsed" >> "$log/boot-times.tsv"
   printf '::notice::Boot %s: SSH ready after %s seconds.\n' "$boot" "$elapsed"
+  remote_script "health-boot-$boot" "$helpers/health.sh"
+  boot_events=$(sed -n 's/^BOOT_EVENTS=//p' "$log/health-boot-$boot.log")
+  boot_session=$(sed -n 's/^BOOT_SESSION=//p' "$log/health-boot-$boot.log")
+  [[ "$boot_events" =~ ^[0-9]+$ && "$boot_events" -gt 0 && "$boot_session" =~ ^[0-9A-Fa-f-]{36}$ ]] || exit 1
+  if ((boot == 1)); then
+    initial_boot_events=$boot_events
+    if [[ $(jq -r .vmStarted "$run/cloud/publication.json") == false ]]; then
+      [[ "$initial_boot_events" == 1 ]] || exit 1
+    fi
+  fi
+  [[ "$boot_events" -eq $((initial_boot_events + boot - 1)) ]] || exit 1
   if [[ "$variant" == xcode && "$boot" == 1 ]]; then
     scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
     scp "${options[@]}" "$helpers/runtime-inventory.jq" "admin@$ip:/private/tmp/runtime-inventory.jq" >> "$log/scp.log" 2>&1
@@ -247,7 +258,12 @@ remote "kill $witness_pid; rm -rf /private/tmp/InputWitness.app; rm $witness"
 session_state after-witness
 remote 'stat -f %Su /dev/console; ps -axo pid,ppid,etime,comm | egrep "(Finder|Dock|screensharing|loginwindow)"' > "$log/desktop-processes.txt"
 remote_script health "$helpers/health.sh"
-grep -qx "BOOT_EVENTS=$boot_cycles" "$log/health.log"
+expected_boot_events=$((initial_boot_events + boot_cycles - 1))
+grep -qx "BOOT_EVENTS=$expected_boot_events" "$log/health.log"
+grep -qx "BOOT_SESSION=$boot_session" "$log/health.log"
+jq -n --argjson inherited "$((initial_boot_events - 1))" --argjson boots "$boot_cycles" \
+  --argjson total "$expected_boot_events" \
+  '{inherited:$inherited,acceptance:$boots,total:$total}' > "$log/boot-events.json"
 if [[ "$variant" == xcode ]]; then remote_script dismiss-notifications "$helpers/dismiss-notifications.sh"; fi
 remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 system_policy final

@@ -43,5 +43,6 @@ csrutil status
 csrutil authenticated-root status
 printf 'CONSOLE='; stat -f %Su /dev/console
 printf 'BOOT_EVENTS='; miso_guest_boot_events
+printf 'BOOT_SESSION='; sysctl -n kern.bootsessionuuid
 printf 'TART_PROCESSES='; pgrep -fl tart-guest-agent || true
 printf 'TART_VERSION_DEVICES='; find /dev -maxdepth 1 -name 'cu.tart-version-*' -print
