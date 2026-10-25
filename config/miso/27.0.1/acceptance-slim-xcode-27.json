@@ -5,13 +5,85 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:9195659212cb6f6d5e42f4b5c7e2c70c9ec036ef921201069286c4c2194ee609",
-  "sourceRevision": "76f6f4519dedfb86a486216c2cfd5d52fdc94569",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39053480571",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/39072129049",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:e841100e0cdd9a627335e1026895b6fa754841036848abb5852816be28e3e954",
+  "sourceRevision": "34e8020afd5dd43b198df30526b705ca7a566d76",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40178603112",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40190239850",
   "anonymousDownloadVerified": true,
-  "constructionVMStarted": false,
-  "acceptedAt": "2026-10-17T21:58:24Z",
+  "constructionVMStarted": true,
+  "componentInstallation": {
+    "method": "xcodebuild",
+    "configuration": {
+      "build": "27A266a",
+      "components": [
+        "MetalToolchain"
+      ],
+      "platforms": [
+        "iOS",
+        "watchOS"
+      ],
+      "profile": {
+        "cleanup": true,
+        "platforms": [
+          "iOS",
+          "watchOS"
+        ],
+        "preset": "slim",
+        "sparsify": true,
+        "system": {
+          "features": {
+            "advertising": "disabled",
+            "appleIntelligence": "disabled",
+            "cloudSync": "disabled",
+            "continuity": "disabled",
+            "home": "disabled",
+            "messages": "disabled",
+            "personalApps": "disabled",
+            "photoAnalysis": "disabled",
+            "siri": "disabled",
+            "telemetryUpload": "disabled"
+          },
+          "services": {
+          },
+          "settings": {
+            "automaticAppUpdates": false,
+            "automaticBackups": false,
+            "automaticOSUpdates": false,
+            "securityDataUpdates": true,
+            "sessionRestore": false,
+            "spotlightIndexing": false
+          }
+        },
+        "transparentCompression": true,
+        "trimIntel": true
+      },
+      "runtimeArchitecture": "arm64",
+      "schemaVersion": 1,
+      "version": "27.0"
+    },
+    "runtimes": [
+      {
+        "identifier": "58FC8C27-C1B1-436F-A610-69726F89BBE8",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+        "build": "24A434",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      },
+      {
+        "identifier": "71733080-E040-4D1B-ABCF-05B5C2DFD4B8",
+        "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.watchOS-27-0",
+        "build": "24R362",
+        "version": "27.0",
+        "kind": "Patchable Cryptex Disk Image",
+        "state": "Ready"
+      }
+    ],
+    "completed": true,
+    "vmStopped": true,
+    "sourceUnchanged": true
+  },
+  "acceptedAt": "2026-10-25T12:10:30Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -32,7 +104,10 @@
       "tart": "2.40.1"
     },
     "checks": [
+      "health-boot-1",
+      "runtime-startup",
       "system-policy-boot-1",
+      "health-boot-2",
       "system-policy-boot-2",
       "original-requirements",
       "xcode-tools",
@@ -61,13 +136,18 @@
     "bootTimes": [
       {
         "boot": 1,
-        "sshSeconds": 12.608
+        "sshSeconds": 12.228
       },
       {
         "boot": 2,
-        "sshSeconds": 6.278
+        "sshSeconds": 5.671
       }
-    ]
+    ],
+    "bootEvents": {
+      "inherited": 1,
+      "acceptance": 2,
+      "total": 3
+    }
   },
   "xcodeConfiguration": {
     "build": "27A266a",
@@ -118,7 +198,7 @@
     "version": "27.0"
   },
   "supersededCandidate": {
-    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:3018f985b2a163b6787df903f93224f4618caef1aa79880f509da722145bb770",
-    "run": "38036869884-1"
+    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:9195659212cb6f6d5e42f4b5c7e2c70c9ec036ef921201069286c4c2194ee609",
+    "run": "39053480571-1"
   }
 }
