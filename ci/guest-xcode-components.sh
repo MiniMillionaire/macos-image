@@ -20,6 +20,22 @@ while IFS= read -r identifier; do
   [[ "$identifier" =~ ^[0-9A-Fa-f-]{36}$ ]]
   xcrun simctl runtime delete "$identifier"
 done < <(jq -r '.[].identifier' "$work/remove.json")
+removed=false
+for attempt in {1..60}; do
+  xcrun simctl list runtimes -j > "$work/removing-runtimes.json"
+  xcrun simctl runtime list -j > "$work/removing-images.json"
+  if jq -e --slurpfile remove "$work/remove.json" --slurpfile images "$work/removing-images.json" '
+    .runtimes as $runtimes |
+    all($remove[0][]; . as $old |
+      all($images[0][]; .identifier != $old.identifier) and
+      all($runtimes[]; .identifier != $old.runtimeIdentifier or .isAvailable != true))
+  ' "$work/removing-runtimes.json" >/dev/null; then
+    removed=true
+    break
+  fi
+  sleep 5
+done
+[[ "$removed" == true ]] || { printf 'Simulator removal did not complete.\n' >&2; exit 1; }
 
 download() {
   local attempt
