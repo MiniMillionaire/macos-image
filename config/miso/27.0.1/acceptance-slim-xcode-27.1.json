@@ -5,10 +5,10 @@
     "build": "26A434"
   },
   "variant": "xcode",
-  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:633e334d5bf1bc0cb7d46129e5c536c94e0532b216529b0d3e18992839efc221",
-  "sourceRevision": "63426336db484cce986e21d8b18daa2e966d931c",
-  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40165610178",
-  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40172216778",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:89e808673d59dbe94f1aea1d1fc5992bc76c076a48317bfe287e6fec3680106d",
+  "sourceRevision": "3657095f25c46440aa8cf80ee28e6ee914d7ca89",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40309932356",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40330513771",
   "anonymousDownloadVerified": true,
   "constructionVMStarted": true,
   "componentInstallation": {
@@ -43,7 +43,8 @@
             "siri": "disabled",
             "telemetryUpload": "disabled"
           },
-          "services": {},
+          "services": {
+          },
           "settings": {
             "automaticAppUpdates": false,
             "automaticBackups": false,
@@ -62,7 +63,7 @@
     },
     "runtimes": [
       {
-        "identifier": "88685962-0F41-49E8-B3E5-BB4B68CFEEF3",
+        "identifier": "A784A17B-4441-42EF-930A-E393675F0F56",
         "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.watchOS-27-0",
         "build": "24R362",
         "version": "27.0",
@@ -70,7 +71,7 @@
         "state": "Ready"
       },
       {
-        "identifier": "C93E380A-6924-4FFD-9036-D8EFFCE548C1",
+        "identifier": "D7D8DA09-D485-49B8-8A98-18D8B1EE2CAC",
         "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-27-1",
         "build": "24A94232",
         "version": "27.1",
@@ -82,7 +83,7 @@
     "vmStopped": true,
     "sourceUnchanged": true
   },
-  "acceptedAt": "2026-10-25T08:02:25Z",
+  "acceptedAt": "2026-10-26T13:51:00Z",
   "xcodeFlavor": "slim",
   "runtime": {
     "exitCode": 0,
@@ -122,7 +123,9 @@
       "health",
       "dismiss-notifications",
       "final-desktop",
-      "system-policy-final"
+      "system-policy-final",
+      "credential-rotation-before-cold-boot",
+      "credential-rotation-after-cold-boot"
     ],
     "authenticationAndInputVerified": true,
     "diagnostics": "Crash archive and health checks retained in the acceptance artifact.",
@@ -135,11 +138,11 @@
     "bootTimes": [
       {
         "boot": 1,
-        "sshSeconds": 12.595
+        "sshSeconds": 13.401
       },
       {
         "boot": 2,
-        "sshSeconds": 5.432
+        "sshSeconds": 5.511
       }
     ],
     "bootEvents": {
@@ -178,7 +181,8 @@
           "siri": "disabled",
           "telemetryUpload": "disabled"
         },
-        "services": {},
+        "services": {
+        },
         "settings": {
           "automaticAppUpdates": false,
           "automaticBackups": false,
@@ -194,9 +198,5 @@
     "runtimeArchitecture": "arm64",
     "schemaVersion": 1,
     "version": "27.1"
-  },
-  "supersededCandidate": {
-    "reference": "ghcr.io/minimillionaire/macos-golden-gate-slim-xcode@sha256:7f07219fd0cb2e5c0447e508f88ea533bf5e28e44bed1574ca0f6c9a4cf6debc",
-    "run": "38093736938-1"
   }
 }
