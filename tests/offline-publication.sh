@@ -115,4 +115,10 @@ ln -s "$LOCAL_IPSW_PATH" "$fixture/link.ipsw"
 for input in "$fixture/temp/input.ipsw" "$fixture/work/input.ipsw" "$fixture/link.ipsw" "https://example.test/source.ipsw" "$fixture/missing.ipsw"; do
   if (LOCAL_IPSW_PATH=$input; image_storage_validate_ipsw); then exit 1; fi
 done
+for directory in temp work; do
+  alternate="$fixture/$(printf '%s' "$directory" | tr '[:lower:]' '[:upper:]')"
+  if [[ "$alternate" -ef "$fixture/$directory" ]]; then
+    if (LOCAL_IPSW_PATH="$alternate/input.ipsw"; image_storage_validate_ipsw); then exit 1; fi
+  fi
+done
 printf '%s\n' 'PASS: local IPSW inputs require the isolated lane and remain outside cleanup paths.'

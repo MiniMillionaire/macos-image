@@ -56,13 +56,15 @@ image_storage_validate_ipsw() {
   [[ ${BUILD_RUNNER_SELECTION:-default} == local &&
     ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && -z ${PARENT_RUN:-} &&
     ${TARGET_VARIANT:-} != xcode ]] || return 1
-  local path=$LOCAL_IPSW_PATH directory temporary
+  local path=$LOCAL_IPSW_PATH directory
   [[ -d ${RUNNER_TEMP:-} ]] || return 1
-  temporary=$(cd "$RUNNER_TEMP" && pwd -P) || return 1
   [[ "$path" == /*.ipsw && "$path" != *$'\n'* && "$path" != *$'\r'* &&
     "$path" != *$'\t'* && -f "$path" && -r "$path" && ! -L "$path" ]] || return 1
   directory=$(cd "$(dirname "$path")" && pwd -P) || return 1
-  [[ "$path" == "$directory/$(basename "$path")" &&
-    "$path" != "$IMAGE_BUILD_WORKSPACE/"* &&
-    "$path" != "$temporary/"* ]] || return 1
+  [[ "$path" == "$directory/$(basename "$path")" ]] || return 1
+  while :; do
+    [[ ! "$directory" -ef "$RUNNER_TEMP" && ! "$directory" -ef "$IMAGE_BUILD_WORKSPACE" ]] || return 1
+    [[ "$directory" != / ]] || break
+    directory=$(dirname "$directory")
+  done
 }
