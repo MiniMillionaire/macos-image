@@ -7,6 +7,7 @@ set -euo pipefail
 [[ ${REPLACE_EXISTING:-false} == true || ${REPLACE_EXISTING:-false} == false ]] || exit 1
 [[ ${BEFORE_ACCEPTANCE:-false} == true || ${BEFORE_ACCEPTANCE:-false} == false ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+source "$root/ci/offline-profile.sh"
 config="$root/config/miso/$IMAGE_PROFILE"
 [[ -d "$config" && ! -L "$config" ]] || exit 1
 profile="$config/profile.json"
@@ -14,7 +15,8 @@ record_kind=acceptance
 if [[ ${BEFORE_ACCEPTANCE:-false} == true ]]; then record_kind=publication; fi
 record="$config/$record_kind-$VARIANT.json"
 package_variant=$VARIANT
-tag=$(jq -er .target.version "$profile")
+publication_identity=$(offline_publication "$profile")
+tag=$(jq -r .tag <<< "$publication_identity")
 if [[ "$VARIANT" == xcode ]]; then
   [[ ${XCODE_VERSION:-} =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$XCODE_VERSION" != *..* ]] || exit 1
   record="$config/$record_kind-xcode-$XCODE_VERSION.json"
@@ -37,6 +39,7 @@ if [[ "$VARIANT" == xcode ]]; then
   tag="$tag-xcode$xcode_tag"
 fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
+offline_receipt_matches_profile "$record" "$profile" "$IMAGE_PROFILE"
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
   .target == $target and .variant == $variant and
   (if .variant == "xcode" and .constructionVMStarted == true then
@@ -92,7 +95,7 @@ if [[ -n "$existing" && "$existing" != "$digest" ]]; then
 fi
 build_run=$(jq -er '.buildRun | split("/") | last' "$record")
 [[ "$build_run" =~ ^[0-9]+$ ]] || exit 1
-candidate_prefix="miso-$(jq -er .target.version "$profile")"
+candidate_prefix="miso-$(jq -r .tag <<< "$publication_identity")"
 if [[ "$VARIANT" == xcode ]]; then candidate_prefix="$candidate_prefix-xcode-$XCODE_VERSION"; fi
 bash "$root/ci/cleanup-offline-candidates.sh" "$repository" "$tag" "$digest" "$candidate_prefix-$build_run-"
 if jq -e '.supersededCandidate != null' "$record" >/dev/null; then

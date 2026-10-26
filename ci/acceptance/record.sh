@@ -21,7 +21,7 @@ jq -n --slurpfile publication "$work/cloud/publication.json" \
   --arg run "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
   --rawfile checks "$work/runtime/checks.tsv" '
   $publication[0] as $p |
-  {schemaVersion:1,target:$p.target,variant:$p.variant,reference:$p.reference,
+  {schemaVersion:1,target:$p.target,profile:$p.profile,publication:$p.publication,variant:$p.variant,reference:$p.reference,
    sourceRevision:$p.revision,buildRun:$build[0].url,acceptanceRun:$run,
    anonymousDownloadVerified:true,constructionVMStarted:$p.vmStarted,componentInstallation:$p.componentInstallation,acceptedAt:$date,
    xcodeFlavor:$p.xcodeFlavor,

@@ -5,10 +5,19 @@ on:
   workflow_dispatch:
     inputs:
       macos_version:
-        description: macOS version
+        description: macOS profile
         type: string
         default: '27.0.1'
         required: true
+      build_runner:
+        description: Build runner
+        type: choice
+        options: [default, local]
+        default: default
+      local_ipsw_path:
+        description: Existing IPSW on the local runner (optional)
+        type: string
+        default: ''
       image_type:
         description: Image type
         type: choice
@@ -60,7 +69,7 @@ jobs:
       github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
       github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
     name: Offline macOS ${{ inputs.macos_version }} (${{ inputs.image_type }})
-    runs-on: ${{ inputs.image_type == 'xcode' && fromJSON('["self-hosted","macOS","ARM64","macos-image-secondary"]') || fromJSON('["xcode-27"]') }}
+    runs-on: ${{ inputs.build_runner == 'local' && fromJSON('["self-hosted","macOS","ARM64","macos-image-offline-local"]') || inputs.image_type == 'xcode' && fromJSON('["self-hosted","macOS","ARM64","macos-image-secondary"]') || fromJSON('["xcode-27"]') }}
     timeout-minutes: ${{ inputs.image_type == 'xcode' && 720 || 360 }}
     permissions:
       actions: read
@@ -68,24 +77,26 @@ jobs:
       packages: write
     env:
       IMAGE_PROFILE: ${{ inputs.macos_version }}
+      BUILD_RUNNER_SELECTION: ${{ inputs.build_runner || 'default' }}
+      LOCAL_IPSW_PATH: ${{ inputs.local_ipsw_path }}
       TARGET_VARIANT: ${{ inputs.image_type }}
       PARENT_RUN: ${{ inputs.parent_run_id }}
       KEEP_PARENT_IMAGE: ${{ inputs.keep_parent_image }}
       VARIANT: ${{ inputs.parent_run_id != '' && inputs.image_type || 'vanilla' }}
-      MISO_VERSION: 0.5.15
+      MISO_VERSION: 0.5.16
       MISO_TRANSFER_CONCURRENCY: ${{ vars.MISO_TRANSFER_CONCURRENCY || (inputs.image_type == 'xcode' && '8' || '4') }}
       XCODE_VERSION: ${{ inputs.xcode_version }}
       XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
       XCODE_TOOLS: ${{ inputs.xcode_tools }}
       IMAGE_STORAGE_DIRECTORY: ${{ inputs.storage_directory || (inputs.image_type == 'xcode' && vars.IMAGE_STORAGE_DIRECTORY || '') }}
-      MISO_ROOT_COMMAND: ${{ inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
+      MISO_ROOT_COMMAND: ${{ inputs.build_runner == 'local' && vars.MISO_OFFLINE_ROOT_COMMAND || inputs.image_type == 'xcode' && vars.MISO_ROOT_COMMAND || '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: cocoa-xu/miso@v0.5.15
+      - uses: cocoa-xu/miso@v0.5.16
         with:
-          version: 0.5.15
+          version: 0.5.16
           xcode-base-url: ${{ inputs.image_type == 'xcode' && secrets.XCODE_BASE_URL || '' }}
       - name: Prepare build tools and workspace
         env:
@@ -97,6 +108,8 @@ jobs:
         run: bash ci/offline-image.sh download
       - name: Install macOS from IPSW (Vanilla)
         if: inputs.parent_run_id == ''
+        env:
+          BUILD_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: bash ci/offline-image.sh restore
       - name: Export Vanilla and preserve Base inputs
         if: inputs.parent_run_id == ''

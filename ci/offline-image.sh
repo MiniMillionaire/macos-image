@@ -8,6 +8,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 source "$root/ci/image-storage.sh"
+source "$root/ci/offline-profile.sh"
 image_storage_paths
 work="$IMAGE_BUILD_WORKSPACE"
 evidence="$RUNNER_TEMP/offline-evidence/$VARIANT"
@@ -16,6 +17,9 @@ evidence="$RUNNER_TEMP/offline-evidence/$VARIANT"
 config="$root/config/miso/$IMAGE_PROFILE"
 [[ -d "$config" && ! -L "$config" ]] || exit 1
 profile="$config/profile.json"
+publication_identity=$(offline_publication "$profile")
+publication_tag=$(jq -r .tag <<< "$publication_identity")
+prerelease=$(jq -r .prerelease <<< "$publication_identity")
 jq -e '.schemaVersion == 1 and
   (.target.version | test("^[0-9]+[.][0-9]+([.][0-9]+)?$")) and
   (.target.build | test("^[0-9]{2}[A-Z][0-9]+[a-z]?$")) and
@@ -68,8 +72,15 @@ require_detached() {
 
 prepare() {
   printf 'Image workspace: %s\nImage cache: %s\n' "$work" "$IMAGE_CACHE_ROOT"
-  [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ||
-    ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" == xcode ]] || return 1
+  [[ ${BUILD_RUNNER_SELECTION:-default} == default || ${BUILD_RUNNER_SELECTION:-default} == local ]] || return 1
+  if [[ ${BUILD_RUNNER_SELECTION:-default} == local ]]; then
+    [[ ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" != xcode &&
+      -n ${MISO_ROOT_COMMAND:-} ]] || return 1
+  else
+    [[ ${BUILD_RUNNER_ENVIRONMENT:-} == github-hosted ||
+      ${BUILD_RUNNER_ENVIRONMENT:-} == self-hosted && "$TARGET_VARIANT" == xcode ]] || return 1
+  fi
+  image_storage_validate_ipsw || return 1
   if [[ -n ${PARENT_RUN:-} ]]; then
     [[ "$TARGET_VARIANT" != vanilla && "$PARENT_RUN" =~ ^[0-9]+$ ]] || return 1
   fi
@@ -150,13 +161,15 @@ download() {
 }
 
 restore() {
+  image_storage_validate_ipsw
+  local ipsw=${LOCAL_IPSW_PATH:-$(jq -r .ipsw "$profile")}
   local disk_bytes
   disk_bytes=$(jq -r .diskBytes "$profile")
   if [[ "$TARGET_VARIANT" == xcode ]]; then
     disk_bytes=$(jq -er .diskBytes "$config/xcode-$XCODE_VERSION-inputs.json")
   fi
   privileged "$miso" restore \
-    "$(jq -r .ipsw "$profile")" \
+    "$ipsw" \
     --packages "$work/packages" --config "$config/image.json" \
     --disk-bytes "$disk_bytes" --output "$work/restore" | tee "$evidence/restore.json" >/dev/null
   jq -e --argjson target "$target" '.profile.release == $target' "$evidence/restore.json" >/dev/null
@@ -214,6 +227,7 @@ import_parent() {
   fi
   gh run download "$PARENT_RUN" --repo "$GITHUB_REPOSITORY" \
     -n "$artifact" -D "$parent"
+  offline_receipt_matches_profile "$parent/publication.json" "$config/profile.json" "$IMAGE_PROFILE" || return 1
   if [[ "$parent_variant" == vanilla ]]; then
     manifest="$parent/construction/source-manifest.json"
     if [[ ! -f "$manifest" ]]; then manifest="$parent/bundle-manifest.json"; fi
@@ -540,7 +554,7 @@ export_image() {
 }
 
 publish() {
-  local tag="miso-$os_version" reference
+  local tag="miso-$publication_tag" reference
   if [[ "$VARIANT" == xcode ]]; then tag="$tag-xcode-$XCODE_VERSION"; fi
   reference="$repository-$package_variant:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
   "$miso" bundle push "$images/$VARIANT" "$reference" \
@@ -548,6 +562,7 @@ publish() {
     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
     --label "org.opencontainers.image.revision=$GITHUB_SHA" \
     --label "dev.macos-image.version=$os_version" --label "dev.macos-image.build=$os_build" \
+    --label "dev.macos-image.publication-tag=$publication_tag" --label "dev.macos-image.prerelease=$prerelease" \
     --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION" > "$evidence/upload.json"
   printf '%s\n' "$reference" > "$evidence/reference.txt"
   local candidate="$reference"
@@ -556,10 +571,11 @@ publish() {
   jq -n --arg reference "$reference" --arg revision "$GITHUB_SHA" --arg variant "$VARIANT" \
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
+    --argjson publication "$publication_identity" \
     --arg flavor "${XCODE_FLAVOR:-full}" \
     --argjson components "$(if [[ "$VARIANT" == xcode ]]; then cat "$evidence/native-components/native-components.json"; else printf null; fi)" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
-      target:$target,profile:$profile,imageConfigurationSHA256:$configuration,uploaded:true,anonymousDownloadVerified:false,
+      target:$target,profile:$profile,publication:$publication,imageConfigurationSHA256:$configuration,uploaded:true,anonymousDownloadVerified:false,
       vmStarted:($variant == "xcode"),componentInstallation:$components,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
       xcodeFlavor:(if $variant == "xcode" then $flavor else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi

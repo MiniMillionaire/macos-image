@@ -6,6 +6,8 @@ fixture=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$fixture"' EXIT
 sed -n '/^privileged() {/,/^finish() {/p' "$root/ci/offline-image.sh" | sed '$d' > "$fixture/functions.sh"
 source "$fixture/functions.sh"
+source "$root/ci/offline-profile.sh"
+source "$root/ci/image-storage.sh"
 privileged() {
   local argument
   for argument in "$@"; do
@@ -19,14 +21,27 @@ privileged() {
 require_detached() { :; }
 collect() { :; }
 export FIXTURE="$fixture"
-parent_cache_root="$fixture/cache/offline-parents"
+IMAGE_CACHE_ROOT="$fixture/cache"
+parent_cache_root="$IMAGE_CACHE_ROOT/offline-parents"
 legacy_parent_cache="$fixture/cache/offline-parent"
 RUNNER_TEMP="$fixture/temp"
 work="$RUNNER_TEMP/offline-image"
+IMAGE_BUILD_WORKSPACE="$work"
 evidence="$RUNNER_TEMP/offline-evidence/xcode"
 images="$work/images"
 config="$root/config/miso/27.0.1"
 IMAGE_PROFILE=27.0.1
+root="$fixture/source"
+mkdir -p "$root/ci"
+cat > "$root/ci/xcode-components.sh" <<'COMPONENTS'
+#!/bin/bash
+set -euo pipefail
+[[ "$1" == "$FIXTURE/temp/offline-image/images/xcode" &&
+   "$4" == "$FIXTURE/temp/offline-image/native-xcode" ]]
+mkdir -p "$4/evidence"
+cp -R "$1" "$4/vm"
+printf '{"completed":true}\n' > "$4/evidence/native-components.json"
+COMPONENTS
 TARGET_VARIANT=xcode
 VARIANT=xcode
 XCODE_VERSION=27.1-rc
@@ -81,6 +96,7 @@ case "$operation" in
     mkdir -p "$output/vm"
     printf '{}\n' > "$output/vm/config.json"
     printf 'exported disk\n' > "$output/vm/disk.img"
+    printf 'nvram\n' > "$output/vm/nvram.bin"
     ;;
   *) exit 1 ;;
 esac
@@ -90,6 +106,7 @@ chmod +x "$fixture/miso"
 miso="$fixture/miso"
 new_job() {
   mkdir -p "$work" "$evidence" "$images"
+  if [[ -d "$work/native-xcode" ]]; then rm -r "$work/native-xcode"; fi
   import_parent
 }
 finish_build() {
@@ -170,6 +187,8 @@ if (parent_cache_directory); then exit 1; fi
 [[ -f "$fixture/artifact/bundle-manifest.json" ]]
 printf '%s\n' 'PASS: a symlink cache is rejected without deleting its target.'
 KEEP_PARENT_IMAGE=true
-if (BUILD_RUNNER_ENVIRONMENT=github-hosted; prepare); then exit 1; fi
-if (PARENT_RUN=; prepare); then exit 1; fi
+if (BUILD_RUNNER_ENVIRONMENT=github-hosted; prepare) 2> "$fixture/retention-error"; then exit 1; fi
+grep -qx 'Keeping a parent image requires a parent build on a self-hosted runner.' "$fixture/retention-error"
+if (PARENT_RUN=; prepare) 2> "$fixture/retention-error"; then exit 1; fi
+grep -qx 'Keeping a parent image requires a parent build on a self-hosted runner.' "$fixture/retention-error"
 printf '%s\n' 'PASS: retention rejects hosted runners and missing parent selections.'

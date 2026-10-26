@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.2",
+    "build": "26B118"
+  },
+  "ipsw": "https://updates.cdn-apple.com/2026FallFCS/12a80ce1-2aac-4d92-8880-c307f01e39b5/UniversalMac_27.2_26B118_Restore.ipsw",
+  "diskBytes": 68719476736,
+  "repository": "ghcr.io/minimillionaire/macos-golden-gate",
+  "publication": {
+    "tag": "27.2-rc",
+    "prerelease": true
+  }
+}

@@ -2,11 +2,14 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
 source "$root/ci/image-storage.sh"
+source "$root/ci/offline-profile.sh"
 image_storage_paths
 work="${ACCEPTANCE_WORKSPACE:?}"
 [[ "$work" == "$IMAGE_ACCEPTANCE_WORKSPACE" && ! -e "$work" && ! -L "$work" ]] || exit 1
 [[ "$BUILD_RUN" =~ ^[0-9]+$ ]] || exit 1
-[[ "$MACOS_VERSION" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]] || exit 1
+[[ "$MACOS_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$MACOS_VERSION" != *..* ]] || exit 1
+profile="$root/config/miso/$MACOS_VERSION/profile.json"
+[[ -f "$profile" && ! -L "$(dirname "$profile")" ]] || exit 1
 [[ "$IMAGE_TYPE" == vanilla || "$IMAGE_TYPE" == base || "$IMAGE_TYPE" == xcode ]] || exit 1
 [[ "$XCODE_FLAVOR" == full || "$XCODE_FLAVOR" == slim ]] || exit 1
 image_storage_require_directory "$work"
@@ -34,12 +37,13 @@ for step in export publish; do
   }
 done
 publication="$work/cloud/publication.json"
+offline_receipt_matches_profile "$publication" "$profile" "$MACOS_VERSION"
 package=$IMAGE_TYPE
 if [[ "$IMAGE_TYPE" == xcode && "$XCODE_FLAVOR" == slim ]]; then package=slim-xcode; fi
 repository="$(jq -er .repository "$root/config/miso/$MACOS_VERSION/profile.json")-$package"
 jq -e --arg revision "$(jq -r .headSha "$work/evidence/build-run.json")" \
-  --arg repository "$repository" --arg version "$MACOS_VERSION" --arg variant "$IMAGE_TYPE" '
-  .revision == $revision and .variant == $variant and .target.version == $version and
+  --arg repository "$repository" --arg variant "$IMAGE_TYPE" '
+  .revision == $revision and .variant == $variant and
   (.uploaded == true or .anonymousDownloadVerified == true) and .runtimeVerified == false and
   (if .variant == "xcode" and .vmStarted == true then
     .componentInstallation.method == "xcodebuild" and .componentInstallation.completed == true and
