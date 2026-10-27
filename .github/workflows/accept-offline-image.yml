@@ -73,9 +73,9 @@ jobs:
           source ci/image-storage.sh
           image_storage_paths
           printf 'ACCEPTANCE_WORKSPACE=%s\n' "$IMAGE_ACCEPTANCE_WORKSPACE" >> "$GITHUB_ENV"
-      - uses: cocoa-xu/miso@v0.5.16
+      - uses: cocoa-xu/miso@v0.5.17
         with:
-          version: 0.5.16
+          version: 0.5.17
       - name: Download candidate and prepare verification tools
         run: bash ci/acceptance/prepare.sh
       - name: Verify a disposable VM clone
