@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "profile": "27.2",
+  "publication": {
+    "tag": "27.2",
+    "prerelease": false
+  },
+  "variant": "vanilla",
+  "reference": "ghcr.io/minimillionaire/macos-golden-gate-vanilla@sha256:6910ff28328dbeeabffd0c2b0813d9d775fdf9b266b2369e68a1d504b81ed469",
+  "sourceRevision": "4410764b963d99490c7298ca7affeccd950a0f07",
+  "buildRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40643129546",
+  "acceptanceRun": "https://github.com/MiniMillionaire/macos-image/actions/runs/40660763575",
+  "anonymousDownloadVerified": true,
+  "constructionVMStarted": false,
+  "componentInstallation": null,
+  "acceptedAt": "2026-10-28T09:05:44Z",
+  "xcodeFlavor": null,
+  "runtime": {
+    "exitCode": 0,
+    "vmStarted": true,
+    "vmStopped": true,
+    "sourceUnchanged": true,
+    "sourceCheck": "APFS clone isolation and source inode, size, allocation, modification and change times",
+    "rosettaInstalled": false,
+    "manualGuestRepair": false,
+    "desktopPolicy": {
+      "allowedNotificationCenterWindows": 1,
+      "otherApplicationWindows": 0
+    },
+    "host": {
+      "model": "Mac17,16",
+      "macOS": "27.0.1",
+      "build": "26A434",
+      "tart": "2.40.1"
+    },
+    "checks": [
+      "health-boot-1",
+      "original-requirements",
+      "compile",
+      "health",
+      "final-desktop",
+      "credential-rotation-before-cold-boot",
+      "credential-rotation-after-cold-boot"
+    ],
+    "authenticationAndInputVerified": true,
+    "diagnostics": "Health and boot checks retained; crash archive not collected.",
+    "bootEvents": {
+      "inherited": 0,
+      "acceptance": 1,
+      "total": 1
+    }
+  }
+}
