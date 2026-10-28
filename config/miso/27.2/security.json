@@ -1,0 +1,17 @@
+{
+  "captureReminder": {
+    "expiresAt": "2100-01-01T00:00:00Z",
+    "replaydSHA256": "f23e8496aa88784041616e223504d43dc7162803eb549c474d9f10f959de28a5",
+    "schemaVersion": 1
+  },
+  "csrutilSHA256": "4fa70c28176ec64787ea0862fd20552ac977a25f6818aad74ace63392ea720de",
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "tartVersion": "0.15.0",
+  "tccdSHA256": "f2e0eb0517fe0e7dde58b20e5064428cd5a9b2f1a1eb330cdd13d6de033fb33d",
+  "tccSchemaSHA256": "774124470f844eebbf985545941fcf1e055a70a032a948557ee586195a65be38",
+  "tccSchemaVersion": 37
+}

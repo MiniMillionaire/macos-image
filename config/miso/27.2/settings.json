@@ -1,0 +1,10 @@
+{
+  "indexVersion": 100,
+  "mdsSHA256": "a6cac3c5bf7330d7f300084b3e582b554985493694fad36fe988b44d0b8f2c66",
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.2",
+    "build": "26B123"
+  },
+  "tartVersion": "0.15.0"
+}
