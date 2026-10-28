@@ -31,6 +31,10 @@ on:
         type: choice
         options: [full, slim]
         default: full
+      local_publication:
+        description: Prepared local publication ID (optional)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -46,8 +50,8 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.actor == (vars.TRUSTED_ACTOR || 'cocoa-xu') &&
       github.triggering_actor == (vars.TRUSTED_ACTOR || 'cocoa-xu')
-    runs-on: ${{ inputs.image_type == 'xcode' && 'xcode-27' || 'ubuntu-24.04' }}
-    timeout-minutes: 15
+    runs-on: ${{ inputs.local_publication != '' && fromJSON('["self-hosted","macOS","ARM64","macos-image-secondary"]') || fromJSON(inputs.image_type == 'xcode' && '["xcode-27"]' || '["ubuntu-24.04"]') }}
+    timeout-minutes: ${{ inputs.local_publication != '' && 180 || 15 }}
     permissions:
       contents: read
       packages: write
@@ -56,13 +60,15 @@ jobs:
         with:
           persist-credentials: false
       - uses: cocoa-xu/miso@v0.5.18
-        if: inputs.image_type == 'xcode'
+        if: inputs.image_type == 'xcode' || inputs.local_publication != ''
         with:
           version: 0.5.18
       - uses: oras-project/setup-oras@v2
+        if: inputs.local_publication == ''
         with:
           version: 1.3.4
       - name: Publish image digest
+        if: inputs.local_publication == ''
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE_PROFILE: ${{ inputs.macos_version }}
@@ -72,3 +78,23 @@ jobs:
           REPLACE_EXISTING: ${{ inputs.replace_existing }}
           BEFORE_ACCEPTANCE: ${{ inputs.before_acceptance }}
         run: bash ci/promote-offline-image.sh
+      - name: Upload accepted local image
+        if: inputs.local_publication != ''
+        env:
+          LOCAL_PUBLICATION: ${{ inputs.local_publication }}
+          IMAGE_PROFILE: ${{ inputs.macos_version }}
+          VARIANT: ${{ inputs.image_type }}
+          XCODE_VERSION: ${{ inputs.xcode_version }}
+          XCODE_FLAVOR: ${{ inputs.xcode_flavor }}
+          REPLACE_EXISTING: ${{ inputs.replace_existing }}
+          BEFORE_ACCEPTANCE: ${{ inputs.before_acceptance }}
+          MISO_VERSION: 0.5.18
+          MISO_REGISTRY_USERNAME: ${{ github.actor }}
+          MISO_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/publish-local-image.sh
+      - uses: actions/upload-artifact@v7
+        if: success() && inputs.local_publication != ''
+        with:
+          name: local-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/local-publication.json
+          retention-days: 30

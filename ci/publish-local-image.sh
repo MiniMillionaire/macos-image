@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+safe_name() { [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$1" != *..* ]]; }
+
+safe_name "${LOCAL_PUBLICATION:-}" || fail 'Invalid local publication ID.'
+safe_name "${IMAGE_PROFILE:-}" || fail 'Invalid image profile.'
+[[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
+[[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
+[[ ${BEFORE_ACCEPTANCE:-false} == false && ${REPLACE_EXISTING:-false} == false ]] ||
+  fail 'Local publication requires acceptance and cannot replace an existing tag.'
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+directory="$HOME/.local/share/macos-image/publications/$LOCAL_PUBLICATION"
+record="$directory/acceptance.json"
+profile="$root/config/miso/$IMAGE_PROFILE/profile.json"
+[[ -f "$record" && ! -L "$record" && -f "$profile" ]] || fail 'Publication or profile is missing.'
+source=$(cat "$directory/source-directory.txt")
+[[ "$source" == /* && "$source" != *$'\n'* && "$source" != *$'\r'* && -d "$source" && ! -L "$source" ]] ||
+  fail 'Invalid accepted source directory.'
+for file in disk.img nvram.bin config.json; do
+  [[ -f "$source/$file" && ! -L "$source/$file" ]] || fail 'Accepted source is incomplete.'
+done
+source_state() { stat -f '%i %z %b %.9Fm %.9Fc' "$source/"{disk.img,nvram.bin,config.json}; }
+[[ "$(source_state)" == "$(cat "$directory/source-state.txt")" ]] || fail 'Accepted source changed.'
+
+accepted_variant=$VARIANT
+package_variant=$VARIANT
+if [[ "$VARIANT" == xcode && ${XCODE_FLAVOR:-full} == slim ]]; then
+  accepted_variant=xcode-slim
+  package_variant=slim-xcode
+fi
+jq -e --argjson target "$(jq .target "$profile")" --arg variant "$accepted_variant" \
+  --arg miso "${MISO_VERSION:?}" '
+  .target == $target and .variant == $variant and .misoVersion == $miso and
+  .reviewAccepted == true and .runtime.exitCode == 0 and .runtime.vmStarted == true and
+  .runtime.vmStopped == true and .runtime.sourceUnchanged == true and
+  (.runtime.checks | type == "array" and length > 0) and
+  (.prerelease | type == "boolean") and
+  (.customTag | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
+' "$record" >/dev/null || fail 'Local acceptance does not match the requested image.'
+if [[ "$VARIANT" == xcode ]]; then
+  safe_name "${XCODE_VERSION:-}" || exit 1
+  jq -e --argjson xcode "$(cat "$root/config/miso/$IMAGE_PROFILE/xcode-$XCODE_VERSION.json")" '
+    .xcodeConfiguration.version == $xcode.version and .xcodeConfiguration.build == $xcode.build and
+    .componentInstallation.completed == true and .componentInstallation.method == "xcodebuild" and
+    .componentInstallation.vmStopped == true and .componentInstallation.sourceUnchanged == true
+  ' "$record" >/dev/null || fail 'Local Xcode acceptance does not match the requested build.'
+fi
+repository="$(jq -er .repository "$profile")-$package_variant"
+[[ "$repository" =~ ^ghcr\.io/minimillionaire/[a-z0-9][a-z0-9-]+$ ]] || exit 1
+tag=$(jq -er .customTag "$record")
+published="$repository:$tag"
+[[ ${1:-} != --check ]] || { printf 'Accepted local source is unchanged: %s\n' "$published"; exit 0; }
+[[ ${GITHUB_RUN_ID:-} =~ ^[0-9]+$ && ${GITHUB_RUN_ATTEMPT:-} =~ ^[0-9]+$ ]] || exit 1
+[[ -n ${MISO_REGISTRY_USERNAME:-} && -n ${MISO_REGISTRY_PASSWORD:-} ]] || fail 'Registry credentials are missing.'
+attempt="$directory/attempt-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+mkdir "$attempt"
+registry_repository=${repository#ghcr.io/}
+anonymous_token() {
+  curl --fail --silent --show-error --proto '=https' --connect-timeout 30 --max-time 60 \
+    --retry 2 --retry-max-time 90 --get --data-urlencode service=ghcr.io \
+    --data-urlencode "scope=repository:$registry_repository:pull" https://ghcr.io/token | jq -er .token
+}
+anonymous=$(anonymous_token)
+fetch_manifest() {
+  curl --silent --show-error --proto '=https' --connect-timeout 30 --max-time 60 --max-filesize 4194304 \
+    --header "Authorization: Bearer $anonymous" --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
+    --output "$attempt/manifest.json" --write-out '%{http_code}' "https://ghcr.io/v2/$registry_repository/manifests/$tag"
+}
+manifest_digest() { printf 'sha256:%s\n' "$(shasum -a 256 "$attempt/manifest.json" | awk '{print $1}')"; }
+status=$(fetch_manifest)
+if [[ "$status" == 200 ]]; then
+  receipt="$directory/upload-receipt.json"
+  if [[ -f "$directory/publication.json" ]]; then receipt="$directory/publication.json"; fi
+  expected=$(jq -er --arg tag "$tag" 'select(.tag == $tag) | .reference' "$receipt") ||
+    fail 'Target tag exists without a matching local publication receipt.'
+  [[ "$expected" == "$repository@$(manifest_digest)" ]] || fail 'Target tag has a different digest.'
+elif [[ "$status" == 404 ]]; then
+  labels=(--label "org.opencontainers.image.source=https://github.com/MiniMillionaire/macos-image"
+    --label "org.opencontainers.image.revision=${GITHUB_SHA:?}"
+    --label "dev.macos-image.version=$(jq -r .target.version "$record")"
+    --label "dev.macos-image.build=$(jq -r .target.build "$record")"
+    --label "dev.macos-image.publication-tag=$tag"
+    --label "dev.macos-image.prerelease=$(jq -r .prerelease "$record")"
+    --label "dev.macos-image.variant=$VARIANT" --label "dev.macos-image.miso=$MISO_VERSION")
+  if [[ "$VARIANT" == xcode ]]; then
+    labels+=(--label "dev.macos-image.xcode-flavor=${XCODE_FLAVOR:-full}"
+      --label "dev.macos-image.xcode-version=$(jq -r .xcodeConfiguration.version "$record")"
+      --label "dev.macos-image.xcode-build=$(jq -r .xcodeConfiguration.build "$record")")
+  fi
+  parent=$(jq -r '.parentReference // empty' "$record")
+  if [[ -n "$parent" ]]; then
+    [[ "$parent" =~ ^ghcr\.io/minimillionaire/[a-z0-9-]+@sha256:[0-9a-f]{64}$ ]] || exit 1
+    labels+=(--label "dev.macos-image.parent=$parent")
+  fi
+  miso bundle push "$source" "$published" --output "$attempt/upload" --concurrency 4 \
+    "${labels[@]}" > "$attempt/upload.json"
+  expected=$(jq -er .reference "$attempt/upload.json")
+  [[ "$expected" == "$repository@sha256:"* && "${expected##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+  jq -n --arg reference "$expected" --arg tag "$tag" '{reference:$reference,tag:$tag}' > "$directory/upload-receipt.json.next"
+  mv "$directory/upload-receipt.json.next" "$directory/upload-receipt.json"
+  anonymous=$(anonymous_token)
+  [[ $(fetch_manifest) == 200 && "$expected" == "$repository@$(manifest_digest)" ]] ||
+    fail 'Published tag does not match the upload receipt.'
+else
+  fail "Cannot inspect the target tag (HTTP $status)."
+fi
+[[ "$(source_state)" == "$(cat "$directory/source-state.txt")" ]] || fail 'Source changed during publication.'
+config_digest=$(jq -er .config.digest "$attempt/manifest.json")
+[[ "$config_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+  --connect-timeout 30 --max-time 60 --max-filesize 4194304 --header "Authorization: Bearer $anonymous" \
+  --output "$attempt/config.json" "https://ghcr.io/v2/$registry_repository/blobs/$config_digest"
+[[ "sha256:$(shasum -a 256 "$attempt/config.json" | awk '{print $1}')" == "$config_digest" &&
+  $(stat -f %z "$attempt/config.json") == "$(jq -er .config.size "$attempt/manifest.json")" ]] ||
+  fail 'Published image configuration failed verification.'
+jq -n --arg reference "$expected" --arg tag "$tag" --argjson acceptance "$(cat "$record")" \
+  --arg run "https://github.com/MiniMillionaire/macos-image/actions/runs/$GITHUB_RUN_ID" \
+  '{status:"published",reference:$reference,tag:$tag,run:$run,acceptance:$acceptance,
+    anonymousManifestVerified:true,anonymousConfigVerified:true}' > "$directory/publication.json.next"
+mv "$directory/publication.json.next" "$directory/publication.json"
+cp "$directory/publication.json" "$RUNNER_TEMP/local-publication.json"
+printf 'Published %s at %s.\n' "$published" "${expected##*@}" >> "$GITHUB_STEP_SUMMARY"

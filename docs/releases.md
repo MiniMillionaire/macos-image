@@ -88,3 +88,32 @@ both versions, such as `27.0.1-xcode27.1-rc`. Slim uses the same tag in the sepa
 The workflow refuses to replace an existing version tag with a different digest.
 Published images can be downloaded with any compatible OCI client, including Tart.
 See [Validation](validation.md) for historical releases and retained evidence.
+
+### Publish a locally accepted image
+
+For an image already built and accepted on the self-hosted Xcode runner, prepare
+`~/.local/share/macos-image/publications/<id>/` and dispatch the same publication
+workflow with `local_publication: <id>` and matching image/profile inputs. This
+uploads the existing image with the job's package permission, without rebuilding,
+booting a VM or requiring a personal registry token.
+
+The private directory contains:
+
+- `source-directory.txt`: the absolute path to the accepted Tart-compatible image.
+- `source-state.txt`: the accepted source's `stat -f '%i %z %b %.9Fm %.9Fc'` output
+  for `disk.img`, `nvram.bin`, then `config.json`. Capture this state before VM
+  acceptance and confirm it remains unchanged afterward. Never refresh the record
+  to admit a modified source.
+- `acceptance.json`: the reviewed local acceptance record, with `target`, `variant`
+  (`vanilla`, `base`, `xcode` or `xcode-slim`), `customTag`, `misoVersion`, `prerelease`,
+  `reviewAccepted: true`, and the successful `runtime` result including its check
+  names. Xcode records also contain `xcodeConfiguration` and the completed
+  `componentInstallation` receipt; `parentReference` is optional.
+
+Run `bash ci/publish-local-image.sh --check` with the matching workflow environment
+to validate the record and source locally before dispatch. Local publication
+requires completed acceptance and refuses tag replacement. It retains each upload
+attempt, verifies the anonymous manifest and configuration, and writes
+`publication.json` only after verification. A retry can reuse a matching upload
+receipt without transferring the image again. The published receipt is also saved
+as a workflow artifact; source paths and private input URLs are not included.
