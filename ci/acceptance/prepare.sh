@@ -37,6 +37,7 @@ for step in export publish; do
   }
 done
 publication="$work/cloud/publication.json"
+jq -L "$root/ci" -e 'include "disk-shrink"; .diskShrink | valid_disk_shrink' "$publication" >/dev/null
 offline_receipt_matches_profile "$publication" "$profile" "$MACOS_VERSION"
 package=$IMAGE_TYPE
 if [[ "$IMAGE_TYPE" == xcode && "$XCODE_FLAVOR" == slim ]]; then package=slim-xcode; fi
@@ -76,6 +77,7 @@ else
   stat -f '%i %z %b %m %c' "$cache/vm/"{disk.img,nvram.bin,config.json} > "$cache/state.txt"
 fi
 cp "$cache/download.json" "$work/evidence/download.json"
+[[ $(stat -f %z "$cache/vm/disk.img") == "$(jq -er .diskShrink.afterBytes "$publication")" ]] || exit 1
 printf '%s\n' "$cache" > "$work/evidence/source-cache.txt"
 mkdir "$work/tart/vms/source"
 for file in disk.img nvram.bin config.json; do

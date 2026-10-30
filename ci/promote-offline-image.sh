@@ -40,6 +40,7 @@ if [[ "$VARIANT" == xcode ]]; then
 fi
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || exit 1
 offline_receipt_matches_profile "$record" "$profile" "$IMAGE_PROFILE"
+jq -L "$root/ci" -e 'include "disk-shrink"; .diskShrink | valid_disk_shrink' "$record" >/dev/null
 jq -e --argjson target "$(jq .target "$profile")" --arg variant "$VARIANT" '
   .target == $target and .variant == $variant and
   (if .variant == "xcode" and .constructionVMStarted == true then

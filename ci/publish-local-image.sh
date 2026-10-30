@@ -8,8 +8,8 @@ safe_name "${LOCAL_PUBLICATION:-}" || fail 'Invalid local publication ID.'
 safe_name "${IMAGE_PROFILE:-}" || fail 'Invalid image profile.'
 [[ ${VARIANT:-} == vanilla || ${VARIANT:-} == base || ${VARIANT:-} == xcode ]] || exit 1
 [[ ${XCODE_FLAVOR:-full} == full || ${XCODE_FLAVOR:-full} == slim ]] || exit 1
-[[ ${BEFORE_ACCEPTANCE:-false} == false && ${REPLACE_EXISTING:-false} == false ]] ||
-  fail 'Local publication requires acceptance and cannot replace an existing tag.'
+[[ ${BEFORE_ACCEPTANCE:-false} == false ]] || fail 'Local publication requires acceptance.'
+[[ ${REPLACE_EXISTING:-false} == false || ${REPLACE_EXISTING:-false} == true ]] || exit 1
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 directory="$HOME/.local/share/macos-image/publications/$LOCAL_PUBLICATION"
 record="$directory/acceptance.json"
@@ -23,6 +23,9 @@ for file in disk.img nvram.bin config.json; do
 done
 source_state() { stat -f '%i %z %b %.9Fm %.9Fc' "$source/"{disk.img,nvram.bin,config.json}; }
 [[ "$(source_state)" == "$(cat "$directory/source-state.txt")" ]] || fail 'Accepted source changed.'
+/bin/bash "$root/ci/shrink-image.sh" --check "$source" "$directory/disk-shrink.json"
+jq -e --slurpfile shrink "$directory/disk-shrink.json" '.diskShrink == $shrink[0]' "$record" >/dev/null ||
+  fail 'Acceptance does not cover the shrunk image.'
 
 accepted_variant=$VARIANT
 package_variant=$VARIANT
@@ -51,6 +54,13 @@ repository="$(jq -er .repository "$profile")-$package_variant"
 [[ "$repository" =~ ^ghcr\.io/minimillionaire/[a-z0-9][a-z0-9-]+$ ]] || exit 1
 tag=$(jq -er .customTag "$record")
 published="$repository:$tag"
+replacement=$(jq -r '.replacesReference // empty' "$record")
+if [[ ${REPLACE_EXISTING:-false} == true ]]; then
+  [[ "$replacement" == "$repository@sha256:"* && "${replacement##*@}" =~ ^sha256:[0-9a-f]{64}$ ]] ||
+    fail 'Replacement publication requires the exact previous reference.'
+else
+  [[ -z "$replacement" ]] || fail 'Replacing a publication requires replace_existing.'
+fi
 [[ ${1:-} != --check ]] || { printf 'Accepted local source is unchanged: %s\n' "$published"; exit 0; }
 [[ ${GITHUB_RUN_ID:-} =~ ^[0-9]+$ && ${GITHUB_RUN_ATTEMPT:-} =~ ^[0-9]+$ ]] || exit 1
 [[ -n ${MISO_REGISTRY_USERNAME:-} && -n ${MISO_REGISTRY_PASSWORD:-} ]] || fail 'Registry credentials are missing.'
@@ -70,13 +80,25 @@ fetch_manifest() {
 }
 manifest_digest() { printf 'sha256:%s\n' "$(shasum -a 256 "$attempt/manifest.json" | awk '{print $1}')"; }
 status=$(fetch_manifest)
+upload=false
 if [[ "$status" == 200 ]]; then
   receipt="$directory/upload-receipt.json"
   if [[ -f "$directory/publication.json" ]]; then receipt="$directory/publication.json"; fi
-  expected=$(jq -er --arg tag "$tag" 'select(.tag == $tag) | .reference' "$receipt") ||
-    fail 'Target tag exists without a matching local publication receipt.'
-  [[ "$expected" == "$repository@$(manifest_digest)" ]] || fail 'Target tag has a different digest.'
+  if [[ -f "$receipt" ]]; then
+    expected=$(jq -er --arg tag "$tag" 'select(.tag == $tag) | .reference' "$receipt")
+    [[ "$expected" == "$repository@$(manifest_digest)" ]] || fail 'Target tag has a different digest.'
+  elif [[ ${REPLACE_EXISTING:-false} == true && "$replacement" == "$repository@$(manifest_digest)" ]]; then
+    upload=true
+  else
+    fail 'Target tag exists without matching replacement authorization or publication receipt.'
+  fi
 elif [[ "$status" == 404 ]]; then
+  [[ ${REPLACE_EXISTING:-false} == false ]] || fail 'The publication being replaced no longer exists.'
+  upload=true
+else
+  fail "Cannot inspect the target tag (HTTP $status)."
+fi
+if [[ "$upload" == true ]]; then
   labels=(--label "org.opencontainers.image.source=https://github.com/MiniMillionaire/macos-image"
     --label "org.opencontainers.image.revision=${GITHUB_SHA:?}"
     --label "dev.macos-image.version=$(jq -r .target.version "$record")"
@@ -103,8 +125,6 @@ elif [[ "$status" == 404 ]]; then
   anonymous=$(anonymous_token)
   [[ $(fetch_manifest) == 200 && "$expected" == "$repository@$(manifest_digest)" ]] ||
     fail 'Published tag does not match the upload receipt.'
-else
-  fail "Cannot inspect the target tag (HTTP $status)."
 fi
 [[ "$(source_state)" == "$(cat "$directory/source-state.txt")" ]] || fail 'Source changed during publication.'
 config_digest=$(jq -er .config.digest "$attempt/manifest.json")

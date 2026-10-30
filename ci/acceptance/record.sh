@@ -24,7 +24,7 @@ jq -n --slurpfile publication "$work/cloud/publication.json" \
   {schemaVersion:1,target:$p.target,profile:$p.profile,publication:$p.publication,variant:$p.variant,reference:$p.reference,
    sourceRevision:$p.revision,buildRun:$build[0].url,acceptanceRun:$run,
    anonymousDownloadVerified:true,constructionVMStarted:$p.vmStarted,componentInstallation:$p.componentInstallation,acceptedAt:$date,
-   xcodeFlavor:$p.xcodeFlavor,
+   xcodeFlavor:$p.xcodeFlavor,diskShrink:$p.diskShrink,
    runtime:($runtime[0] + {rosettaInstalled:false,manualGuestRepair:false,
      desktopPolicy:{allowedNotificationCenterWindows:1,otherApplicationWindows:0},
      host:{model:$model,macOS:$macos,build:$os_build,tart:$tart},

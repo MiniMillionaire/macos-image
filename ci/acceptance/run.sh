@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
+image_flavor=standard
+if [[ ${XCODE_FLAVOR:-full} == slim ]]; then image_flavor=slim; fi
 variant=${IMAGE_TYPE:?}
 [[ "$variant" == vanilla || "$variant" == base || "$variant" == xcode ]] || exit 1
 image_profile=$variant
@@ -188,7 +190,7 @@ jq -Rn '[inputs | split("\t") | {boot:(.[0]|tonumber),sshSeconds:(.[1]|tonumber)
   < "$log/boot-times.tsv" > "$log/boot-times.json"
 printf "::notice::VM started; waiting for the guest desktop.\n"
 scp "${options[@]}" "$root/scripts/guest/user-tcc-database.sh" "admin@$ip:/tmp/macos-image-user-tcc-database.sh" > "$log/scp.log" 2>&1
-remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
+remote_script original-requirements "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" "IMAGE_FLAVOR=$image_flavor" GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 if [[ "$variant" == xcode ]]; then
   scp "${options[@]}" "$log/xcode-config.json" "admin@$ip:/private/tmp/offline-xcode-config.json" >> "$log/scp.log" 2>&1
   remote_script xcode-tools "$helpers/xcode-tools.sh"
@@ -265,7 +267,7 @@ jq -n --argjson inherited "$((initial_boot_events - 1))" --argjson boots "$boot_
   --argjson total "$expected_boot_events" \
   '{inherited:$inherited,acceptance:$boots,total:$total}' > "$log/boot-events.json"
 if [[ "$variant" == xcode ]]; then remote_script dismiss-notifications "$helpers/dismiss-notifications.sh"; fi
-remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" IMAGE_FLAVOR=slim GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
+remote_script final-desktop "$root/scripts/guest/verify-image.sh" "IMAGE_PROFILE=$image_profile" "IMAGE_FLAVOR=$image_flavor" GUEST_USERNAME=admin ALLOW_NOTIFICATION_CENTER=true
 system_policy final
 source "$helpers/credentials.sh"
 verify_credential_persistence

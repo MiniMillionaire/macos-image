@@ -533,6 +533,7 @@ export_image() {
     jq -n --slurpfile components "$evidence/native-components/native-components.json" \
       '{format:"tart",vmStarted:true,componentInstallation:$components[0]}' > "$evidence/export.json"
   fi
+  /bin/bash "$root/ci/shrink-image.sh" "$images/$VARIANT" "$evidence/disk-shrink.json"
   cp "$images/$VARIANT/config.json" "$evidence/source-config.json"
   jq -S '{hardwareModel,ecid,cpuCountMin,memorySizeMin,os,arch,diskFormat}' \
     "$evidence/source-config.json" > "$evidence/source-identity.json"
@@ -555,6 +556,7 @@ export_image() {
 
 publish() {
   local tag="miso-$publication_tag" reference
+  /bin/bash "$root/ci/shrink-image.sh" --check "$images/$VARIANT" "$evidence/disk-shrink.json"
   if [[ "$VARIANT" == xcode ]]; then tag="$tag-xcode-$XCODE_VERSION"; fi
   reference="$repository-$package_variant:$tag-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
   "$miso" bundle push "$images/$VARIANT" "$reference" \
@@ -572,10 +574,10 @@ publish() {
     --arg run "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --arg miso "$MISO_VERSION" --argjson target "$target" \
     --arg profile "$IMAGE_PROFILE" --arg configuration "$configuration_digest" --arg xcode "${XCODE_VERSION:-}" \
     --argjson publication "$publication_identity" \
-    --arg flavor "${XCODE_FLAVOR:-full}" \
+    --arg flavor "${XCODE_FLAVOR:-full}" --slurpfile shrink "$evidence/disk-shrink.json" \
     --argjson components "$(if [[ "$VARIANT" == xcode ]]; then cat "$evidence/native-components/native-components.json"; else printf null; fi)" \
     '{reference:$reference,revision:$revision,variant:$variant,run:$run,miso:$miso,
-      target:$target,profile:$profile,publication:$publication,imageConfigurationSHA256:$configuration,uploaded:true,anonymousDownloadVerified:false,
+      target:$target,profile:$profile,publication:$publication,imageConfigurationSHA256:$configuration,diskShrink:$shrink[0],uploaded:true,anonymousDownloadVerified:false,
       vmStarted:($variant == "xcode"),componentInstallation:$components,runtimeVerified:false,xcodeVersion:(if $variant == "xcode" then $xcode else null end),
       xcodeFlavor:(if $variant == "xcode" then $flavor else null end)}' > "$evidence/publication.json"
   if [[ "$VARIANT" != xcode ]]; then cp "$evidence/publication.json" "$work/parent-publication.json"; fi

@@ -14,6 +14,7 @@ if %w[curl miso].include?(File.basename($PROGRAM_NAME))
       code = 1
     else
       state['exists'] = true
+      state['manifest'] = state['newManifest'] if state['newManifest']
       output = JSON.generate(reference: "#{state['repository']}@#{state['digest']}")
       File.write(state['source'], 'changed') if state['changeSource']
     end
@@ -48,8 +49,19 @@ class PublishLocalImageTest < Minitest::Test
     FileUtils.mkdir_p([@directory, @source, @bin, File.join(@root, 'ci'), File.join(@root, 'config/miso/test')])
     @script = File.join(@root, 'ci/publish-local-image.sh')
     FileUtils.cp(File.expand_path('../publish-local-image.sh', __dir__), @script)
+    %w[shrink-image.sh disk-shrink.jq].each do |name|
+      FileUtils.cp(File.expand_path("../#{name}", __dir__), File.join(@root, 'ci', name))
+    end
     %w[curl miso].each { |name| File.symlink(File.expand_path(__FILE__), File.join(@bin, name)) }
     %w[disk.img nvram.bin config.json].each { |name| File.write(File.join(@source, name), 'fixture') }
+    File.write(File.join(@source, 'config.json'), JSON.generate(os: 'darwin', diskFormat: 'raw'))
+    File.truncate(File.join(@source, 'disk.img'), 50_000_003_072)
+    disk_state, status = Open3.capture2('stat', '-f', '%i %z %.9Fm %.9Fc', File.join(@source, 'disk.img'))
+    raise 'Cannot snapshot disk' unless status.success?
+    shrink = {version: 1, beforeBytes: 160_000_000_000, minimumBytes: 40_000_000_000,
+      reserveBytes: 8589934592, stepBytes: 10_000_000_000, targetBytes: 50_000_000_000,
+      afterBytes: 50_000_003_072, diskState: disk_state.strip}
+    File.write(File.join(@directory, 'disk-shrink.json'), JSON.generate(shrink))
     File.write(File.join(@directory, 'source-directory.txt'), @source)
     snapshot, status = Open3.capture2('stat', '-f', '%i %z %b %.9Fm %.9Fc', *%w[disk.img nvram.bin config.json].map { |name| File.join(@source, name) })
     raise 'Cannot snapshot fixture' unless status.success?
@@ -61,6 +73,7 @@ class PublishLocalImageTest < Minitest::Test
     File.write(File.join(@root, 'config/miso/test/xcode-27.2-rc.json'), JSON.generate(xcode))
     @record = {'target' => target, 'variant' => 'xcode-slim', 'customTag' => 'special',
       'misoVersion' => '0.5.18', 'prerelease' => true, 'reviewAccepted' => true,
+      'diskShrink' => shrink,
       'runtime' => {'exitCode' => 0, 'vmStarted' => true, 'vmStopped' => true, 'sourceUnchanged' => true, 'checks' => ['compile']},
       'xcodeConfiguration' => xcode, 'componentInstallation' => {completed: true, method: 'xcodebuild', vmStopped: true, sourceUnchanged: true}}
     config = JSON.generate(architecture: 'arm64')
@@ -130,7 +143,8 @@ class PublishLocalImageTest < Minitest::Test
     @state['uploadFails'] = true
     success, = publish
     refute success
-    assert_equal 'fixture', File.read(File.join(@source, 'disk.img'))
+    assert_equal 'fixture', File.binread(File.join(@source, 'disk.img'), 7)
+    assert_equal 50_000_003_072, File.size(File.join(@source, 'disk.img'))
     refute File.exist?(File.join(@directory, 'publication.json'))
   end
 
@@ -171,5 +185,32 @@ class PublishLocalImageTest < Minitest::Test
     success, = publish
     refute success
     refute File.exist?(File.join(@directory, 'publication.json'))
+  end
+
+  def test_missing_shrink_receipt_or_pre_shrink_acceptance_never_uploads
+    @record.delete('diskShrink')
+    assert_rejected
+    File.unlink(File.join(@directory, 'disk-shrink.json'))
+    assert_rejected
+  end
+
+  def test_only_explicit_exact_digest_replacement_is_allowed
+    @state['exists'] = true
+    @state['newManifest'] = @state['manifest']
+    @state['manifest'] = JSON.generate(schemaVersion: 2, old: true)
+    @record['replacesReference'] = "#{@state['repository']}@sha256:#{Digest::SHA256.hexdigest(@state['manifest'])}"
+    assert_rejected
+    @environment['REPLACE_EXISTING'] = 'true'
+    @environment['GITHUB_RUN_ATTEMPT'] = '2'
+    success, log = publish
+    assert success, log
+    assert_equal 1, @state['uploads']
+  end
+
+  def test_replacement_refuses_a_tag_changed_since_acceptance
+    @state['exists'] = true
+    @record['replacesReference'] = "#{@state['repository']}@sha256:#{'a' * 64}"
+    @environment['REPLACE_EXISTING'] = 'true'
+    assert_rejected
   end
 end

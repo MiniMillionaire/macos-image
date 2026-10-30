@@ -29,6 +29,16 @@ diskutil only to shrink. See the
 Existing publications retain their original capacity until a shrunk clone
 passes verification and is published under a new digest.
 
+The MISO pipeline applies the same policy with `ci/shrink-image.sh` after
+export and native Xcode component installation, before candidate upload and
+VM acceptance. Vanilla, Base, Full and Slim all pass through this step.
+The receipt records the measured minimum, target and resulting capacity.
+Candidate uploads and local publications require a receipt matching the
+current disk; acceptance and promotion retain and validate that receipt.
+Local derivatives must run this step before capturing their acceptance
+source state. A local tag replacement also requires `replace_existing` and
+the exact previous digest in `replacesReference`.
+
 ## Expanding a downloaded image
 
 For a stopped local image, prepare a larger clone before using it:
