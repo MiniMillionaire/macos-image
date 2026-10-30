@@ -2,7 +2,7 @@
 require 'json'
 require 'digest'
 
-if %w[curl miso].include?(File.basename($PROGRAM_NAME))
+if %w[curl miso oras].include?(File.basename($PROGRAM_NAME))
   file = ENV.fetch('PUBLICATION_TEST_STATE')
   state = JSON.parse(File.read(file))
   tool = File.basename($PROGRAM_NAME)
@@ -17,6 +17,16 @@ if %w[curl miso].include?(File.basename($PROGRAM_NAME))
       state['manifest'] = state['newManifest'] if state['newManifest']
       output = JSON.generate(reference: "#{state['repository']}@#{state['digest']}")
       File.write(state['source'], 'changed') if state['changeSource']
+    end
+  elsif tool == 'oras'
+    if ARGV[0] == 'resolve'
+      output = state.fetch('aliases').fetch(ARGV[1].split(':').last)
+    elsif ARGV[0] == 'tag'
+      STDIN.read
+      state['aliases'][ARGV[2]] = ARGV[1].split('@').last
+      state['retags'] = state.fetch('retags', 0) + 1
+    else
+      abort "Unexpected oras command: #{ARGV.inspect}"
     end
   elsif ARGV.last == 'https://ghcr.io/token'
     output = JSON.generate(token: 'anonymous-fixture')
@@ -52,7 +62,7 @@ class PublishLocalImageTest < Minitest::Test
     %w[shrink-image.sh disk-shrink.jq].each do |name|
       FileUtils.cp(File.expand_path("../#{name}", __dir__), File.join(@root, 'ci', name))
     end
-    %w[curl miso].each { |name| File.symlink(File.expand_path(__FILE__), File.join(@bin, name)) }
+    %w[curl miso oras].each { |name| File.symlink(File.expand_path(__FILE__), File.join(@bin, name)) }
     %w[disk.img nvram.bin config.json].each { |name| File.write(File.join(@source, name), 'fixture') }
     File.write(File.join(@source, 'config.json'), JSON.generate(os: 'darwin', diskFormat: 'raw'))
     File.truncate(File.join(@source, 'disk.img'), 50_000_003_072)
@@ -74,7 +84,8 @@ class PublishLocalImageTest < Minitest::Test
     @record = {'target' => target, 'variant' => 'xcode-slim', 'customTag' => 'special',
       'misoVersion' => '0.5.18', 'prerelease' => true, 'reviewAccepted' => true,
       'diskShrink' => shrink,
-      'runtime' => {'exitCode' => 0, 'vmStarted' => true, 'vmStopped' => true, 'sourceUnchanged' => true, 'checks' => ['compile']},
+      'runtime' => {'exitCode' => 0, 'vmStarted' => true, 'vmStopped' => true, 'sourceUnchanged' => true,
+        'checks' => ['compile', 'runtime-startup', 'credential-rotation-before-cold-boot', 'credential-rotation-after-cold-boot']},
       'xcodeConfiguration' => xcode, 'componentInstallation' => {completed: true, method: 'xcodebuild', vmStopped: true, sourceUnchanged: true}}
     config = JSON.generate(architecture: 'arm64')
     manifest = JSON.generate(schemaVersion: 2, config: {digest: "sha256:#{Digest::SHA256.hexdigest(config)}", size: config.bytesize})
@@ -212,5 +223,63 @@ class PublishLocalImageTest < Minitest::Test
     @record['replacesReference'] = "#{@state['repository']}@sha256:#{'a' * 64}"
     @environment['REPLACE_EXISTING'] = 'true'
     assert_rejected
+  end
+
+  def test_aliases_share_one_upload_and_resume_without_retagging
+    @state['exists'] = true
+    @state['newManifest'] = @state['manifest']
+    @state['manifest'] = JSON.generate(schemaVersion: 2, old: true)
+    previous = "sha256:#{Digest::SHA256.hexdigest(@state['manifest'])}"
+    @state['aliases'] = {'special-rc' => previous}
+    @record['replacesReference'] = "#{@state['repository']}@#{previous}"
+    @record['additionalTags'] = ['special-rc']
+    @environment['REPLACE_EXISTING'] = 'true'
+    success, log = publish
+    assert success, log
+    assert_equal @state['digest'], @state['aliases']['special-rc']
+    assert_equal 1, @state['uploads']
+    @environment['GITHUB_RUN_ATTEMPT'] = '2'
+    success, log = publish
+    assert success, log
+    assert_equal 1, @state['uploads']
+    assert_equal 1, @state['retags']
+  end
+
+  def test_foreign_alias_is_not_replaced_or_reported_complete
+    @state['exists'] = true
+    @state['newManifest'] = @state['manifest']
+    @state['manifest'] = JSON.generate(schemaVersion: 2, old: true)
+    @record['replacesReference'] = "#{@state['repository']}@sha256:#{Digest::SHA256.hexdigest(@state['manifest'])}"
+    @record['additionalTags'] = ['special-rc']
+    @state['aliases'] = {'special-rc' => "sha256:#{'f' * 64}"}
+    @environment['REPLACE_EXISTING'] = 'true'
+    success, = publish
+    refute success
+    assert_equal "sha256:#{'f' * 64}", @state['aliases']['special-rc']
+    assert_nil @state['retags']
+    refute File.exist?(File.join(@directory, 'publication.json'))
+  end
+
+  def test_legacy_disk_only_replacement_requires_fresh_runtime_and_credentials_checks
+    @state['exists'] = true
+    @state['newManifest'] = @state['manifest']
+    @state['manifest'] = JSON.generate(schemaVersion: 2, old: true)
+    @record['replacesReference'] = "#{@state['repository']}@sha256:#{Digest::SHA256.hexdigest(@state['manifest'])}"
+    @record['parentReference'] = @record['replacesReference']
+    @record['transformation'] = 'disk-shrink'
+    @record['constructionVMStarted'] = false
+    @record['componentInstallation'] = nil
+    @environment['REPLACE_EXISTING'] = 'true'
+    %w[runtime-startup credential-rotation-before-cold-boot credential-rotation-after-cold-boot].each do |check|
+      @record['runtime']['checks'].delete(check)
+      assert_rejected
+      @record['runtime']['checks'] << check
+    end
+    @record.delete('transformation')
+    assert_rejected
+    @record['transformation'] = 'disk-shrink'
+    success, log = publish
+    assert success, log
+    assert_equal 1, @state['uploads']
   end
 end

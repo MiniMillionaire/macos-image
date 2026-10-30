@@ -2,11 +2,14 @@
 
 ## Build and published sizes
 
-Every build runs on a sparse 256 GB raw disk. IPSW builds create it with
+The `scripts/image` builds run on a sparse 256 GB raw disk. IPSW builds create it with
 `tart create --disk-size 256`. Upgrade, base and Xcode builds start from a
 published image. Tart grows that clone to 256 GB and moves Recovery to the
 new end. The source image is unchanged. The file only allocates host space
 for written blocks.
+
+MISO builds use the profile's `diskBytes` for construction capacity. That value
+does not specify the published capacity; the same shrink policy applies below.
 
 After provisioning shuts down the VM, `scripts/image` confirms that the disk
 is closed and reads the minimum size from `diskutil image resize --plist disk.img`.
@@ -38,6 +41,12 @@ current disk; acceptance and promotion retain and validate that receipt.
 Local derivatives must run this step before capturing their acceptance
 source state. A local tag replacement also requires `replace_existing` and
 the exact previous digest in `replacesReference`.
+
+A disk-only replacement of an older offline Xcode publication retains its truthful
+construction record. It requires fresh runtime stability and cold-boot credential
+checks; it does not claim that Xcode components were installed again. Existing
+aliases in `additionalTags` are moved to the accepted manifest only if they still
+name the same previous digest, so each image is uploaded once.
 
 ## Expanding a downloaded image
 

@@ -39,6 +39,8 @@ jq -e --argjson target "$(jq .target "$profile")" --arg variant "$accepted_varia
   .reviewAccepted == true and .runtime.exitCode == 0 and .runtime.vmStarted == true and
   .runtime.vmStopped == true and .runtime.sourceUnchanged == true and
   (.runtime.checks | type == "array" and length > 0) and
+  (.runtime.checks | index("credential-rotation-before-cold-boot") != null) and
+  (.runtime.checks | index("credential-rotation-after-cold-boot") != null) and
   (.prerelease | type == "boolean") and
   (.customTag | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
 ' "$record" >/dev/null || fail 'Local acceptance does not match the requested image.'
@@ -46,13 +48,24 @@ if [[ "$VARIANT" == xcode ]]; then
   safe_name "${XCODE_VERSION:-}" || exit 1
   jq -e --argjson xcode "$(cat "$root/config/miso/$IMAGE_PROFILE/xcode-$XCODE_VERSION.json")" '
     .xcodeConfiguration.version == $xcode.version and .xcodeConfiguration.build == $xcode.build and
-    .componentInstallation.completed == true and .componentInstallation.method == "xcodebuild" and
-    .componentInstallation.vmStopped == true and .componentInstallation.sourceUnchanged == true
+    (.runtime.checks | index("runtime-startup") != null) and
+    (if .transformation == "disk-shrink" and .constructionVMStarted == false then
+      .componentInstallation == null and .parentReference == .replacesReference and
+      (.replacesReference | type == "string" and test("@sha256:[0-9a-f]{64}$"))
+     else
+      .componentInstallation.completed == true and .componentInstallation.method == "xcodebuild" and
+      .componentInstallation.vmStopped == true and .componentInstallation.sourceUnchanged == true
+     end)
   ' "$record" >/dev/null || fail 'Local Xcode acceptance does not match the requested build.'
 fi
 repository="$(jq -er .repository "$profile")-$package_variant"
 [[ "$repository" =~ ^ghcr\.io/minimillionaire/[a-z0-9][a-z0-9-]+$ ]] || exit 1
 tag=$(jq -er .customTag "$record")
+aliases=$(jq -ec --arg tag "$tag" '
+  (.additionalTags // []) | select(type == "array" and length <= 8) |
+  select(length == (unique | length)) |
+  select(all(.[]; type == "string" and test("^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$") and . != $tag))
+' "$record") || fail 'Invalid additional publication tags.'
 published="$repository:$tag"
 replacement=$(jq -r '.replacesReference // empty' "$record")
 if [[ ${REPLACE_EXISTING:-false} == true ]]; then
@@ -60,6 +73,7 @@ if [[ ${REPLACE_EXISTING:-false} == true ]]; then
     fail 'Replacement publication requires the exact previous reference.'
 else
   [[ -z "$replacement" ]] || fail 'Replacing a publication requires replace_existing.'
+  [[ "$aliases" == '[]' ]] || fail 'Additional tags require an exact replacement reference.'
 fi
 [[ ${1:-} != --check ]] || { printf 'Accepted local source is unchanged: %s\n' "$published"; exit 0; }
 [[ ${GITHUB_RUN_ID:-} =~ ^[0-9]+$ && ${GITHUB_RUN_ATTEMPT:-} =~ ^[0-9]+$ ]] || exit 1
@@ -125,6 +139,21 @@ if [[ "$upload" == true ]]; then
   anonymous=$(anonymous_token)
   [[ $(fetch_manifest) == 200 && "$expected" == "$repository@$(manifest_digest)" ]] ||
     fail 'Published tag does not match the upload receipt.'
+fi
+if [[ "$aliases" != '[]' ]]; then
+  printf '{}\n' > "$attempt/anonymous.json"
+  while IFS= read -r alias; do
+    previous=$(oras resolve "$repository:$alias" --registry-config "$attempt/anonymous.json")
+    [[ "$previous" == "${expected##*@}" || "$previous" == "${replacement##*@}" ]] ||
+      fail "Additional tag changed since acceptance: $alias"
+    if [[ "$previous" != "${expected##*@}" ]]; then
+      printf '%s' "$MISO_REGISTRY_PASSWORD" | oras tag "$expected" "$alias" \
+        --username "$MISO_REGISTRY_USERNAME" --password-stdin --registry-config "$attempt/anonymous.json" \
+        > "$attempt/alias-$alias.log"
+    fi
+    [[ $(oras resolve "$repository:$alias" --registry-config "$attempt/anonymous.json") == "${expected##*@}" ]] ||
+      fail "Additional tag did not resolve to the accepted image: $alias"
+  done < <(jq -r '.[]' <<< "$aliases")
 fi
 [[ "$(source_state)" == "$(cat "$directory/source-state.txt")" ]] || fail 'Source changed during publication.'
 config_digest=$(jq -er .config.digest "$attempt/manifest.json")
