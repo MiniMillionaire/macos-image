@@ -112,8 +112,23 @@ The private directory contains:
 
 Run `bash ci/publish-local-image.sh --check` with the matching workflow environment
 to validate the record and source locally before dispatch. Local publication
-requires completed acceptance and refuses tag replacement. It retains each upload
+requires completed acceptance. Replacing a tag also requires `replace_existing`
+and its exact previous digest in `replacesReference`. It retains each upload
 attempt, verifies the anonymous manifest and configuration, and writes
 `publication.json` only after verification. A retry can reuse a matching upload
 receipt without transferring the image again. The published receipt is also saved
 as a workflow artifact; source paths and private input URLs are not included.
+
+A disk-only resize can reuse the published source's successful content acceptance
+without downloading it again for acceptance or repeating Xcode and simulator tests.
+Keep that original record in `acceptanceInheritance`, bound to the exact immutable
+`parentReference` and `replacesReference`. Its target, variant and Xcode configuration
+must match the replacement. The record must include its verified download,
+acceptance date and successful content checks; an explicit failed review is rejected.
+
+For this path, set `transformation: "disk-shrink"` and
+`constructionVMStarted: false`, and leave `componentInstallation` empty. The new
+`runtime` result has `validationScope: "disk-shrink"` and records only the fresh
+disposable clone's cold boot, SSH and System/Data filesystem checks. The clone must
+be stopped and its source unchanged. Retain the matching shrink receipt and source
+state as usual; inherited content checks must not be reported as newly executed.

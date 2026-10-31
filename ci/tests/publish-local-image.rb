@@ -118,6 +118,90 @@ class PublishLocalImageTest < Minitest::Test
     refute File.exist?(File.join(@directory, 'publication.json'))
   end
 
+  def inherit_acceptance
+    @state['exists'] = true
+    @state['newManifest'] = @state['manifest']
+    @state['manifest'] = JSON.generate(schemaVersion: 2, old: true)
+    previous = "#{@state['repository']}@sha256:#{Digest::SHA256.hexdigest(@state['manifest'])}"
+    prior = JSON.parse(JSON.generate(@record))
+    prior.delete('reviewAccepted')
+    prior['runtime']['checks'] += %w[original-requirements health final-desktop xcode-tools xcode-gui simulator-ios]
+    prior.merge!('reference' => previous, 'anonymousDownloadVerified' => true,
+      'acceptedAt' => '2026-10-28T09:05:44Z')
+    @record.merge!('acceptanceInheritance' => prior, 'parentReference' => previous,
+      'replacesReference' => previous, 'transformation' => 'disk-shrink',
+      'constructionVMStarted' => false, 'componentInstallation' => nil,
+      'runtime' => {'exitCode' => 0, 'vmStarted' => true, 'vmStopped' => true,
+        'sourceUnchanged' => true, 'validationScope' => 'disk-shrink',
+        'checks' => ['cold-boot', 'ssh', 'filesystem-data', 'filesystem-system']})
+    @environment['REPLACE_EXISTING'] = 'true'
+  end
+
+  def test_shrink_inherits_content_evidence_without_claiming_it_ran_again
+    inherit_acceptance
+    success, log = publish
+    assert success, log
+    receipt = JSON.parse(File.read(File.join(@directory, 'publication.json')))
+    accepted = receipt.fetch('acceptance')
+    assert_equal @record['acceptanceInheritance'], accepted['acceptanceInheritance']
+    assert_equal %w[cold-boot ssh filesystem-data filesystem-system], accepted['runtime']['checks']
+    assert_equal 1, @state['uploads']
+  end
+
+  def test_inherited_acceptance_must_cover_the_exact_unchanged_parent
+    inherit_acceptance
+    baseline = JSON.generate(@record['acceptanceInheritance'])
+    changes = [
+      ['reference', "#{@state['repository']}@sha256:#{'f' * 64}"],
+      ['target', {version: '27.2', build: '26B118'}],
+      ['variant', 'base'], ['anonymousDownloadVerified', false], ['reviewAccepted', false],
+      ['acceptedAt', nil], ['xcodeConfiguration', {version: '27.1', build: '27A1'}]
+    ]
+    changes.each do |key, value|
+      @record['acceptanceInheritance'] = JSON.parse(baseline)
+      @record['acceptanceInheritance'][key] = value
+      assert_rejected
+    end
+    [['exitCode', 1], ['vmStopped', false], ['sourceUnchanged', false],
+     ['checks', []], ['manualGuestRepair', true]].each do |key, value|
+      @record['acceptanceInheritance'] = JSON.parse(baseline)
+      @record['acceptanceInheritance']['runtime'][key] = value
+      assert_rejected
+    end
+  end
+
+  def test_legacy_slim_evidence_requires_its_explicit_flavor
+    inherit_acceptance
+    @record['acceptanceInheritance']['variant'] = 'xcode'
+    assert_rejected
+    @record['acceptanceInheritance']['xcodeFlavor'] = 'slim'
+    success, log = publish
+    assert success, log
+    assert_equal 1, @state['uploads']
+  end
+
+  def test_inherited_content_acceptance_cannot_be_partial
+    inherit_acceptance
+    checks = @record['acceptanceInheritance']['runtime']['checks']
+    %w[original-requirements compile health final-desktop xcode-tools xcode-gui simulator-ios].each do |name|
+      checks.delete(name)
+      assert_rejected
+      checks << name
+    end
+  end
+
+  def test_inheritance_never_replaces_the_new_disk_validation
+    inherit_acceptance
+    @record['runtime']['checks'].delete('filesystem-data')
+    assert_rejected
+    @record['runtime']['checks'] << 'filesystem-data'
+    @record['runtime']['validationScope'] = 'full'
+    assert_rejected
+    @record['runtime']['validationScope'] = 'disk-shrink'
+    @record['transformation'] = 'runtime-installation'
+    assert_rejected
+  end
+
   def test_failed_or_incomplete_acceptance_never_uploads
     [['exitCode', 1], ['vmStopped', false], ['sourceUnchanged', false]].each do |key, value|
       previous = @record['runtime'][key]

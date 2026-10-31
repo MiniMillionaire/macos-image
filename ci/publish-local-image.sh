@@ -39,8 +39,27 @@ jq -e --argjson target "$(jq .target "$profile")" --arg variant "$accepted_varia
   .reviewAccepted == true and .runtime.exitCode == 0 and .runtime.vmStarted == true and
   .runtime.vmStopped == true and .runtime.sourceUnchanged == true and
   (.runtime.checks | type == "array" and length > 0) and
-  (.runtime.checks | index("credential-rotation-before-cold-boot") != null) and
-  (.runtime.checks | index("credential-rotation-after-cold-boot") != null) and
+  (if .acceptanceInheritance != null then
+    . as $current | .acceptanceInheritance as $prior |
+    .transformation == "disk-shrink" and .constructionVMStarted == false and
+    .parentReference == .replacesReference and
+    (.parentReference | type == "string" and test("@sha256:[0-9a-f]{64}$")) and
+    $prior.reference == .parentReference and $prior.target == .target and
+    ($prior | if .variant == "xcode" and .xcodeFlavor == "slim" then "xcode-slim"
+              elif .variant == "xcode-full" then "xcode" else .variant end) == .variant and
+    $prior.anonymousDownloadVerified == true and $prior.reviewAccepted != false and
+    ($prior.acceptedAt | type == "string" and length > 0) and
+    $prior.runtime.exitCode == 0 and $prior.runtime.vmStarted == true and
+    $prior.runtime.vmStopped == true and $prior.runtime.sourceUnchanged == true and
+    $prior.runtime.manualGuestRepair != true and
+    ($prior.runtime.checks | type == "array" and length > 0) and
+    (["original-requirements", "compile", "health", "final-desktop"] - $prior.runtime.checks | length == 0) and
+    .runtime.validationScope == "disk-shrink" and
+    (["cold-boot", "ssh", "filesystem-data", "filesystem-system"] - $current.runtime.checks | length == 0)
+   else
+    (.runtime.checks | index("credential-rotation-before-cold-boot") != null) and
+    (.runtime.checks | index("credential-rotation-after-cold-boot") != null)
+   end) and
   (.prerelease | type == "boolean") and
   (.customTag | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
 ' "$record" >/dev/null || fail 'Local acceptance does not match the requested image.'
@@ -48,7 +67,13 @@ if [[ "$VARIANT" == xcode ]]; then
   safe_name "${XCODE_VERSION:-}" || exit 1
   jq -e --argjson xcode "$(cat "$root/config/miso/$IMAGE_PROFILE/xcode-$XCODE_VERSION.json")" '
     .xcodeConfiguration.version == $xcode.version and .xcodeConfiguration.build == $xcode.build and
-    (.runtime.checks | index("runtime-startup") != null) and
+    (if .acceptanceInheritance != null then
+      .xcodeConfiguration == .acceptanceInheritance.xcodeConfiguration and
+      (["xcode-tools", "xcode-gui"] - .acceptanceInheritance.runtime.checks | length == 0) and
+      (.acceptanceInheritance.runtime.checks | any(.[]; startswith("simulator-")))
+     else
+      (.runtime.checks | index("runtime-startup") != null)
+     end) and
     (if .transformation == "disk-shrink" and .constructionVMStarted == false then
       .componentInstallation == null and .parentReference == .replacesReference and
       (.replacesReference | type == "string" and test("@sha256:[0-9a-f]{64}$"))

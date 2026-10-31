@@ -42,9 +42,11 @@ Local derivatives must run this step before capturing their acceptance
 source state. A local tag replacement also requires `replace_existing` and
 the exact previous digest in `replacesReference`.
 
-A disk-only replacement of an older offline Xcode publication retains its truthful
-construction record. It requires fresh runtime stability and cold-boot credential
-checks; it does not claim that Xcode components were installed again. Existing
+A disk-only replacement can reuse the exact published source's successful content
+acceptance. The new disposable clone still requires cold boot, SSH and System/Data
+filesystem checks. Keep the inherited evidence separate from these fresh checks;
+do not repeat content acceptance or claim that Xcode components were installed again.
+See [local publication](releases.md#publish-a-locally-accepted-image). Existing
 aliases in `additionalTags` are moved to the accepted manifest only if they still
 name the same previous digest, so each image is uploaded once.
 
