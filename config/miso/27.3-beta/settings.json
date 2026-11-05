@@ -1,0 +1,10 @@
+{
+  "indexVersion" : 100,
+  "mdsSHA256" : "b62a5de9e9071cdc4c2fb9965f0d4e87dd64f1b6ea049221881928a9556e9f89",
+  "schemaVersion" : 1,
+  "target" : {
+    "build" : "26C5035r",
+    "version" : "27.3"
+  },
+  "tartVersion" : "0.15.0"
+}
