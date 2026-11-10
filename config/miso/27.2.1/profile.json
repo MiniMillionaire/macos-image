@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "27.2.1",
+    "build": "26B131"
+  },
+  "ipsw": "https://updates.cdn-apple.com/2026FallFCS/c202a724-db7e-4d56-917b-110aa0226507/UniversalMac_27.2.1_26B131_Restore.ipsw",
+  "diskBytes": 68719476736,
+  "repository": "ghcr.io/minimillionaire/macos-golden-gate"
+}
