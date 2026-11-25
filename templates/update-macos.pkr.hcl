@@ -101,7 +101,12 @@ build {
     environment_vars = [
       "EXPECTED_BUILD=${var.expected_build}",
       "EXPECTED_VERSION=${var.expected_version}",
+      "GUEST_PASSWORD=${var.guest_password}",
+      "GUEST_USERNAME=${var.guest_username}",
     ]
-    script = "scripts/guest/finish-software-update.sh"
+    scripts = [
+      "scripts/guest/finish-software-update.sh",
+      "scripts/guest/configure-screen-sharing.sh",
+    ]
   }
 }

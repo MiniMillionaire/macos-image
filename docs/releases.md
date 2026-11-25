@@ -44,6 +44,17 @@ transactions to finish, verifies one available installation per runtime, and
 shuts down before export. This stage needs a running VM slot but no VNC interaction.
 The final Xcode image is not an unbooted MISO source for subsequent offline edits.
 
+macOS 26.7.3 has no IPSW. Its `config/tahoe-26.7.3.env` profile uses the existing
+`scripts/image update` path to apply Apple's exact same-major update to a clone
+of a pinned 26.6.2 image. This construction boots the guest and configures guest
+Screen Sharing after the update. On the stopped image, apply the same capture and
+input policy as MISO with `sudo python3 scripts/configure-screen-sharing-policy.py
+<image-directory>`. Before local publication, remove inherited Rosetta artifacts
+with `scripts/remove-rosetta`, then shrink and accept the image against the current
+requirements.
+`config/miso/26.7.3/profile.json` supplies publication identity only; it is not an
+input to the offline IPSW build workflow.
+
 Build artifacts retain the intermediate `offline-source-manifest.json` and
 `offline-export.json` separately from the native component receipt. Their disk
 hashes describe the offline intermediate, not the final, booted Xcode image.

@@ -96,7 +96,7 @@ openssl=$(brew --prefix openssl@3)
 clang -O2 -Wno-deprecated-declarations -I"$openssl/include" -L"$openssl/lib" \
   "$root/ci/acceptance/helpers/vnc-smoke.c" -lcrypto -o "$work/tools/vnc-smoke"
 mkdir -p "$work/tools/InputWitness.app/Contents/MacOS"
-swiftc -O "$root/ci/acceptance/helpers/focus-input-witness.swift" -o "$work/tools/InputWitness.app/Contents/MacOS/InputWitness"
+swiftc -O -target arm64-apple-macosx15.0 "$root/ci/acceptance/helpers/focus-input-witness.swift" -o "$work/tools/InputWitness.app/Contents/MacOS/InputWitness"
 cp "$root/ci/acceptance/helpers/InputWitness.plist" "$work/tools/InputWitness.app/Contents/Info.plist"
 codesign --force --sign - "$work/tools/InputWitness.app"
 df -h "$work" > "$work/evidence/space-prepared.txt"
