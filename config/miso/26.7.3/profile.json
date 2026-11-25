@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "version": "26.7.3",
+    "build": "25G342"
+  },
+  "repository": "ghcr.io/minimillionaire/macos-tahoe"
+}
