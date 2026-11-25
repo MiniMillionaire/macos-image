@@ -805,6 +805,7 @@ update_image() {
 
   require_build_host
   clone_vm "$source" "$target" "$variant"
+  grow_vm_disk "$target" "$build_disk_size_gb"
   clear_stale_control_socket "$target"
   packer_build "$VANILLA_TEMPLATE" \
     -var "vm_name=$target" \

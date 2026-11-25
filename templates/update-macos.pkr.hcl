@@ -51,7 +51,7 @@ source "tart-cli" "update" {
   headless           = true
   disable_vnc        = true
   disk_size_gb       = var.disk_size_gb
-  recovery_partition = "relocate"
+  recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"

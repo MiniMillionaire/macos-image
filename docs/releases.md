@@ -47,8 +47,18 @@ The final Xcode image is not an unbooted MISO source for subsequent offline edit
 macOS 26.7.3 has no IPSW. Its `config/tahoe-26.7.3.env` profile uses the existing
 `scripts/image update` path to apply Apple's exact same-major update to a clone
 of a pinned 26.6.2 image. This construction boots the guest and configures guest
-Screen Sharing after the update. On the stopped image, apply the same capture and
-input policy as MISO with `sudo python3 scripts/configure-screen-sharing-policy.py
+Screen Sharing after the update. Complete the existing post-upgrade startup and
+desktop cleanup stages before removing Rosetta: Apple can queue its installation
+for the next boot. If the upgraded construction VM shows a lock screen, authenticate
+normally through guest Screen Sharing before preparing the independent acceptance
+clone; that clone must cold-boot to an unlocked desktop without intervention.
+The inherited Base toolset uses Homebrew 7.0.2. Pin its formula metadata to the
+installation-time core snapshot `db131bf51ae092c2f193e865cc346b2a1adefed8` so the
+installed bottles retain matching dependency declarations. Exercise SSH screen
+capture in construction and resolve any system reminder before preparing the final
+clone; independent acceptance must run without interactive permission prompts.
+On the stopped image, apply the same capture and input policy as MISO with
+`sudo python3 scripts/configure-screen-sharing-policy.py
 <image-directory>`. Before local publication, remove inherited Rosetta artifacts
 with `scripts/remove-rosetta`, then shrink and accept the image against the current
 requirements.
