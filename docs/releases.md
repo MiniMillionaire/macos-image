@@ -57,8 +57,8 @@ that second step. Both methods configure Screen Sharing after the upgrade.
 Complete the existing post-upgrade startup and desktop cleanup stages before
 removing Rosetta: Apple can queue its installation for the next boot. If the
 upgraded construction VM shows a lock screen, authenticate normally through guest
-Screen Sharing before preparing the independent acceptance clone; that clone must
-cold-boot to an unlocked desktop without intervention.
+Screen Sharing or the VM console before preparing the independent acceptance
+clone; that clone must cold-boot to an unlocked desktop without intervention.
 The inherited Base toolset uses Homebrew 7.0.2. Pin its formula metadata to the
 installation-time core snapshot `db131bf51ae092c2f193e865cc346b2a1adefed8` so the
 installed bottles retain matching dependency declarations. Exercise SSH screen
