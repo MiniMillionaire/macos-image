@@ -72,6 +72,7 @@ build {
       "UPDATE_TITLE=${var.update_title}",
     ]
     scripts = [
+      "scripts/guest/grow-filesystem.sh",
       "scripts/guest/verify-resize.sh",
       "scripts/guest/prepare-software-update.sh",
     ]

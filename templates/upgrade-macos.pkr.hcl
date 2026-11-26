@@ -55,7 +55,7 @@ source "tart-cli" "upgrade" {
   headless           = true
   disable_vnc        = true
   disk_size_gb       = var.disk_size_gb
-  recovery_partition = "relocate"
+  recovery_partition = "keep"
   ssh_username       = var.guest_username
   ssh_password       = var.guest_password
   ssh_timeout        = "10m"
@@ -73,6 +73,15 @@ build {
     ]
   }
 
+  provisioner "shell" {
+    timeout          = "10m"
+    environment_vars = ["TARGET_DISK_SIZE_GB=${var.disk_size_gb}"]
+    scripts = [
+      "scripts/guest/grow-filesystem.sh",
+      "scripts/guest/verify-resize.sh",
+    ]
+  }
+
   provisioner "file" {
     timeout     = "30m"
     source      = var.installer_archive
@@ -85,12 +94,8 @@ build {
       "EXPECTED_VERSION=${var.expected_version}",
       "EXPECTED_BUILD=${var.expected_build}",
       "INSTALLER_APP=${var.installer_app}",
-      "TARGET_DISK_SIZE_GB=${var.disk_size_gb}",
     ]
-    scripts = [
-      "scripts/guest/verify-resize.sh",
-      "scripts/guest/prepare-macos-upgrade.sh",
-    ]
+    script = "scripts/guest/prepare-macos-upgrade.sh"
   }
 
   provisioner "shell" {
@@ -116,7 +121,12 @@ build {
       "EXPECTED_VERSION=${var.expected_version}",
       "EXPECTED_BUILD=${var.expected_build}",
       "INSTALLER_APP=${var.installer_app}",
+      "GUEST_USERNAME=${var.guest_username}",
+      "GUEST_PASSWORD=${var.guest_password}",
     ]
-    script = "scripts/guest/finish-macos-upgrade.sh"
+    scripts = [
+      "scripts/guest/finish-macos-upgrade.sh",
+      "scripts/guest/configure-screen-sharing.sh",
+    ]
   }
 }

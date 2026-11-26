@@ -10,7 +10,7 @@ current_boot=$(sysctl -n kern.bootsessionuuid)
 test -n "$previous_boot"
 test "$previous_boot" != "$current_boot"
 case "$INSTALLER_APP" in
-  '/Applications/Install macOS Sequoia.app') ;;
+  '/Applications/Install macOS Sequoia.app'|'/Applications/Install macOS Tahoe.app') ;;
   *) echo "Unsupported installer cleanup path: $INSTALLER_APP" >&2; exit 1 ;;
 esac
 if [[ -e "$INSTALLER_APP" ]]; then

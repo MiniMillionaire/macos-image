@@ -44,14 +44,21 @@ transactions to finish, verifies one available installation per runtime, and
 shuts down before export. This stage needs a running VM slot but no VNC interaction.
 The final Xcode image is not an unbooted MISO source for subsequent offline edits.
 
-macOS 26.7.3 has no IPSW. Its `config/tahoe-26.7.3.env` profile uses the existing
-`scripts/image update` path to apply Apple's exact same-major update to a clone
-of a pinned 26.6.2 image. This construction boots the guest and configures guest
-Screen Sharing after the update. Complete the existing post-upgrade startup and
-desktop cleanup stages before removing Rosetta: Apple can queue its installation
-for the next boot. If the upgraded construction VM shows a lock screen, authenticate
-normally through guest Screen Sharing before preparing the independent acceptance
-clone; that clone must cold-boot to an unlocked desktop without intervention.
+macOS 26.7.2 and 26.7.3 have no IPSW. Their `config/tahoe-<version>.env`
+profiles use `scripts/image update` with pinned 26.6.2 parents. Version 26.7.2
+uses Apple's full installer to select this older release; its installer size
+and SHA-256 are pinned in the profile.
+Version 26.7.3 uses the exact same-major software update. Each variant keeps
+its own parent digest and inherited toolset.
+
+Both methods grow the stopped disk and then explicitly grow and verify the guest
+APFS container before staging downloads. Vanilla has no guest agent to perform
+that second step. Both methods configure Screen Sharing after the upgrade.
+Complete the existing post-upgrade startup and desktop cleanup stages before
+removing Rosetta: Apple can queue its installation for the next boot. If the
+upgraded construction VM shows a lock screen, authenticate normally through guest
+Screen Sharing before preparing the independent acceptance clone; that clone must
+cold-boot to an unlocked desktop without intervention.
 The inherited Base toolset uses Homebrew 7.0.2. Pin its formula metadata to the
 installation-time core snapshot `db131bf51ae092c2f193e865cc346b2a1adefed8` so the
 installed bottles retain matching dependency declarations. Exercise SSH screen
@@ -62,8 +69,8 @@ On the stopped image, apply the same capture and input policy as MISO with
 <image-directory>`. Before local publication, remove inherited Rosetta artifacts
 with `scripts/remove-rosetta`, then shrink and accept the image against the current
 requirements.
-`config/miso/26.7.3/profile.json` supplies publication identity only; it is not an
-input to the offline IPSW build workflow.
+The corresponding `config/miso/<version>/profile.json` supplies publication
+identity only; it is not an input to the offline IPSW build workflow.
 
 Build artifacts retain the intermediate `offline-source-manifest.json` and
 `offline-export.json` separately from the native component receipt. Their disk

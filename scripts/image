@@ -34,13 +34,15 @@ if [[ -n ${UPDATE_METHOD:-} ]]; then
   : "${UPDATE_XCODE_DIGEST:?}"
 elif [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
   : "${VANILLA_SOURCE_DIGEST:?}"
-  : "${INSTALLER_URL:?}"
-  : "${INSTALLER_SIZE:?}"
-  : "${INSTALLER_SHA256:?}"
 else
   : "${IPSW_URL:?}"
   : "${IPSW_SIZE:?}"
   : "${IPSW_SHA256:?}"
+fi
+if [[ ${UPDATE_METHOD:-} == installer || -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+  : "${INSTALLER_URL:?}"
+  : "${INSTALLER_SIZE:?}"
+  : "${INSTALLER_SHA256:?}"
 fi
 : "${VANILLA_TEMPLATE:?}"
 : "${DISABLE_SIP_TEMPLATE:?}"
@@ -156,8 +158,11 @@ validate_configuration() {
   [[ "$IMAGE_PRERELEASE" == true || "$IMAGE_PRERELEASE" == false ]] ||
     die "Invalid prerelease value: $IMAGE_PRERELEASE"
   if [[ -n ${UPDATE_METHOD:-} ]]; then
-    [[ "$UPDATE_METHOD" == softwareupdate ]] || die 'Invalid update method'
-    [[ "$UPDATE_TIMEOUT_SECONDS" == 5400 ]] || die 'Invalid software-update timeout'
+    case "$UPDATE_METHOD" in
+      softwareupdate) [[ "$UPDATE_TIMEOUT_SECONDS" == 5400 ]] || die 'Invalid software-update timeout' ;;
+      installer) [[ "$UPDATE_TIMEOUT_SECONDS" == 10800 ]] || die 'Invalid installer-update timeout' ;;
+      *) die 'Invalid update method' ;;
+    esac
     [[ "$UPDATE_TITLE" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || die 'Invalid update title'
     [[ "$UPDATE_SOURCE_VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]] || die 'Invalid update source version'
     [[ "$UPDATE_SOURCE_BUILD" =~ ^[0-9A-Z]+$ ]] || die 'Invalid update source build'
@@ -172,12 +177,14 @@ validate_configuration() {
   elif [[ -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
     [[ "$VANILLA_SOURCE_PROFILE" =~ ^[a-z0-9][a-z0-9.-]*$ ]] || die 'Invalid source profile'
     [[ "$VANILLA_SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || die 'Invalid source digest'
-    [[ "$INSTALLER_URL" == https://swcdn.apple.com/* ]] || die 'Invalid installer URL'
-    [[ "$INSTALLER_SIZE" =~ ^[1-9][0-9]*$ ]] || die 'Invalid installer size'
-    [[ "$INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || die 'Invalid installer SHA-256'
   else
     [[ "$IPSW_SIZE" =~ ^[1-9][0-9]*$ ]] || die "Invalid IPSW size: $IPSW_SIZE"
     [[ "$IPSW_SHA256" =~ ^[0-9a-f]{64}$ ]] || die "Invalid IPSW SHA-256: $IPSW_SHA256"
+  fi
+  if [[ ${UPDATE_METHOD:-} == installer || -n ${VANILLA_SOURCE_PROFILE:-} ]]; then
+    [[ "$INSTALLER_URL" == https://swcdn.apple.com/* ]] || die 'Invalid installer URL'
+    [[ "$INSTALLER_SIZE" =~ ^[1-9][0-9]*$ ]] || die 'Invalid installer size'
+    [[ "$INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || die 'Invalid installer SHA-256'
   fi
   if [[ -n ${POST_UPGRADE_SETUP_SEQUENCE:-} || -n ${POST_UPGRADE_SETUP_CHECK:-} ]]; then
     [[ -n ${POST_UPGRADE_SETUP_SEQUENCE:-} && -n ${POST_UPGRADE_SETUP_CHECK:-} ]] ||
@@ -746,11 +753,19 @@ clone_upgrade_source() {
 
 upgrade_macos() {
   local target=$1
+  load_upgrade_source
+  install_macos "$target" "$upgrade_source_version" "$upgrade_source_build"
+}
+
+install_macos() {
+  local target=$1
+  local source_version=$2
+  local source_build=$3
   local installer_app
   local installer_path=${INSTALLER_PATH:-$installer_cache_dir/$INSTALLER_SHA256.pkg}
-  load_upgrade_source
   case "$MACOS_FAMILY" in
     sequoia) installer_app='/Applications/Install macOS Sequoia.app' ;;
+    tahoe) installer_app='/Applications/Install macOS Tahoe.app' ;;
     *) die "No verified upgrade procedure for $MACOS_FAMILY" ;;
   esac
 
@@ -762,11 +777,12 @@ upgrade_macos() {
     --url "$INSTALLER_URL" --output "$installer_path" \
     --sha256 "$INSTALLER_SHA256" --size "$INSTALLER_SIZE" --ca-file "$image_cacert"
 
+  grow_vm_disk "$target" "$build_disk_size_gb"
   clear_stale_control_socket "$target"
   packer_build "$VANILLA_TEMPLATE" \
     -var "vm_name=$target" \
-    -var "source_version=$upgrade_source_version" \
-    -var "source_build=$upgrade_source_build" \
+    -var "source_version=$source_version" \
+    -var "source_build=$source_build" \
     -var "expected_version=$MACOS_VERSION" \
     -var "expected_build=$MACOS_BUILD" \
     -var "installer_archive=$installer_path" \
@@ -792,7 +808,7 @@ update_image() {
   local target=${3:?Target VM is required}
   local packer_build_timeout_seconds=$UPDATE_TIMEOUT_SECONDS
 
-  [[ "${UPDATE_METHOD:-}" == softwareupdate ]] || die 'This profile does not use softwareupdate'
+  [[ -n ${UPDATE_METHOD:-} ]] || die 'This profile does not define an update method'
   case "$variant" in
     vanilla|base) ;;
     xcode)
@@ -805,19 +821,23 @@ update_image() {
 
   require_build_host
   clone_vm "$source" "$target" "$variant"
-  grow_vm_disk "$target" "$build_disk_size_gb"
-  clear_stale_control_socket "$target"
-  packer_build "$VANILLA_TEMPLATE" \
-    -var "vm_name=$target" \
-    -var "source_version=$UPDATE_SOURCE_VERSION" \
-    -var "source_build=$UPDATE_SOURCE_BUILD" \
-    -var "expected_version=$MACOS_VERSION" \
-    -var "expected_build=$MACOS_BUILD" \
-    -var "update_title=$UPDATE_TITLE" \
-    -var "disk_size_gb=$build_disk_size_gb" \
-    -var "guest_username=$guest_username" \
-    -var "guest_password=$guest_password"
-  complete_post_upgrade_setup "$target"
+  if [[ "$UPDATE_METHOD" == installer ]]; then
+    install_macos "$target" "$UPDATE_SOURCE_VERSION" "$UPDATE_SOURCE_BUILD"
+  else
+    grow_vm_disk "$target" "$build_disk_size_gb"
+    clear_stale_control_socket "$target"
+    packer_build "$VANILLA_TEMPLATE" \
+      -var "vm_name=$target" \
+      -var "source_version=$UPDATE_SOURCE_VERSION" \
+      -var "source_build=$UPDATE_SOURCE_BUILD" \
+      -var "expected_version=$MACOS_VERSION" \
+      -var "expected_build=$MACOS_BUILD" \
+      -var "update_title=$UPDATE_TITLE" \
+      -var "disk_size_gb=$build_disk_size_gb" \
+      -var "guest_username=$guest_username" \
+      -var "guest_password=$guest_password"
+    complete_post_upgrade_setup "$target"
+  fi
   clean_desktop "$target" "$variant"
   shrink_vm "$target"
   verify_existing "$target" "$variant"

@@ -39,13 +39,20 @@ case ${0##*/} in
         ;;
     esac
     ;;
+  diskutil)
+    if [[ "$1 $2" == 'list -plist' ]]; then
+      cat "$MOCK_STATE/layout.plist"
+    else
+      printf '%s\n' "$*" > "$MOCK_STATE/resize-attempt"
+      exit "${MOCK_RESIZE_STATUS:-0}"
+    fi
+    ;;
   sudo)
     if [[ $1 == -n ]]; then
       shift
     fi
-    if [[ $1 == softwareupdate ]]; then
-      shift
-      exec softwareupdate "$@"
+    if [[ $1 == softwareupdate || $1 == diskutil ]]; then
+      exec "$@"
     fi
     if [[ $1 == fdesetup && $2 == status ]]; then
       echo 'FileVault is Off.'
@@ -61,7 +68,7 @@ case ${0##*/} in
 esac
 EOF
 chmod +x "$test_dir/bin/mock"
-for command in sw_vers uname id defaults xcode-select xcrun softwareupdate sudo sysctl touch rm; do
+for command in sw_vers uname id defaults xcode-select xcrun softwareupdate diskutil sudo sysctl touch rm; do
   ln -s mock "$test_dir/bin/$command"
 done
 
@@ -95,6 +102,37 @@ test "$(cat "$test_dir/home/.macos-image-upgrade-boot-session")" = mock-boot-ses
 expect_failure env MOCK_LABEL= HOME="$test_dir/home" \
   SOURCE_VERSION=26.6.2 SOURCE_BUILD=25G83 EXPECTED_VERSION=26.7 EXPECTED_BUILD=25G229 UPDATE_TITLE=Tahoe \
   /bin/bash "$root_dir/scripts/guest/prepare-software-update.sh"
+cat > "$test_dir/layout.plist" <<'PLIST'
+<?xml version="1.0"?><plist version="1.0"><dict><key>AllDisksAndPartitions</key><array><dict>
+<key>Size</key><integer>120000000000</integer><key>Partitions</key><array>
+<dict><key>Content</key><string>Apple_APFS_ISC</string><key>Size</key><integer>524288000</integer></dict>
+<dict><key>Content</key><string>Apple_APFS</string><key>Size</key><integer>44107005952</integer><key>DeviceIdentifier</key><string>disk0s2</string></dict>
+<dict><key>Content</key><string>Apple_APFS_Recovery</string><key>Size</key><integer>5368668160</integer></dict>
+</array></dict></array></dict></plist>
+PLIST
+cp "$test_dir/layout.plist" "$MOCK_STATE/layout.plist"
+TARGET_DISK_SIZE_GB=120 /bin/bash "$root_dir/scripts/guest/grow-filesystem.sh"
+test "$(cat "$MOCK_STATE/resize-attempt")" = 'apfs resizeContainer disk0s2 0'
+/bin/rm "$MOCK_STATE/resize-attempt"
+plutil -replace AllDisksAndPartitions.0.Partitions.1.Size -integer 114107002880 "$MOCK_STATE/layout.plist"
+TARGET_DISK_SIZE_GB=120 /bin/bash "$root_dir/scripts/guest/grow-filesystem.sh"
+test ! -e "$MOCK_STATE/resize-attempt"
+for fault in wrong-size missing-recovery extra-partition extra-disk; do
+  cp "$test_dir/layout.plist" "$MOCK_STATE/layout.plist"
+  case $fault in
+    wrong-size) plutil -replace AllDisksAndPartitions.0.Size -integer 80000000000 "$MOCK_STATE/layout.plist" ;;
+    missing-recovery) plutil -replace AllDisksAndPartitions.0.Partitions.2.Content -string Apple_APFS "$MOCK_STATE/layout.plist" ;;
+    extra-partition) plutil -insert AllDisksAndPartitions.0.Partitions.3 -json '{"Size":1000000}' "$MOCK_STATE/layout.plist" ;;
+    extra-disk) plutil -insert AllDisksAndPartitions.1 -json '{"Size":120000000000}' "$MOCK_STATE/layout.plist" ;;
+  esac
+  expect_failure env TARGET_DISK_SIZE_GB=120 /bin/bash "$root_dir/scripts/guest/grow-filesystem.sh"
+  test ! -e "$MOCK_STATE/resize-attempt"
+done
+cp "$test_dir/layout.plist" "$MOCK_STATE/layout.plist"
+expect_failure env TARGET_DISK_SIZE_GB=120 MOCK_RESIZE_STATUS=1 /bin/bash "$root_dir/scripts/guest/grow-filesystem.sh"
+test -e "$MOCK_STATE/resize-attempt"
+/bin/rm "$MOCK_STATE/resize-attempt"
+
 for script in configure-vanilla.sh prepare-native.sh; do
   expect_failure env EXPECTED_VERSION=0 EXPECTED_BUILD=25G83 /bin/bash "$root_dir/scripts/guest/$script"
   expect_failure env EXPECTED_VERSION=26.6.2 EXPECTED_BUILD=invalid /bin/bash "$root_dir/scripts/guest/$script"
