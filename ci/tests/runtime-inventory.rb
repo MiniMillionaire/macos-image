@@ -88,4 +88,38 @@ class RuntimeInventoryTest < Minitest::Test
     refute status.success?
   end
 
+  def test_distinct_hardware_runtime_builds_are_preserved_and_available_together
+    @requirements['runtimes'] << @requirements['runtimes'][0].merge('build' => '24A94425')
+    identifier = @identifier + '-iPhone19-4'
+    @images['duo'] = @image.merge('runtimeIdentifier' => identifier, 'build' => '24A94425')
+    @runtimes['runtimes'] << @runtime.merge('identifier' => identifier, 'buildversion' => '24A94425')
+    output, error, status = validate
+    assert status.success?, error
+    assert_equal [@identifier, identifier], JSON.parse(output).map { |item| item['identifier'] }
+    output, error, status = removals
+    assert status.success?, error
+    assert_empty JSON.parse(output)
+    @images['duo']['build'] = '24A434'
+    _, _, status = validate
+    refute status.success?
+  end
+
+  def test_hardware_suffix_does_not_hide_a_duplicate_installation
+    @images['second'] = @image.merge('runtimeIdentifier' => @identifier + '-iPhone19-4')
+    @runtimes['runtimes'] << @runtime.merge('identifier' => @identifier + '-iPhone19-4')
+    _, error, status = validate
+    refute status.success?
+    assert_includes error, 'duplicate'
+  end
+
+  def test_duplicate_requirements_cannot_mask_an_unrequested_runtime_build
+    @requirements['runtimes'] << @requirements['runtimes'][0].dup
+    identifier = @identifier + '-iPhone19-4'
+    @images['duo'] = @image.merge('runtimeIdentifier' => identifier, 'build' => '24A94425')
+    @runtimes['runtimes'] << @runtime.merge('identifier' => identifier, 'buildversion' => '24A94425')
+    _, error, status = validate
+    refute status.success?
+    assert_includes error, 'Duplicate simulator runtime requirements'
+  end
+
 end

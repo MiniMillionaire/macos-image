@@ -201,9 +201,10 @@ if [[ "$variant" == xcode ]]; then
   [[ "$gui_status" == 0 ]] || exit "$gui_status"
   remote_script compile "$helpers/xcode-compile.sh"
   remote_script mobile-tools "$helpers/xcode-mobile-tools.sh"
-  while IFS= read -r platform; do
-    remote_script "simulator-$platform" "$helpers/xcode-simulator.sh" "MISO_SIMULATOR_PLATFORM=$platform"
-  done < <(jq -r '.configuration.platforms[] | ascii_downcase' "$log/xcode-config.json")
+  while IFS=$'\t' read -r platform build; do
+    remote_script "simulator-$platform-$build" "$helpers/xcode-simulator.sh" \
+      "MISO_SIMULATOR_PLATFORM=$platform" "MISO_SIMULATOR_BUILD=$build"
+  done < <(jq -r '.runtimes[] | [(.platform | ascii_downcase), .build] | @tsv' "$log/xcode-config.json")
   remote 'osascript -e '\''tell application id "com.apple.dt.Devices" to quit'\'''
 else
   remote_script compile "$helpers/guest.sh"

@@ -21,12 +21,24 @@ case "$platform" in
   visionos) runtime=xrOS; platform_name=visionOS; device=Apple-Vision ;;
   *) exit 64 ;;
 esac
-version=$(jq -er --arg platform "$platform_name" '.runtimes[]|select(.platform == $platform)|.version' "$configuration")
-build=$(jq -er --arg platform "$platform_name" '.runtimes[]|select(.platform == $platform)|.build' "$configuration")
-identifier="com.apple.CoreSimulator.SimRuntime.$runtime-${version//./-}"
+build=${MISO_SIMULATOR_BUILD:?}
+version=$(jq -er --arg platform "$platform_name" --arg build "$build" \
+  '[.runtimes[] | select(.platform == $platform and .build == $build)] |
+    if length == 1 then .[0].version else error("Ambiguous runtime requirement") end' "$configuration")
+prefix="com.apple.CoreSimulator.SimRuntime.$runtime-${version//./-}"
 report=$(xcrun simctl list runtimes --json)
-printf '%s\n' "$report" | jq -e --arg identifier "$identifier" --arg build "$build" --arg version "$version" '[.runtimes[]|select(.identifier == $identifier and .version == $version and .buildversion == $build and .isAvailable == true)]|length == 1'
-type=$(printf '%s\n' "$report" | select_device_type "$identifier" "com.apple.CoreSimulator.SimDeviceType.$device")
+identifier=$(printf '%s\n' "$report" | jq -er --arg prefix "$prefix" --arg build "$build" --arg version "$version" \
+  '[.runtimes[] | select((.identifier == $prefix or (.identifier | startswith($prefix + "-"))) and
+    .version == $version and .buildversion == $build and .isAvailable == true)] |
+    if length == 1 then .[0].identifier else error("Missing or duplicate runtime build") end')
+type=$(jq -r --arg platform "$platform_name" --arg build "$build" \
+  '.runtimes[] | select(.platform == $platform and .build == $build) | .deviceType // empty' "$configuration")
+if [[ -n "$type" ]]; then
+  printf '%s\n' "$report" | jq -e --arg identifier "$identifier" --arg type "$type" \
+    '.runtimes[] | select(.identifier == $identifier) | any(.supportedDeviceTypes[]; .identifier == $type)' >/dev/null
+else
+  type=$(printf '%s\n' "$report" | select_device_type "$identifier" "com.apple.CoreSimulator.SimDeviceType.$device")
+fi
 printf 'SIM_DEVICE_TYPE=%s RUNTIME=%s BUILD=%s\n' "$type" "$identifier" "$build"
 printf "SIM_EVENT=create PLATFORM=%s TIME=%s\n" "$platform" "$(date -u +%FT%TZ)"
 name="MISO-$platform-$(uuidgen)"

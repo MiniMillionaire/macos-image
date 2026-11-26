@@ -50,9 +50,13 @@ monitor() {
 }
 monitor > "$root/monitor.log" 2>&1 &
 monitor_pid=$!
-runtime=$(jq -er '[.runtimes[] | select(.isAvailable and (.identifier | contains("SimRuntime.iOS")))] | last | .identifier' "$root/initial.runtimes.json")
+runtime=$(jq -er '[.runtimes[] | select(.isAvailable and (.identifier | contains("SimRuntime.iOS")))] |
+  ([.[] | select(any(.supportedDeviceTypes[]; .identifier == "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"))] | first) // last | .identifier' "$root/initial.runtimes.json")
 type=$(jq -er --arg runtime "$runtime" '.runtimes[] | select(.identifier == $runtime) |
-  [.supportedDeviceTypes[].identifier | select(contains("iPhone"))] | sort | first' "$root/initial.runtimes.json")
+  [.supportedDeviceTypes[].identifier | select(contains("iPhone"))] |
+  if index("com.apple.CoreSimulator.SimDeviceType.iPhone-Duo") != null then
+    "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+  else sort | first end' "$root/initial.runtimes.json")
 mkdir -p "$root/RuntimeProbe.app"
 cat > "$root/probe.m" <<'OBJC'
 #import <UIKit/UIKit.h>
@@ -101,7 +105,7 @@ cat > "$root/RuntimeProbe.app/Info.plist" <<'PLIST'
 </dict></array></dict></dict>
 </dict></plist>
 PLIST
-version=$(jq -er '.runtimes[] | select(.platform == "iOS") | .version' "$configuration")
+version=$(jq -er --arg runtime "$runtime" '.runtimes[] | select(.identifier == $runtime) | .version' "$root/initial.runtimes.json")
 /usr/libexec/PlistBuddy -c "Set MinimumOSVersion $version" "$root/RuntimeProbe.app/Info.plist"
 event 'compile-application'
 bounded 90 xcrun --sdk iphonesimulator clang -target "arm64-apple-ios$version-simulator" \
