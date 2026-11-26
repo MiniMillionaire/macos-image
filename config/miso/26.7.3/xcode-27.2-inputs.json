@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "diskBytes": 220000000000,
+  "formulae": [
+    "carthage",
+    "gnupg",
+    "graphicsmagick",
+    "ideviceinstaller",
+    "imagemagick",
+    "ios-deploy",
+    "libimobiledevice",
+    "licenseplist",
+    "mint",
+    "openjdk@17",
+    "swiftformat",
+    "swiftgen",
+    "swiftlint",
+    "xcbeautify",
+    "xcodes"
+  ],
+  "runtimes": [
+    {
+      "platform": "iOS",
+      "version": "27.2",
+      "build": "24B8117"
+    },
+    {
+      "platform": "iOS",
+      "version": "27.2",
+      "build": "24B91016s",
+      "deviceType": "com.apple.CoreSimulator.SimDeviceType.iPhone-Duo"
+    },
+    {
+      "platform": "watchOS",
+      "version": "27.2",
+      "build": "24S118"
+    },
+    {
+      "platform": "tvOS",
+      "version": "27.2",
+      "build": "24K150"
+    },
+    {
+      "platform": "visionOS",
+      "version": "27.2",
+      "build": "24N120"
+    }
+  ]
+}
