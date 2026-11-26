@@ -35,6 +35,10 @@ on:
         description: Prepared local publication ID (optional)
         type: string
         default: ''
+      aliases_only:
+        description: Update aliases of an already published local image
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -60,14 +64,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: cocoa-xu/miso@v0.5.20
-        if: inputs.image_type == 'xcode' || inputs.local_publication != ''
+        if: ${{ !inputs.aliases_only && (inputs.image_type == 'xcode' || inputs.local_publication != '') }}
         with:
           version: 0.5.20
       - uses: oras-project/setup-oras@v2
         with:
           version: 1.3.4
       - name: Publish image digest
-        if: inputs.local_publication == ''
+        if: inputs.local_publication == '' && !inputs.aliases_only
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE_PROFILE: ${{ inputs.macos_version }}
@@ -78,7 +82,7 @@ jobs:
           BEFORE_ACCEPTANCE: ${{ inputs.before_acceptance }}
         run: bash ci/promote-offline-image.sh
       - name: Upload accepted local image
-        if: inputs.local_publication != ''
+        if: inputs.local_publication != '' && !inputs.aliases_only
         env:
           LOCAL_PUBLICATION: ${{ inputs.local_publication }}
           IMAGE_PROFILE: ${{ inputs.macos_version }}
@@ -91,8 +95,16 @@ jobs:
           MISO_REGISTRY_USERNAME: ${{ github.actor }}
           MISO_REGISTRY_PASSWORD: ${{ github.token }}
         run: bash ci/publish-local-image.sh
+      - name: Update stable image aliases
+        if: inputs.local_publication != '' || inputs.aliases_only
+        env:
+          LOCAL_PUBLICATION: ${{ inputs.local_publication }}
+          IMAGE_PROFILE: ${{ inputs.macos_version }}
+          MISO_REGISTRY_USERNAME: ${{ github.actor }}
+          MISO_REGISTRY_PASSWORD: ${{ github.token }}
+        run: bash ci/publish-image-aliases.sh
       - uses: actions/upload-artifact@v7
-        if: success() && inputs.local_publication != ''
+        if: success() && inputs.local_publication != '' && !inputs.aliases_only
         with:
           name: local-publication-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/local-publication.json

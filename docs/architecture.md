@@ -128,6 +128,11 @@ Package names follow Cirrus: `macos-<family>-vanilla`, `macos-<family>-base`, an
 `latest` points to the verified current release within each major version. Xcode
 uses `macOS-version-xcodeXcode-version` as its primary tag. Numeric Xcode aliases
 track the newest accepted macOS combination for that compiler in the family.
+Accepted local publications update these aliases after registry verification.
+Prerelease and custom tags leave stable aliases unchanged, and backfills cannot
+move aliases to older macOS or Xcode versions. The publication workflow's
+`aliases_only` option repairs aliases from an existing verified receipt without
+rebuilding or uploading image layers.
 Labels record the source commit, repository, macOS
 version/build, and variant. Xcode images also record their installed Xcode
 version. Tags can be updated after a rebuild; consumers pin a digest for exact
