@@ -44,10 +44,10 @@ transactions to finish, verifies one available installation per runtime, and
 shuts down before export. This stage needs a running VM slot but no VNC interaction.
 The final Xcode image is not an unbooted MISO source for subsequent offline edits.
 
-macOS 26.7.2 and 26.7.3 have no IPSW. Their `config/tahoe-<version>.env`
-profiles use `scripts/image update` with pinned 26.6.2 parents. Version 26.7.2
-uses Apple's full installer to select this older release; its installer size
-and SHA-256 are pinned in the profile.
+The macOS 26.7 through 26.7.3 `config/tahoe-<version>.env` profiles use
+`scripts/image update` with pinned 26.6.2 parents. Versions 26.7, 26.7.1, and
+26.7.2 use Apple's full installer to select the exact older release; each
+installer's size and SHA-256 are pinned in its profile.
 Version 26.7.3 uses the exact same-major software update. Each variant keeps
 its own parent digest and inherited toolset.
 
